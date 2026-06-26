@@ -2,9 +2,18 @@
 
 import { useState } from "react";
 
+type EngineContext = {
+  engineType: string;
+  source: string;
+  label: string;
+  code: string | null;
+  notes?: string;
+};
+
 function SearchBar() {
   const [search, setSearch] = useState("");
   const [aiResult, setAiResult] = useState("");
+  const [engineContext, setEngineContext] = useState<EngineContext | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -17,6 +26,7 @@ function SearchBar() {
     setLoading(true);
     setError("");
     setAiResult("");
+    setEngineContext(null);
 
     try {
       const response = await fetch("/api/diagnose", {
@@ -36,9 +46,12 @@ function SearchBar() {
       }
 
       setAiResult(data.result);
+      setEngineContext(data.engineContext);
     } catch (error) {
       console.error(error);
-      setError("Die KI-Diagnose konnte nicht erstellt werden. Prüfe API-Key, Guthaben oder Server-Log.");
+      setError(
+        "Die KI-Diagnose konnte nicht erstellt werden. Prüfe API-Key, Guthaben oder Server-Log."
+      );
     } finally {
       setLoading(false);
     }
@@ -80,6 +93,42 @@ function SearchBar() {
         <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-6 py-4 text-red-300">
           {error}
         </div>
+      )}
+
+      {engineContext && (
+        <section className="mt-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-blue-950/20">
+          <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-blue-400">
+            Erkannter Motorkontext
+          </p>
+
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <p className="text-sm text-slate-500">Motortyp</p>
+              <p className="mt-2 font-bold text-white">{engineContext.engineType}</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <p className="text-sm text-slate-500">Erkennung</p>
+              <p className="mt-2 font-bold text-white">{engineContext.source}</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <p className="text-sm text-slate-500">Motorcode</p>
+              <p className="mt-2 font-bold text-white">
+                {engineContext.code ?? "nicht erkannt"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <p className="text-sm text-slate-500">Motor</p>
+              <p className="mt-2 font-bold text-white">{engineContext.label}</p>
+            </div>
+          </div>
+
+          {engineContext.notes && (
+            <p className="mt-4 text-sm text-slate-400">{engineContext.notes}</p>
+          )}
+        </section>
       )}
 
       {aiResult && (
