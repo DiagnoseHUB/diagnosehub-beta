@@ -63,9 +63,12 @@ function Header() {
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
-            <button className="rounded-xl border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white">
+            <a
+              href="/login"
+              className="rounded-xl border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            >
               Login
-            </button>
+            </a>
 
             <a
               href="/#diagnose"
@@ -116,9 +119,13 @@ function Header() {
                 Premium vormerken
               </a>
 
-              <button className="rounded-2xl border border-slate-700 px-5 py-4 text-left font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white">
+              <a
+                href="/login"
+                onClick={closeMobileMenu}
+                className="rounded-2xl border border-slate-700 px-5 py-4 text-left font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              >
                 Login
-              </button>
+              </a>
 
               <a
                 href="/#diagnose"

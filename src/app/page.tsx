@@ -69,6 +69,8 @@ const pricingPlans = [
       "Für erste Tests und einzelne Diagnosefälle. Ideal, um DiagnoseHUB auszuprobieren.",
     highlighted: false,
     badge: "Start",
+    buttonText: "Kostenlos testen",
+    buttonHref: "/#diagnose",
     features: [
       "Begrenzte KI-Diagnosen",
       "Motorkontext-Erkennung",
@@ -82,7 +84,6 @@ const pricingPlans = [
       "Keine Cloud-Fallhistorie",
       "Keine PDF-Berichte",
     ],
-    buttonText: "Kostenlos testen",
   },
   {
     name: "Werkstatt",
@@ -92,6 +93,8 @@ const pricingPlans = [
       "Für kleine Werkstätten, die DiagnoseHUB regelmäßig im Alltag nutzen wollen.",
     highlighted: true,
     badge: "Empfohlen",
+    buttonText: "Werkstatt-Zugang vormerken",
+    buttonHref: "/premium?plan=werkstatt",
     features: [
       "Mehr KI-Diagnosen pro Monat",
       "Individuelle Prüfprotokolle nach Fehlercode",
@@ -102,7 +105,6 @@ const pricingPlans = [
       "Priorisierte Weiterentwicklung",
     ],
     limitations: ["Mehrere Benutzer später", "Schnittstellen später"],
-    buttonText: "Werkstatt-Zugang vormerken",
   },
   {
     name: "Werkstatt Pro",
@@ -112,6 +114,8 @@ const pricingPlans = [
       "Für Betriebe mit mehreren Nutzern, höherem Diagnosevolumen und mehr Dokumentation.",
     highlighted: false,
     badge: "Später",
+    buttonText: "Pro vormerken",
+    buttonHref: "/premium?plan=pro",
     features: [
       "Höheres Diagnosekontingent",
       "Mehrere Mitarbeiter geplant",
@@ -122,7 +126,6 @@ const pricingPlans = [
       "Werkstatt-Dashboard geplant",
     ],
     limitations: ["Noch nicht im Prototyp aktiv"],
-    buttonText: "Pro vormerken",
   },
 ];
 
@@ -473,7 +476,7 @@ export default function Home() {
                 )}
 
                 <a
-                  href="#diagnose"
+                  href={plan.buttonHref}
                   className={
                     plan.highlighted
                       ? "mt-8 block rounded-xl bg-blue-600 px-6 py-4 text-center font-bold text-white transition hover:bg-blue-500"
