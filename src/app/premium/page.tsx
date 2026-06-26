@@ -1,26 +1,36 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { createClient } from "@/lib/supabase/client";
+import {
+  deletePremiumLeadFromSupabase,
+  loadPremiumLeadsFromSupabase,
+  migrateLocalPremiumLeadsToSupabase,
+  savePremiumLeadToSupabase,
+  type PremiumLead,
+  type PremiumPlan,
+} from "@/services/premiumLeadsSupabase";
 
-type UserPlan = "werkstatt" | "pro";
-
-type PremiumLead = {
-  id: string;
-  createdAt: string;
-  plan: UserPlan;
+type DemoAccount = {
   name: string;
   workshop: string;
   email: string;
-  phone: string;
-  note: string;
+  role: string;
+  plan: "free" | "werkstatt" | "pro";
+  updatedAt: string;
+  supabaseUserId?: string;
 };
 
+type LeadStorageSource = "local" | "supabase";
+
 const PREMIUM_LEADS_STORAGE_KEY = "diagnosehub-premium-leads";
+const DEMO_ACCOUNT_STORAGE_KEY = "diagnosehub-demo-account";
 
 const planOptions: Record<
-  UserPlan,
+  PremiumPlan,
   {
     label: string;
     price: string;
@@ -56,7 +66,7 @@ const planOptions: Record<
   },
 };
 
-function getInitialPlan(): UserPlan {
+function getInitialPlan(): PremiumPlan {
   if (typeof window === "undefined") {
     return "werkstatt";
   }
@@ -78,15 +88,63 @@ function formatDateTime(value: string) {
   });
 }
 
+function loadLocalPremiumLeads() {
+  try {
+    const savedLeads = localStorage.getItem(PREMIUM_LEADS_STORAGE_KEY);
+
+    if (!savedLeads) {
+      return [];
+    }
+
+    const parsedLeads = JSON.parse(savedLeads);
+
+    if (!Array.isArray(parsedLeads)) {
+      return [];
+    }
+
+    return parsedLeads as PremiumLead[];
+  } catch (error) {
+    console.error("Lokale Premium-Vormerkungen konnten nicht geladen werden:", error);
+    return [];
+  }
+}
+
+function savePremiumLeadsToLocalStorage(leads: PremiumLead[]) {
+  localStorage.setItem(PREMIUM_LEADS_STORAGE_KEY, JSON.stringify(leads));
+}
+
+function getLocalDemoAccount() {
+  try {
+    const savedAccount = localStorage.getItem(DEMO_ACCOUNT_STORAGE_KEY);
+
+    if (!savedAccount) {
+      return null;
+    }
+
+    return JSON.parse(savedAccount) as DemoAccount;
+  } catch {
+    return null;
+  }
+}
+
 export default function PremiumPage() {
-  const [selectedPlan, setSelectedPlan] = useState<UserPlan>("werkstatt");
+  const supabase = useMemo(() => createClient(), []);
+
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+
+  const [selectedPlan, setSelectedPlan] = useState<PremiumPlan>("werkstatt");
   const [name, setName] = useState("");
   const [workshop, setWorkshop] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
+
   const [leads, setLeads] = useState<PremiumLead[]>([]);
-  const [success, setSuccess] = useState(false);
+  const [leadStorageSource, setLeadStorageSource] =
+    useState<LeadStorageSource>("local");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
   const currentPlan = planOptions[selectedPlan];
@@ -99,25 +157,141 @@ export default function PremiumPage() {
 
   useEffect(() => {
     setSelectedPlan(getInitialPlan());
+    void initializePremiumPage();
 
-    try {
-      const savedLeads = localStorage.getItem(PREMIUM_LEADS_STORAGE_KEY);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      async (_event: AuthChangeEvent, nextSession: Session | null) => {
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
 
-      if (savedLeads) {
-        const parsedLeads = JSON.parse(savedLeads);
-
-        if (Array.isArray(parsedLeads)) {
-          setLeads(parsedLeads);
+        if (nextSession?.user) {
+          await loadLeadsForAuthenticatedUser(
+            nextSession.user,
+            loadLocalPremiumLeads()
+          );
+        } else {
+          loadLocalLeadsIntoState();
+          setLeadStorageSource("local");
         }
       }
-    } catch (error) {
-      console.error("Premium-Vormerkungen konnten nicht geladen werden:", error);
-    }
-  }, []);
+    );
 
-  function saveLead() {
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  async function initializePremiumPage() {
+    try {
+      prefillFromLocalAccount();
+
+      const localLeads = loadLocalPremiumLeads();
+
+      setLeads(localLeads);
+
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        setError(error.message);
+        setLeadStorageSource("local");
+        return;
+      }
+
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
+
+      if (data.session?.user) {
+        await loadLeadsForAuthenticatedUser(data.session.user, localLeads);
+      } else {
+        setLeadStorageSource("local");
+      }
+    } catch (error) {
+      console.error("Premium-Seite konnte nicht initialisiert werden:", error);
+      setError("Premium-Vormerkungen konnten nicht vollständig geladen werden.");
+    }
+  }
+
+  function prefillFromLocalAccount() {
+    const account = getLocalDemoAccount();
+
+    if (!account) {
+      return;
+    }
+
+    setName((currentValue) => currentValue || account.name || "");
+    setWorkshop((currentValue) => currentValue || account.workshop || "");
+    setEmail((currentValue) => currentValue || account.email || "");
+  }
+
+  function loadLocalLeadsIntoState() {
+    const localLeads = loadLocalPremiumLeads();
+
+    setLeads(localLeads);
+    setLeadStorageSource("local");
+  }
+
+  async function loadLeadsForAuthenticatedUser(
+    activeUser: User,
+    localLeadsForMigration: PremiumLead[]
+  ) {
+    setLoading(true);
     setError("");
-    setSuccess(false);
+
+    try {
+      if (localLeadsForMigration.length > 0) {
+        await migrateLocalPremiumLeadsToSupabase(
+          supabase,
+          activeUser,
+          localLeadsForMigration
+        );
+      }
+
+      const remoteLeads = await loadPremiumLeadsFromSupabase(
+        supabase,
+        activeUser
+      );
+
+      setLeads(remoteLeads);
+      savePremiumLeadsToLocalStorage(remoteLeads);
+      setLeadStorageSource("supabase");
+
+      if (localLeadsForMigration.length > 0) {
+        showSuccess("Lokale Vormerkungen wurden nach Supabase synchronisiert.");
+      }
+    } catch (error) {
+      console.error("Supabase-Vormerkungen konnten nicht geladen werden:", error);
+      setLeadStorageSource("local");
+      setError(
+        "Supabase-Vormerkungen konnten nicht geladen werden. Lokale Vormerkungen bleiben sichtbar."
+      );
+      loadLocalLeadsIntoState();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function showSuccess(message: string) {
+    setSuccess(message);
+    setError("");
+
+    window.setTimeout(() => {
+      setSuccess("");
+    }, 3000);
+  }
+
+  function clearForm() {
+    setName("");
+    setWorkshop("");
+    setEmail("");
+    setPhone("");
+    setNote("");
+  }
+
+  async function saveLead() {
+    setError("");
+    setSuccess("");
 
     const cleanName = name.trim();
     const cleanWorkshop = workshop.trim();
@@ -149,30 +323,98 @@ export default function PremiumPage() {
       email: cleanEmail,
       phone: cleanPhone,
       note: cleanNote,
+      userId: user?.id ?? null,
     };
 
-    const updatedLeads = [newLead, ...leads].slice(0, 50);
+    let persistedLead = newLead;
+
+    if (user) {
+      setLoading(true);
+
+      try {
+        persistedLead = await savePremiumLeadToSupabase(
+          supabase,
+          user,
+          newLead
+        );
+        setLeadStorageSource("supabase");
+      } catch (error) {
+        console.error("Vormerkung konnte nicht in Supabase gespeichert werden:", error);
+        setError(
+          "Vormerkung konnte nicht in Supabase gespeichert werden. Bitte prüfe Login und Tabelle premium_leads."
+        );
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    const updatedLeads = [
+      persistedLead,
+      ...leads.filter((lead) => lead.id !== persistedLead.id),
+    ].slice(0, 50);
 
     setLeads(updatedLeads);
-    localStorage.setItem(PREMIUM_LEADS_STORAGE_KEY, JSON.stringify(updatedLeads));
+    savePremiumLeadsToLocalStorage(updatedLeads);
+    clearForm();
 
-    setName("");
-    setWorkshop("");
-    setEmail("");
-    setPhone("");
-    setNote("");
-    setSuccess(true);
-
-    window.setTimeout(() => {
-      setSuccess(false);
-    }, 3000);
+    showSuccess(
+      user
+        ? "Vormerkung wurde in Supabase gespeichert."
+        : "Vormerkung wurde lokal gespeichert."
+    );
   }
 
-  function deleteLead(leadId: string) {
+  async function deleteLead(leadId: string) {
+    setError("");
+    setSuccess("");
+
+    if (user && leadStorageSource === "supabase") {
+      setLoading(true);
+
+      try {
+        await deletePremiumLeadFromSupabase(supabase, user, leadId);
+      } catch (error) {
+        console.error("Vormerkung konnte nicht aus Supabase gelöscht werden:", error);
+        setError("Vormerkung konnte nicht aus Supabase gelöscht werden.");
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+
     const updatedLeads = leads.filter((lead) => lead.id !== leadId);
 
     setLeads(updatedLeads);
-    localStorage.setItem(PREMIUM_LEADS_STORAGE_KEY, JSON.stringify(updatedLeads));
+    savePremiumLeadsToLocalStorage(updatedLeads);
+
+    showSuccess(
+      leadStorageSource === "supabase"
+        ? "Vormerkung wurde aus Supabase gelöscht."
+        : "Vormerkung wurde lokal gelöscht."
+    );
+  }
+
+  async function reloadSupabaseLeads() {
+    if (!user) {
+      setError("Für Supabase-Vormerkungen zuerst einloggen.");
+      return;
+    }
+
+    await loadLeadsForAuthenticatedUser(user, []);
+    showSuccess("Supabase-Vormerkungen wurden neu geladen.");
+  }
+
+  async function migrateLocalLeadsNow() {
+    if (!user) {
+      setError("Für Migration zuerst einloggen.");
+      return;
+    }
+
+    await loadLeadsForAuthenticatedUser(user, loadLocalPremiumLeads());
+    showSuccess("Lokale Vormerkungen wurden nach Supabase migriert.");
   }
 
   function exportLeads() {
@@ -184,6 +426,7 @@ export default function PremiumPage() {
     const csvRows = [
       [
         "Datum",
+        "Quelle",
         "Plan",
         "Name",
         "Werkstatt",
@@ -193,6 +436,7 @@ export default function PremiumPage() {
       ],
       ...sortedLeads.map((lead) => [
         formatDateTime(lead.createdAt),
+        leadStorageSource === "supabase" ? "Supabase" : "Lokal",
         planOptions[lead.plan].label,
         lead.name,
         lead.workshop,
@@ -228,6 +472,11 @@ export default function PremiumPage() {
     setError("");
   }
 
+  const leadStorageLabel =
+    leadStorageSource === "supabase"
+      ? "Supabase-Vormerkungen"
+      : "Lokale Vormerkungen";
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <Header />
@@ -245,12 +494,37 @@ export default function PremiumPage() {
 
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
               Diese Seite ist die Vorbereitung für das spätere Bezahlsystem.
-              Aktuell wird noch nichts abgerechnet. Die Vormerkung wird nur
-              lokal im Browser gespeichert.
+              Aktuell wird noch nichts abgerechnet. Bei aktivem Login wird die
+              Vormerkung jetzt in Supabase gespeichert.
             </p>
 
+            <div className="mt-6 flex flex-wrap gap-3">
+              <span
+                className={
+                  leadStorageSource === "supabase"
+                    ? "rounded-full border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-semibold text-green-300"
+                    : "rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-sm font-semibold text-yellow-300"
+                }
+              >
+                {leadStorageLabel}
+              </span>
+
+              {user ? (
+                <span className="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300">
+                  Eingeloggt: {user.email}
+                </span>
+              ) : (
+                <a
+                  href="/login"
+                  className="rounded-full border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
+                >
+                  Einloggen für Supabase-Speicher
+                </a>
+              )}
+            </div>
+
             <div className="mt-10 grid gap-5 md:grid-cols-2">
-              {(["werkstatt", "pro"] as UserPlan[]).map((plan) => (
+              {(["werkstatt", "pro"] as PremiumPlan[]).map((plan) => (
                 <button
                   key={plan}
                   onClick={() => setSelectedPlan(plan)}
@@ -274,7 +548,10 @@ export default function PremiumPage() {
 
                   <ul className="mt-6 space-y-3">
                     {planOptions[plan].features.map((feature) => (
-                      <li key={feature} className="flex gap-3 text-sm text-slate-300">
+                      <li
+                        key={feature}
+                        className="flex gap-3 text-sm text-slate-300"
+                      >
                         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-400" />
                         <span>{feature}</span>
                       </li>
@@ -290,10 +567,9 @@ export default function PremiumPage() {
               </p>
 
               <p className="mt-3 leading-7 text-slate-300">
-                Für den echten Verkauf brauchen wir später Login, Datenbank,
-                Stripe Checkout, Stripe Webhooks und eine serverseitige
-                Premium-Prüfung. Diese Seite bereitet nur die Oberfläche und
-                den Ablauf vor.
+                Für den echten Verkauf brauchen wir später Stripe Checkout,
+                Stripe Webhooks, Rechnungslogik und eine serverseitige
+                Premium-Prüfung. Diese Seite sammelt aktuell nur Vormerkungen.
               </p>
             </div>
           </div>
@@ -375,16 +651,21 @@ export default function PremiumPage() {
               </div>
 
               <button
-                onClick={saveLead}
-                className="rounded-2xl bg-blue-600 px-6 py-4 font-bold text-white transition hover:bg-blue-500"
+                onClick={() => void saveLead()}
+                disabled={loading}
+                className="rounded-2xl bg-blue-600 px-6 py-4 font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Vormerkung speichern
+                {loading
+                  ? "Speichert..."
+                  : user
+                    ? "Vormerkung in Supabase speichern"
+                    : "Vormerkung lokal speichern"}
               </button>
             </div>
 
             {success && (
               <div className="mt-5 rounded-xl border border-green-500/30 bg-green-500/10 px-5 py-4 text-green-300">
-                Vormerkung wurde lokal gespeichert.
+                {success}
               </div>
             )}
 
@@ -400,7 +681,7 @@ export default function PremiumPage() {
           <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-                Lokale Vormerkungen
+                {leadStorageLabel}
               </p>
 
               <h2 className="mt-2 text-3xl font-bold">
@@ -408,17 +689,36 @@ export default function PremiumPage() {
               </h2>
 
               <p className="mt-2 text-slate-500">
-                Nur auf diesem Gerät gespeichert. Später ersetzen wir das durch
-                eine echte Datenbank.
+                {leadStorageSource === "supabase"
+                  ? "Diese Vormerkungen wurden aus Supabase geladen und lokal gespiegelt."
+                  : "Diese Vormerkungen sind nur lokal auf diesem Gerät gespeichert."}
               </p>
             </div>
 
-            <button
-              onClick={exportLeads}
-              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
-            >
-              CSV exportieren
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => void reloadSupabaseLeads()}
+                disabled={!user || loading}
+                className="rounded-xl border border-green-500/40 px-5 py-3 font-semibold text-green-300 transition hover:bg-green-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Supabase neu laden
+              </button>
+
+              <button
+                onClick={() => void migrateLocalLeadsNow()}
+                disabled={!user || loading}
+                className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-5 py-3 font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Lokale Vormerkungen migrieren
+              </button>
+
+              <button
+                onClick={exportLeads}
+                className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
+              >
+                CSV exportieren
+              </button>
+            </div>
           </div>
 
           {sortedLeads.length === 0 ? (
@@ -463,8 +763,9 @@ export default function PremiumPage() {
                     </div>
 
                     <button
-                      onClick={() => deleteLead(lead.id)}
-                      className="rounded-xl border border-red-500/30 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/10"
+                      onClick={() => void deleteLead(lead.id)}
+                      disabled={loading}
+                      className="rounded-xl border border-red-500/30 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Löschen
                     </button>
