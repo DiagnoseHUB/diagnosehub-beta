@@ -186,18 +186,42 @@ export default function SearchBar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const latestAssistantMessageRef = useRef<HTMLDivElement | null>(null);
+  const loadingMessageRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedCaseRef = useRef(false);
 
   const quickQuestions = useMemo(() => {
     return buildDynamicQuickQuestions(engineContext, faultCodeContext);
   }, [engineContext, faultCodeContext]);
 
+  const latestAssistantMessageIndex = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].role === "assistant") {
+        return index;
+      }
+    }
+
+    return -1;
+  }, [messages]);
+
   useEffect(() => {
-    messageEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "end",
-    });
+    if (loading) {
+      loadingMessageRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      return;
+    }
+
+    const lastMessage = messages[messages.length - 1];
+
+    if (lastMessage?.role === "assistant") {
+      latestAssistantMessageRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
   }, [messages, loading]);
 
   useEffect(() => {
@@ -879,10 +903,16 @@ ${chatText}
           {messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
+              ref={
+                message.role === "assistant" &&
+                index === latestAssistantMessageIndex
+                  ? latestAssistantMessageRef
+                  : undefined
+              }
               className={
                 message.role === "user"
                   ? "ml-auto max-w-3xl rounded-2xl bg-blue-600 px-5 py-4 text-white"
-                  : "mr-auto max-w-4xl rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 text-slate-300"
+                  : "mr-auto max-w-4xl scroll-mt-28 rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 text-slate-300"
               }
             >
               <div className="mb-2 flex items-center justify-between gap-4">
@@ -907,12 +937,13 @@ ${chatText}
           ))}
 
           {loading && (
-            <div className="mr-auto max-w-4xl rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 text-blue-300">
+            <div
+              ref={loadingMessageRef}
+              className="mr-auto max-w-4xl rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 text-blue-300"
+            >
               DiagnoseHUB analysiert...
             </div>
           )}
-
-          <div ref={messageEndRef} />
         </section>
       )}
 
