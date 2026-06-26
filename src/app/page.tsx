@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import SearchBar from "@/components/SearchBar";
 
 const exampleCases = [
@@ -363,6 +364,8 @@ export default function Home() {
           </div>
         </section>
       </main>
+
+      <Footer />
     </div>
   );
 }
