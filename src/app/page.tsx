@@ -60,6 +60,72 @@ const features = [
   },
 ];
 
+const pricingPlans = [
+  {
+    name: "Free",
+    price: "0 €",
+    interval: "zum Testen",
+    description:
+      "Für erste Tests und einzelne Diagnosefälle. Ideal, um DiagnoseHUB auszuprobieren.",
+    highlighted: false,
+    badge: "Start",
+    features: [
+      "Begrenzte KI-Diagnosen",
+      "Motorkontext-Erkennung",
+      "Fehlercode-Kontext",
+      "Basis-Fallbericht als TXT",
+      "Lokale Fallhistorie im Browser",
+      "Standard-Prüfprotokoll",
+    ],
+    limitations: [
+      "Kein echter Benutzeraccount",
+      "Keine Cloud-Fallhistorie",
+      "Keine PDF-Berichte",
+    ],
+    buttonText: "Kostenlos testen",
+  },
+  {
+    name: "Werkstatt",
+    price: "29 €",
+    interval: "pro Monat",
+    description:
+      "Für kleine Werkstätten, die DiagnoseHUB regelmäßig im Alltag nutzen wollen.",
+    highlighted: true,
+    badge: "Empfohlen",
+    features: [
+      "Mehr KI-Diagnosen pro Monat",
+      "Individuelle Prüfprotokolle nach Fehlercode",
+      "Erweiterte Fallhistorie",
+      "Fallberichte für Kundenakte",
+      "Dynamische Schnellfragen",
+      "Erweiterte Fehlercode-Datenbank",
+      "Priorisierte Weiterentwicklung",
+    ],
+    limitations: ["Mehrere Benutzer später", "Schnittstellen später"],
+    buttonText: "Werkstatt-Zugang vormerken",
+  },
+  {
+    name: "Werkstatt Pro",
+    price: "79 €",
+    interval: "pro Monat",
+    description:
+      "Für Betriebe mit mehreren Nutzern, höherem Diagnosevolumen und mehr Dokumentation.",
+    highlighted: false,
+    badge: "Später",
+    features: [
+      "Höheres Diagnosekontingent",
+      "Mehrere Mitarbeiter geplant",
+      "PDF-Berichte geplant",
+      "Cloud-Fallhistorie geplant",
+      "Größere technische Datenbank",
+      "Premium-Prüfprotokolle",
+      "Werkstatt-Dashboard geplant",
+    ],
+    limitations: ["Noch nicht im Prototyp aktiv"],
+    buttonText: "Pro vormerken",
+  },
+];
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -325,6 +391,115 @@ export default function Home() {
         </section>
 
         <section
+          id="premium"
+          className="mx-auto max-w-7xl scroll-mt-28 px-6 pb-20"
+        >
+          <div className="mb-10 max-w-3xl">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-blue-400">
+              Free / Premium
+            </p>
+
+            <h2 className="text-4xl font-bold">
+              Einfache Pakete für den Werkstattalltag.
+            </h2>
+
+            <p className="mt-4 leading-8 text-slate-400">
+              Die Bezahlung ist noch nicht aktiv. Diese Pakete bereiten die
+              spätere Premium-Logik vor und zeigen, welche Funktionen kostenlos
+              bleiben und welche später in einen Werkstatt-Zugang wandern.
+            </p>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {pricingPlans.map((plan) => (
+              <div
+                key={plan.name}
+                className={
+                  plan.highlighted
+                    ? "relative rounded-3xl border border-blue-500/50 bg-blue-500/10 p-8 shadow-2xl shadow-blue-950/50"
+                    : "relative rounded-3xl border border-slate-800 bg-slate-900/60 p-8"
+                }
+              >
+                <div
+                  className={
+                    plan.highlighted
+                      ? "mb-5 inline-flex rounded-full border border-blue-400/40 bg-blue-500/20 px-4 py-2 text-sm font-bold text-blue-200"
+                      : "mb-5 inline-flex rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-bold text-slate-300"
+                  }
+                >
+                  {plan.badge}
+                </div>
+
+                <h3 className="text-3xl font-bold">{plan.name}</h3>
+
+                <div className="mt-5 flex items-end gap-2">
+                  <p className="text-5xl font-black">{plan.price}</p>
+                  <p className="pb-2 text-slate-400">{plan.interval}</p>
+                </div>
+
+                <p className="mt-5 leading-7 text-slate-400">
+                  {plan.description}
+                </p>
+
+                <div className="mt-8">
+                  <p className="mb-4 font-bold text-white">Enthalten</p>
+
+                  <ul className="space-y-3">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex gap-3 text-slate-300">
+                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-400" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {plan.limitations.length > 0 && (
+                  <div className="mt-8">
+                    <p className="mb-4 font-bold text-white">Hinweise</p>
+
+                    <ul className="space-y-3">
+                      {plan.limitations.map((limitation) => (
+                        <li
+                          key={limitation}
+                          className="flex gap-3 text-slate-500"
+                        >
+                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-slate-600" />
+                          <span>{limitation}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <a
+                  href="#diagnose"
+                  className={
+                    plan.highlighted
+                      ? "mt-8 block rounded-xl bg-blue-600 px-6 py-4 text-center font-bold text-white transition hover:bg-blue-500"
+                      : "mt-8 block rounded-xl border border-slate-700 px-6 py-4 text-center font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                  }
+                >
+                  {plan.buttonText}
+                </a>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-8 rounded-3xl border border-yellow-500/20 bg-yellow-500/10 p-6">
+            <p className="font-bold text-yellow-300">
+              Hinweis zum aktuellen Stand
+            </p>
+
+            <p className="mt-3 leading-7 text-slate-300">
+              Im aktuellen Prototyp ist noch kein echtes Bezahlsystem aktiv.
+              Als Nächstes bauen wir eine interne Free/Premium-Erkennung ein.
+              Danach folgen Login, Benutzerkonto und erst dann Stripe.
+            </p>
+          </div>
+        </section>
+
+        <section
           id="hinweis"
           className="mx-auto max-w-7xl scroll-mt-28 px-6 pb-24"
         >
@@ -346,18 +521,16 @@ export default function Home() {
                 </p>
               </div>
 
-              <div
-                id="premium"
-                className="scroll-mt-28 rounded-2xl border border-slate-800 bg-slate-950/70 p-6"
-              >
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
                 <p className="text-sm text-slate-500">Status</p>
                 <p className="mt-2 text-2xl font-bold text-green-400">
                   Prototyp aktiv
                 </p>
 
                 <p className="mt-4 text-sm leading-6 text-slate-400">
-                  Nächste Ausbaustufen: Login, Benutzerkonten, Fallhistorie,
-                  PDF-Berichte und größere technische Datenbank.
+                  Nächste Ausbaustufen: Login, Benutzerkonten, echte
+                  Premium-Erkennung, Stripe, PDF-Berichte und größere technische
+                  Datenbank.
                 </p>
               </div>
             </div>
