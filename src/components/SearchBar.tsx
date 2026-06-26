@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 type EngineContext = {
   engineType: string;
@@ -22,15 +22,20 @@ const quickQuestions = [
   "Häufigste Ursache eingrenzen",
 ];
 
+const STORAGE_KEY = "diagnosehub-current-case";
+
 export default function SearchBar() {
   const [search, setSearch] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [engineContext, setEngineContext] = useState<EngineContext | null>(null);
   const [qualityCheck, setQualityCheck] = useState("");
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const hasLoadedCaseRef = useRef(false);
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({
@@ -38,6 +43,43 @@ export default function SearchBar() {
       block: "end",
     });
   }, [messages, loading]);
+
+  useEffect(() => {
+    try {
+      const savedCase = localStorage.getItem(STORAGE_KEY);
+
+      if (savedCase) {
+        const parsedCase = JSON.parse(savedCase);
+
+        setMessages(parsedCase.messages || []);
+        setEngineContext(parsedCase.engineContext || null);
+        setQualityCheck(parsedCase.qualityCheck || "");
+      }
+    } catch (error) {
+      console.error("Gespeicherter Diagnosefall konnte nicht geladen werden:", error);
+    } finally {
+      hasLoadedCaseRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedCaseRef.current) {
+      return;
+    }
+
+    if (messages.length === 0) {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+
+    const currentCase = {
+      messages,
+      engineContext,
+      qualityCheck,
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentCase));
+  }, [messages, engineContext, qualityCheck]);
 
   async function sendDiagnosis(questionOverride?: string) {
     const currentInput = (questionOverride ?? search).trim();
@@ -63,6 +105,8 @@ export default function SearchBar() {
     setLoading(true);
     setError("");
     setQualityCheck("");
+    setCopySuccess(false);
+    setDownloadSuccess(false);
 
     try {
       const response = await fetch("/api/diagnose", {
@@ -105,13 +149,110 @@ export default function SearchBar() {
     setMessages([]);
     setEngineContext(null);
     setQualityCheck("");
+    setCopySuccess(false);
+    setDownloadSuccess(false);
     setError("");
+    localStorage.removeItem(STORAGE_KEY);
   }
 
-  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       void sendDiagnosis();
+    }
+  }
+
+  function buildCaseReport() {
+    const createdAt = new Date().toLocaleString("de-DE");
+
+    const motorInfo = engineContext
+      ? [
+          `Motortyp: ${engineContext.engineType}`,
+          `Erkennung: ${engineContext.source}`,
+          `Motorcode: ${engineContext.code ?? "nicht erkannt"}`,
+          `Motor: ${engineContext.label}`,
+          engineContext.notes ? `Hinweis: ${engineContext.notes}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : "Motorkontext: nicht erkannt";
+
+    const chatText = messages
+      .map((message) => {
+        const sender = message.role === "user" ? "Werkstatt" : "DiagnoseHUB";
+        return `${sender}:\n${message.content}`;
+      })
+      .join("\n\n---\n\n");
+
+    return `DiagnoseHUB Fallbericht
+=========================
+
+Erstellt am:
+${createdAt}
+
+${motorInfo}
+
+Qualitätsprüfung:
+${qualityCheck || "Keine Qualitätsprüfung vorhanden."}
+
+Diagnoseverlauf:
+${chatText}
+`;
+  }
+
+  async function copyCaseReport() {
+    if (messages.length === 0) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(buildCaseReport());
+      setCopySuccess(true);
+      setDownloadSuccess(false);
+
+      window.setTimeout(() => {
+        setCopySuccess(false);
+      }, 2500);
+    } catch (error) {
+      console.error(error);
+      setError("Fallbericht konnte nicht in die Zwischenablage kopiert werden.");
+    }
+  }
+
+  function downloadCaseReport() {
+    if (messages.length === 0) {
+      return;
+    }
+
+    try {
+      const report = buildCaseReport();
+      const blob = new Blob([report], {
+        type: "text/plain;charset=utf-8",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const date = new Date().toISOString().slice(0, 10);
+      const motorCode = engineContext?.code ?? "fall";
+      const fileName = `diagnosehub-${motorCode}-${date}.txt`;
+
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setDownloadSuccess(true);
+      setCopySuccess(false);
+
+      window.setTimeout(() => {
+        setDownloadSuccess(false);
+      }, 2500);
+    } catch (error) {
+      console.error(error);
+      setError("Fallbericht konnte nicht heruntergeladen werden.");
     }
   }
 
@@ -131,21 +272,37 @@ export default function SearchBar() {
           className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 p-5 text-white outline-none placeholder:text-slate-500 focus:border-blue-500"
         />
 
-        <div className="mt-4 flex items-center justify-between gap-4">
+        <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <p className="text-sm text-slate-500">
             {messages.length === 0
               ? "Enter zum Senden · Shift + Enter für neue Zeile"
               : "Folgefrage im gleichen Diagnosefall stellen"}
           </p>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             {messages.length > 0 && (
-              <button
-                onClick={resetDiagnosis}
-                className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
-              >
-                Neuer Fall
-              </button>
+              <>
+                <button
+                  onClick={copyCaseReport}
+                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
+                >
+                  Fallbericht kopieren
+                </button>
+
+                <button
+                  onClick={downloadCaseReport}
+                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
+                >
+                  TXT speichern
+                </button>
+
+                <button
+                  onClick={resetDiagnosis}
+                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
+                >
+                  Neuer Fall
+                </button>
+              </>
             )}
 
             <button
@@ -162,6 +319,18 @@ export default function SearchBar() {
           </div>
         </div>
       </div>
+
+      {copySuccess && (
+        <div className="mt-5 rounded-xl border border-green-500/30 bg-green-500/10 px-6 py-4 text-green-300">
+          Fallbericht wurde kopiert.
+        </div>
+      )}
+
+      {downloadSuccess && (
+        <div className="mt-5 rounded-xl border border-green-500/30 bg-green-500/10 px-6 py-4 text-green-300">
+          Fallbericht wurde als TXT-Datei gespeichert.
+        </div>
+      )}
 
       {messages.length > 0 && (
         <div className="mt-5 flex flex-wrap gap-3">
