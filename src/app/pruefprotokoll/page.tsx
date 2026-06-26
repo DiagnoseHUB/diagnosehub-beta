@@ -40,6 +40,8 @@ type CurrentDiagnosisCase = {
   openedCaseId?: string | null;
 };
 
+type UserPlan = "free" | "werkstatt" | "pro";
+
 type ProtocolProfile = {
   title: string;
   subtitle: string;
@@ -51,6 +53,13 @@ type ProtocolProfile = {
 };
 
 const CURRENT_CASE_STORAGE_KEY = "diagnosehub-current-case";
+const USER_PLAN_STORAGE_KEY = "diagnosehub-user-plan";
+
+const planLabels: Record<UserPlan, string> = {
+  free: "Free",
+  werkstatt: "Werkstatt Demo",
+  pro: "Werkstatt Pro Demo",
+};
 
 const baseMeasurementRows = [
   "Batteriespannung Motor aus",
@@ -82,8 +91,8 @@ const baseDiagnosticChecks = [
 ];
 
 const defaultProfile: ProtocolProfile = {
-  title: "Allgemeines Diagnoseprotokoll",
-  subtitle: "Standard-Prüfplan für nicht eindeutig zugeordneten Fehler",
+  title: "Standard-Diagnoseprotokoll",
+  subtitle: "Allgemeiner Prüfplan für Free-Nutzer oder unbekannte Fehler",
   focus:
     "Allgemeine Eingrenzung über Fehlerspeicher, Spannungsversorgung, Sichtprüfung, Live-Daten und Probefahrt.",
   measurementRows: [
@@ -105,14 +114,14 @@ const defaultProfile: ProtocolProfile = {
     "Technische Serviceinformationen / bekannte Probleme geprüft",
   ],
   specialHints: [
-    "Bei unbekannter Fehlerlage zuerst Spannungsversorgung, Masse, Stecker, Plausibilität der Live-Daten und Reproduzierbarkeit prüfen.",
+    "Im Free-Plan wird ein allgemeines Standardprotokoll erstellt. Fehlercode-spezifische Prüfprofile sind für Werkstatt/Premium vorbereitet.",
   ],
 };
 
 const protocolProfiles: Record<string, ProtocolProfile> = {
   boostPressure: {
     title: "Ladedruck / Aufladung",
-    subtitle: "Prüfprotokoll für P0299, P0234 und Ladedruckabweichungen",
+    subtitle: "Premium-Prüfprotokoll für P0299, P0234 und Ladedruckabweichungen",
     focus:
       "Fokus auf Ladedruck Soll/Ist, Ladeluftstrecke, VTG/Wastegate, Unterdruck-/Druckansteuerung, Sensorik und Abgasgegendruck.",
     measurementRows: [
@@ -158,7 +167,7 @@ const protocolProfiles: Record<string, ProtocolProfile> = {
 
   fuelPressure: {
     title: "Kraftstoffdruck / Raildruck",
-    subtitle: "Prüfprotokoll für P0087, P0088 und Kraftstoffdruckabweichungen",
+    subtitle: "Premium-Prüfprotokoll für P0087, P0088 und Kraftstoffdruckabweichungen",
     focus:
       "Fokus auf Raildruck Soll/Ist, Niederdruckversorgung, Filter, Mengenregelventil, Druckregelventil, Injektor-Rücklaufmenge und Hochdruckpumpe.",
     measurementRows: [
@@ -203,7 +212,7 @@ const protocolProfiles: Record<string, ProtocolProfile> = {
 
   egr: {
     title: "AGR / Abgasrückführung",
-    subtitle: "Prüfprotokoll für P0401, P0402 und AGR-Durchsatzfehler",
+    subtitle: "Premium-Prüfprotokoll für P0401, P0402 und AGR-Durchsatzfehler",
     focus:
       "Fokus auf AGR Soll/Ist, Luftmassenänderung, Stellgliedtest, Verkokung, AGR-Kühler und Abgasgegendruck.",
     measurementRows: [
@@ -244,7 +253,7 @@ const protocolProfiles: Record<string, ProtocolProfile> = {
 
   dpf: {
     title: "DPF / Dieselpartikelfilter",
-    subtitle: "Prüfprotokoll für P2002, P2453 und DPF-Differenzdruckfehler",
+    subtitle: "Premium-Prüfprotokoll für P2002, P2453 und DPF-Differenzdruckfehler",
     focus:
       "Fokus auf Differenzdruck, Rußmasse, Aschemasse, Differenzdrucksensor, Schläuche, Temperaturen und Regenerationsfähigkeit.",
     measurementRows: [
@@ -288,7 +297,7 @@ const protocolProfiles: Record<string, ProtocolProfile> = {
 
   mixture: {
     title: "Gemischbildung / Benziner",
-    subtitle: "Prüfprotokoll für P0171, P0172 und Gemischadaption",
+    subtitle: "Premium-Prüfprotokoll für P0171, P0172 und Gemischadaption",
     focus:
       "Fokus auf Fuel Trims, Falschluft, Kurbelgehäuseentlüftung, Kraftstoffdruck, Lambdaregelung, LMM und Tankentlüftung.",
     measurementRows: [
@@ -333,7 +342,7 @@ const protocolProfiles: Record<string, ProtocolProfile> = {
 
   misfire: {
     title: "Verbrennungsaussetzer / Laufunruhe",
-    subtitle: "Prüfprotokoll für P0300, P0301, P0302, P0303, P0304",
+    subtitle: "Premium-Prüfprotokoll für P0300, P0301, P0302, P0303, P0304",
     focus:
       "Fokus auf Aussetzerzähler, zylinderbezogene Eingrenzung, Zündung beim Benziner, Injektoren/Raildruck beim Diesel, Kompression und mechanische Ursachen.",
     measurementRows: [
@@ -380,7 +389,7 @@ const protocolProfiles: Record<string, ProtocolProfile> = {
 
   airMass: {
     title: "Luftmasse / Ansaugsystem",
-    subtitle: "Prüfprotokoll für P0101 und unplausible Luftmassenwerte",
+    subtitle: "Premium-Prüfprotokoll für P0101 und unplausible Luftmassenwerte",
     focus:
       "Fokus auf LMM-Wert, Ansaugluft, Falschluft, AGR-Einfluss, Ladedruck, Luftfilter und Verkabelung.",
     measurementRows: [
@@ -416,6 +425,14 @@ const protocolProfiles: Record<string, ProtocolProfile> = {
     ],
   },
 };
+
+function isValidUserPlan(value: string | null): value is UserPlan {
+  return value === "free" || value === "werkstatt" || value === "pro";
+}
+
+function hasPremiumAccess(userPlan: UserPlan) {
+  return userPlan === "werkstatt" || userPlan === "pro";
+}
 
 function getProtocolProfile(currentCase: CurrentDiagnosisCase | null) {
   const firstFaultCode = currentCase?.faultCodeContext?.foundCodes?.[0];
@@ -459,11 +476,7 @@ function getProtocolProfile(currentCase: CurrentDiagnosisCase | null) {
     return protocolProfiles.dpf;
   }
 
-  if (
-    code === "P0171" ||
-    code === "P0172" ||
-    system.includes("gemisch")
-  ) {
+  if (code === "P0171" || code === "P0172" || system.includes("gemisch")) {
     return protocolProfiles.mixture;
   }
 
@@ -636,6 +649,7 @@ export default function PruefprotokollPage() {
   const [currentCase, setCurrentCase] = useState<CurrentDiagnosisCase | null>(
     null
   );
+  const [userPlan, setUserPlan] = useState<UserPlan>("free");
   const [generatedAt, setGeneratedAt] = useState("");
 
   useEffect(() => {
@@ -643,10 +657,15 @@ export default function PruefprotokollPage() {
 
     try {
       const savedCase = localStorage.getItem(CURRENT_CASE_STORAGE_KEY);
+      const savedPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
 
       if (savedCase) {
         const parsedCase = JSON.parse(savedCase);
         setCurrentCase(parsedCase);
+      }
+
+      if (isValidUserPlan(savedPlan)) {
+        setUserPlan(savedPlan);
       }
     } catch (error) {
       console.error("Diagnosefall konnte nicht geladen werden:", error);
@@ -661,9 +680,19 @@ export default function PruefprotokollPage() {
     return getLastAssistantMessage(currentCase?.messages ?? []);
   }, [currentCase]);
 
-  const protocolProfile = useMemo(() => {
+  const premiumAccess = hasPremiumAccess(userPlan);
+
+  const detectedProtocolProfile = useMemo(() => {
     return getProtocolProfile(currentCase);
   }, [currentCase]);
+
+  const protocolProfile = useMemo(() => {
+    if (!premiumAccess) {
+      return defaultProfile;
+    }
+
+    return detectedProtocolProfile;
+  }, [detectedProtocolProfile, premiumAccess]);
 
   const measurementRows = useMemo(() => {
     return uniqueList([
@@ -696,7 +725,7 @@ export default function PruefprotokollPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white print:bg-white">
-      <style jsx global>{`
+      <style>{`
         @page {
           size: A4;
           margin: 12mm;
@@ -730,12 +759,17 @@ export default function PruefprotokollPage() {
             </p>
 
             <h1 className="mt-2 text-3xl font-bold">
-              Individuelles Prüfprotokoll
+              {premiumAccess
+                ? "Individuelles Premium-Prüfprotokoll"
+                : "Standard-Prüfprotokoll"}
             </h1>
 
             <p className="mt-2 text-slate-400">
-              Das Protokoll passt sich automatisch an Motor, Fehlercode und
-              Diagnosesystem an.
+              Aktueller Plan:{" "}
+              <span className="font-bold text-white">{planLabels[userPlan]}</span>
+              {premiumAccess
+                ? " · Fehlercode-spezifische Prüfprofile aktiv."
+                : " · Fehlercode-spezifische Prüfprofile sind Premium vorbereitet."}
             </p>
           </div>
 
@@ -755,6 +789,28 @@ export default function PruefprotokollPage() {
             </button>
           </div>
         </div>
+
+        {!premiumAccess && (
+          <div className="mb-8 rounded-3xl border border-yellow-500/30 bg-yellow-500/10 p-6 print:hidden">
+            <p className="font-bold text-yellow-300">
+              Free-Plan: Standardprotokoll aktiv
+            </p>
+
+            <p className="mt-2 leading-7 text-slate-300">
+              Der aktuelle Diagnosefall wurde erkannt, aber das automatisch
+              angepasste Prüfprofil „{detectedProtocolProfile.title}“ ist als
+              Premium-Funktion vorbereitet. Im Werkstatt Demo oder Pro Demo Plan
+              wird das Protokoll direkt fehlerbezogen aufgebaut.
+            </p>
+
+            <a
+              href="/#premium"
+              className="mt-4 inline-flex rounded-xl border border-yellow-500/40 px-5 py-3 font-semibold text-yellow-300 transition hover:bg-yellow-500 hover:text-slate-950"
+            >
+              Premium-Funktionen ansehen
+            </a>
+          </div>
+        )}
 
         <article className="mx-auto w-full max-w-[210mm] bg-white p-10 text-slate-950 shadow-2xl shadow-blue-950/40 print:max-w-none print:p-0 print:shadow-none">
           <header className="mb-8 border-b-4 border-slate-950 pb-6">
@@ -797,6 +853,11 @@ export default function PruefprotokollPage() {
                 <p className="mt-1 text-sm font-bold">{generatedAt}</p>
 
                 <p className="mt-4 text-xs font-bold uppercase text-slate-600">
+                  Plan
+                </p>
+                <p className="mt-1 text-sm font-bold">{planLabels[userPlan]}</p>
+
+                <p className="mt-4 text-xs font-bold uppercase text-slate-600">
                   Profil
                 </p>
                 <p className="mt-1 text-sm font-bold">{protocolProfile.title}</p>
@@ -829,10 +890,12 @@ export default function PruefprotokollPage() {
               </div>
             </ProtocolSection>
 
-            <ProtocolSection title="2. Fehlerbezogenes Prüfprofil">
+            <ProtocolSection title="2. Prüfprofil">
               <div className="rounded-xl border-2 border-slate-950 bg-slate-100 p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
-                  Automatisch erkanntes Profil
+                  {premiumAccess
+                    ? "Automatisch erkanntes Premium-Profil"
+                    : "Standardprofil im Free-Plan"}
                 </p>
 
                 <h2 className="mt-2 text-2xl font-black text-slate-950">
@@ -865,7 +928,7 @@ export default function PruefprotokollPage() {
               {protocolProfile.specialHints.length > 0 && (
                 <div className="mt-5 rounded-xl border border-slate-400 p-4">
                   <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-600">
-                    Fehlerbezogene Hinweise
+                    Hinweise
                   </p>
 
                   <div className="grid gap-2">
@@ -935,7 +998,7 @@ export default function PruefprotokollPage() {
               </table>
             </ProtocolSection>
 
-            {faultCodeCauses.length > 0 && (
+            {premiumAccess && faultCodeCauses.length > 0 && (
               <ProtocolSection title="5. Typische Ursachen laut Fehlercode">
                 <div className="grid gap-3 md:grid-cols-2">
                   {faultCodeCauses.map((cause) => (
@@ -945,7 +1008,7 @@ export default function PruefprotokollPage() {
               </ProtocolSection>
             )}
 
-            {faultCodeChecks.length > 0 && (
+            {premiumAccess && faultCodeChecks.length > 0 && (
               <ProtocolSection title="6. Empfohlene Prüfungen laut Fehlercode">
                 <div className="grid gap-3 md:grid-cols-2">
                   {faultCodeChecks.map((check) => (
@@ -955,7 +1018,7 @@ export default function PruefprotokollPage() {
               </ProtocolSection>
             )}
 
-            <ProtocolSection title="7. Sichtprüfung">
+            <ProtocolSection title={premiumAccess ? "7. Sichtprüfung" : "5. Sichtprüfung"}>
               <div className="grid gap-3 md:grid-cols-2">
                 {visualChecks.map((check) => (
                   <CheckItem key={check} label={check} />
@@ -967,7 +1030,7 @@ export default function PruefprotokollPage() {
               </div>
             </ProtocolSection>
 
-            <ProtocolSection title="8. Messwerte">
+            <ProtocolSection title={premiumAccess ? "8. Messwerte" : "6. Messwerte"}>
               <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-200">
@@ -1005,7 +1068,9 @@ export default function PruefprotokollPage() {
               </table>
             </ProtocolSection>
 
-            <ProtocolSection title="9. Diagnose-Checkliste">
+            <ProtocolSection
+              title={premiumAccess ? "9. Diagnose-Checkliste" : "7. Diagnose-Checkliste"}
+            >
               <div className="grid gap-3 md:grid-cols-2">
                 {diagnosticChecks.map((check) => (
                   <CheckItem key={check} label={check} />
@@ -1013,7 +1078,9 @@ export default function PruefprotokollPage() {
               </div>
             </ProtocolSection>
 
-            <ProtocolSection title="10. Ergebnis / Reparaturempfehlung">
+            <ProtocolSection
+              title={premiumAccess ? "10. Ergebnis / Reparaturempfehlung" : "8. Ergebnis / Reparaturempfehlung"}
+            >
               <div className="grid gap-4">
                 <TextAreaField label="Festgestellte Ursache" lines={4} />
                 <TextAreaField label="Reparaturempfehlung" lines={4} />
@@ -1030,7 +1097,9 @@ export default function PruefprotokollPage() {
               </div>
             </ProtocolSection>
 
-            <ProtocolSection title="11. Freigabe / Unterschrift">
+            <ProtocolSection
+              title={premiumAccess ? "11. Freigabe / Unterschrift" : "9. Freigabe / Unterschrift"}
+            >
               <div className="grid gap-6 md:grid-cols-3">
                 <LineField label="Diagnose durchgeführt von" />
                 <LineField label="Datum" />
