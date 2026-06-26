@@ -587,6 +587,15 @@ ${chatText}
                   Fall speichern
                 </button>
 
+                <a
+                  href="/pruefprotokoll"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-5 py-3 font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
+                >
+                  Prüfprotokoll drucken
+                </a>
+
                 <button
                   onClick={copyCaseReport}
                   className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
