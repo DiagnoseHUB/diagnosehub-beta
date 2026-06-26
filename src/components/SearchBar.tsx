@@ -10,23 +10,44 @@ type EngineContext = {
   notes?: string;
 };
 
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+const quickQuestions = [
+  "Ladedruck Sollwert?",
+  "Welche Messwerte prüfen?",
+  "Was prüfe ich als erstes?",
+  "Häufigste Ursache eingrenzen",
+];
+
 function SearchBar() {
   const [search, setSearch] = useState("");
-  const [aiResult, setAiResult] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [engineContext, setEngineContext] = useState<EngineContext | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function startDiagnosis() {
-    if (search.trim() === "") {
+  async function sendDiagnosis(questionOverride?: string) {
+    const currentInput = questionOverride ?? search.trim();
+
+    if (currentInput.trim() === "") {
       alert("Bitte gib zuerst ein Fahrzeug, einen Fehlercode oder ein Symptom ein.");
       return;
     }
 
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: currentInput,
+    };
+
+    const nextMessages = [...messages, userMessage];
+
+    setMessages(nextMessages);
+    setSearch("");
     setLoading(true);
     setError("");
-    setAiResult("");
-    setEngineContext(null);
 
     try {
       const response = await fetch("/api/diagnose", {
@@ -35,7 +56,8 @@ function SearchBar() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          input: search,
+          input: currentInput,
+          messages: messages,
         }),
       });
 
@@ -45,7 +67,12 @@ function SearchBar() {
         throw new Error(data.error || "Unbekannter Fehler bei der KI-Diagnose.");
       }
 
-      setAiResult(data.result);
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content: data.result,
+      };
+
+      setMessages([...nextMessages, assistantMessage]);
       setEngineContext(data.engineContext);
     } catch (error) {
       console.error(error);
@@ -57,41 +84,72 @@ function SearchBar() {
     }
   }
 
+  function resetDiagnosis() {
+    setSearch("");
+    setMessages([]);
+    setEngineContext(null);
+    setError("");
+  }
+
   return (
     <div className="w-full">
       <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 shadow-2xl shadow-blue-950/30">
         <textarea
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Beschreibe den Fehlerfall, z. B. Audi A4 B8 CDHB ruckelt im Leerlauf..."
+          placeholder={
+            messages.length === 0
+              ? "Beschreibe den Fehlerfall, z. B. Audi A4 B8 CDHB ruckelt im Leerlauf..."
+              : "Folgefrage stellen, z. B. Ladedruck Sollwert?"
+          }
           rows={4}
           className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 p-5 text-white outline-none placeholder:text-slate-500 focus:border-blue-500"
         />
 
         <div className="mt-4 flex items-center justify-between gap-4">
           <p className="text-sm text-slate-500">
-            Fehlercode, Motorcode, Fahrzeug oder Symptom eingeben
+            {messages.length === 0
+              ? "Fehlercode, Motorcode, Fahrzeug oder Symptom eingeben"
+              : "Folgefrage im gleichen Diagnosefall stellen"}
           </p>
 
-          <button
-            onClick={startDiagnosis}
-            disabled={loading}
-            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Analysiere..." : "Diagnose starten"}
-          </button>
+          <div className="flex gap-3">
+            {messages.length > 0 && (
+              <button
+                onClick={resetDiagnosis}
+                className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
+              >
+                Neuer Fall
+              </button>
+            )}
+
+            <button
+              onClick={() => sendDiagnosis()}
+              disabled={loading}
+              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading
+                ? "Analysiere..."
+                : messages.length === 0
+                  ? "Diagnose starten"
+                  : "Frage senden"}
+            </button>
+          </div>
         </div>
       </div>
 
-      {loading && (
-        <div className="mt-6 rounded-xl border border-blue-500/30 bg-blue-500/10 px-6 py-4 text-blue-300">
-          KI-Diagnose wird erstellt...
-        </div>
-      )}
-
-      {error && (
-        <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-6 py-4 text-red-300">
-          {error}
+      {messages.length > 0 && (
+        <div className="mt-5 flex flex-wrap gap-3">
+          {quickQuestions.map((question) => (
+            <button
+              key={question}
+              onClick={() => sendDiagnosis(question)}
+              disabled={loading}
+              className="rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-300 transition hover:border-blue-500 hover:text-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {question}
+            </button>
+          ))}
         </div>
       )}
 
@@ -131,20 +189,43 @@ function SearchBar() {
         </section>
       )}
 
-      {aiResult && (
-        <section className="mt-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-2xl shadow-blue-950/30">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-400">
-            KI-Diagnose
+      {messages.length > 0 && (
+        <section className="mt-8 space-y-5 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-2xl shadow-blue-950/30">
+          <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
+            Diagnoseverlauf
           </p>
 
-          <h2 className="mb-6 text-3xl font-bold text-white">
-            Analyse-Ergebnis
-          </h2>
+          {messages.map((message, index) => (
+            <div
+              key={`${message.role}-${index}`}
+              className={
+                message.role === "user"
+                  ? "ml-auto max-w-3xl rounded-2xl bg-blue-600 px-5 py-4 text-white"
+                  : "mr-auto max-w-4xl rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 text-slate-300"
+              }
+            >
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-70">
+                {message.role === "user" ? "Du" : "DiagnoseHUB"}
+              </p>
 
-          <div className="whitespace-pre-wrap leading-8 text-slate-300">
-            {aiResult}
-          </div>
+              <div className="whitespace-pre-wrap leading-8">
+                {message.content}
+              </div>
+            </div>
+          ))}
+
+          {loading && (
+            <div className="mr-auto max-w-4xl rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 text-blue-300">
+              DiagnoseHUB analysiert...
+            </div>
+          )}
         </section>
+      )}
+
+      {error && (
+        <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-6 py-4 text-red-300">
+          {error}
+        </div>
       )}
     </div>
   );

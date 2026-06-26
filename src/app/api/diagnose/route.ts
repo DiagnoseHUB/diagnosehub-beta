@@ -5,7 +5,66 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+type EngineType = "Diesel" | "Benziner" | "Unbekannt";
+
+type EngineInfo = {
+  code: string;
+  engineType: EngineType;
+  label: string;
+  notes?: string;
+};
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+const ENGINE_CODE_DATABASE: Record<string, EngineInfo> = {
+  CDHB: {
+    code: "CDHB",
+    engineType: "Benziner",
+    label: "Audi/VW 1.8 TFSI Benziner",
+    notes: "EA888 TFSI, Ottomotor mit Zündkerzen/Zündspulen.",
+  },
+  CBAB: {
+    code: "CBAB",
+    engineType: "Diesel",
+    label: "VW/Audi 2.0 TDI Diesel",
+    notes: "Common-Rail-Diesel, keine Zündkerzen/Zündspulen.",
+  },
+  DDAA: {
+    code: "DDAA",
+    engineType: "Diesel",
+    label: "VW 2.0 TDI Diesel",
+    notes: "Common-Rail-Diesel, keine Zündkerzen/Zündspulen.",
+  },
+};
+
+function findEngineCode(input: string): EngineInfo | null {
+  const upperText = input.toUpperCase();
+
+  for (const code of Object.keys(ENGINE_CODE_DATABASE)) {
+    if (upperText.includes(code)) {
+      return ENGINE_CODE_DATABASE[code];
+    }
+  }
+
+  return null;
+}
+
 function detectEngineContext(input: string) {
+  const knownEngine = findEngineCode(input);
+
+  if (knownEngine) {
+    return {
+      engineType: knownEngine.engineType,
+      source: "Motorkennbuchstabe",
+      label: knownEngine.label,
+      code: knownEngine.code,
+      notes: knownEngine.notes,
+    };
+  }
+
   const text = input.toLowerCase();
 
   const dieselTerms = [
@@ -22,9 +81,10 @@ function detectEngineContext(input: string) {
     "d-4d",
     "d4d",
     "dpf",
-    "injektor",
     "common rail",
+    "raildruck",
     "glühkerze",
+    "injektor",
   ];
 
   const petrolTerms = [
@@ -43,24 +103,50 @@ function detectEngineContext(input: string) {
   const isPetrol = petrolTerms.some((term) => text.includes(term));
 
   if (isDiesel && !isPetrol) {
-    return "Diesel";
+    return {
+      engineType: "Diesel" as EngineType,
+      source: "Begriffe in der Eingabe",
+      label: "Diesel erkannt",
+      code: null,
+      notes: "Diesel anhand von Begriffen erkannt.",
+    };
   }
 
   if (isPetrol && !isDiesel) {
-    return "Ottomotor/Benziner";
+    return {
+      engineType: "Benziner" as EngineType,
+      source: "Begriffe in der Eingabe",
+      label: "Benziner erkannt",
+      code: null,
+      notes: "Benziner anhand von Begriffen erkannt.",
+    };
   }
 
-  if (isDiesel && isPetrol) {
-    return "unklar - Eingabe enthält Diesel- und Benziner-Begriffe";
-  }
+  return {
+    engineType: "Unbekannt" as EngineType,
+    source: "Nicht eindeutig",
+    label: "Motortyp unbekannt",
+    code: null,
+    notes: "Kraftstoffart/Motortyp nicht eindeutig erkannt.",
+  };
+}
 
-  return "unbekannt";
+function formatHistory(messages: ChatMessage[]) {
+  return messages
+    .map((message) => {
+      const speaker = message.role === "user" ? "Nutzer" : "DiagnoseHUB";
+      return `${speaker}: ${message.content}`;
+    })
+    .join("\n\n");
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const input = body.input;
+    const messages = Array.isArray(body.messages)
+      ? (body.messages as ChatMessage[])
+      : [];
 
     if (!input || typeof input !== "string") {
       return NextResponse.json(
@@ -69,86 +155,97 @@ export async function POST(request: Request) {
       );
     }
 
-    const engineContext = detectEngineContext(input);
+    const combinedContext = `${formatHistory(messages)}\n\nAktuelle Eingabe: ${input}`;
+    const engineContext = detectEngineContext(combinedContext);
 
     const response = await client.responses.create({
       model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-      temperature: 0.2,
+      temperature: 0.15,
       input: [
         {
           role: "system",
           content: `
 Du bist DiagnoseHUB, ein spezialisierter KI-Diagnoseassistent für professionelle Kfz-Werkstätten.
 
-Arbeite wie ein erfahrener Kfz-Mechatroniker.
 Antworte immer auf Deutsch.
-Antworte praxisnah, knapp und strukturiert.
+Antworte praxisnah, technisch korrekt und strukturiert.
 Keine langen allgemeinen Erklärungen.
 Keine erfundenen Hersteller-TPIs nennen.
 Keine Prioritätsangaben verwenden.
-Keine Teile nennen, die zum Motortyp nicht passen.
+Keine Teile nennen, die zum erkannten Motortyp nicht passen.
 
-Sehr wichtige technische Regeln:
+Wichtig:
+Der Nutzer kann Folgefragen stellen.
+Kurze Folgefragen wie "Ladedruck Sollwert?", "Raildruck?", "Prüfwert?", "Wo messen?" oder "Was als nächstes?" beziehen sich auf den bisherigen Diagnoseverlauf.
+Nutze dann den bisherigen Fall als Kontext und frage nicht unnötig erneut nach Fahrzeugdaten, wenn sie bereits im Verlauf stehen.
 
-1. Diesel-Regel:
-- Wenn der Motor ein Diesel ist oder Begriffe wie TDI, CDI, dCi, HDI, TDCi, CRDi, JTD, DPF, Common Rail oder Injektor vorkommen:
-  - Niemals "Zündkerzen" als Ursache nennen.
-  - Niemals "Zündspulen" als Ursache nennen.
-  - Stattdessen bei Startproblemen/Kaltstart maximal "Glühkerzen/Glühsteuergerät" nennen.
-  - Bei Ruckeln, Leistungsverlust, schlechtem Lauf oder Druckproblemen eher prüfen:
-    - Injektoren / Rücklaufmenge
-    - Raildruck Soll/Ist
-    - Kraftstofffilter / Niederdruckversorgung
-    - Luftmassenmesser
-    - Ladedruckregelung
-    - AGR-Ventil
-    - DPF-Differenzdruck
-    - Ansaugsystem / Ladeluftstrecke
-    - Kompression / mechanischer Zustand
+Erkannter Motortyp:
+${engineContext.engineType}
 
-2. Benziner-Regel:
-- Zündkerzen und Zündspulen nur bei Ottomotor/Benziner nennen.
-- Bei TFSI/TSI/FSI dürfen Zündung, Falschluft, PCV, Injektoren und Verkokung berücksichtigt werden.
+Quelle der Erkennung:
+${engineContext.source}
 
-3. Unklarer Motortyp:
-- Wenn Kraftstoffart oder Motortyp unklar ist:
-  - Keine motortypspezifischen Bauteile blind nennen.
-  - Erst neutrale Prüfungen empfehlen.
-  - Klar sagen, welche Informationen fehlen.
+Erkannter Motor:
+${engineContext.label}
 
-4. Diagnosequalität:
-- Beginne mit den wahrscheinlichsten und einfachsten Prüfungen.
-- Keine wilden Teiletausch-Empfehlungen.
-- Immer zuerst Messwerte und Live-Daten prüfen.
-- Gib sinnvolle Prüfreihenfolge an.
+Motorcode:
+${engineContext.code ?? "nicht erkannt"}
 
-Nutze immer dieses Format:
+Zusatzhinweis:
+${engineContext.notes}
 
+Technische Regeln:
+
+1. Wenn Motortyp Diesel:
+- Niemals Zündkerzen nennen.
+- Niemals Zündspulen nennen.
+- Bei Startproblemen/Kaltstart maximal Glühkerzen oder Glühsteuergerät nennen.
+- Bei Ruckeln, schlechtem Lauf, Leistungsverlust oder Druckproblemen bevorzugt prüfen:
+  - Injektoren / Rücklaufmenge
+  - Raildruck Soll/Ist
+  - Kraftstofffilter / Niederdruckversorgung
+  - Luftmassenmesser
+  - Ladedruckregelung
+  - AGR-Ventil
+  - DPF-Differenzdruck
+  - Ansaugsystem / Ladeluftstrecke
+  - Kompression / mechanischer Zustand
+
+2. Wenn Motortyp Benziner:
+- Zündkerzen und Zündspulen dürfen genannt werden.
+- Bei TFSI/TSI/FSI außerdem berücksichtigen:
+  - Falschluft / Kurbelgehäuseentlüftung
+  - Injektoren
+  - Hochdruckpumpe / Raildruck
+  - Verkokte Einlassventile
+  - Ladedruckregelung
+  - Steuerzeiten / Kette
+
+3. Wenn Motortyp unbekannt:
+- Keine motortypspezifischen Bauteile blind nennen.
+- Keine Zündkerzen oder Glühkerzen ohne passenden Kontext nennen.
+- Wenn nötige Daten fehlen, kurz sagen, welche Angaben fehlen.
+
+Antwortformat bei neuer Diagnose:
 1. Kurze Einschätzung
-- Knapp beschreiben, was der Fall wahrscheinlich bedeutet.
-
-2. Wahrscheinlichste Ursachen
-- Ursachen mit geschätzten Prozentbereichen nennen.
-- Nur Bauteile nennen, die zum Motortyp passen.
-
+2. Wahrscheinlichste Ursachen mit Prozentbereichen
 3. Prüfplan
-- In sinnvoller Reihenfolge.
-- Erst einfache Prüfungen, dann Messwerte, dann mechanische Prüfungen.
-
 4. Benötigte Messwerte / Live-Daten
-- Konkrete Werte nennen, die geprüft werden sollten.
-
 5. Hinweise
-- Fehlende Informationen nennen.
-- Keine sicherheitskritischen Arbeiten verharmlosen.
+
+Antwortformat bei kurzer Folgefrage:
+- Direkt auf die Folgefrage antworten.
+- Bezug zum bisherigen Fahrzeug/Fall herstellen.
+- Kurz und werkstattnah bleiben.
           `,
         },
         {
           role: "user",
           content: `
-Erkannter Motorkontext: ${engineContext}
+Bisheriger Diagnoseverlauf:
+${formatHistory(messages) || "Noch kein Verlauf vorhanden."}
 
-Diagnosefall:
+Aktuelle Eingabe / Folgefrage:
 ${input}
           `,
         },
@@ -157,6 +254,7 @@ ${input}
 
     return NextResponse.json({
       result: response.output_text,
+      engineContext,
     });
   } catch (error) {
     console.error("KI-Diagnosefehler:", error);
