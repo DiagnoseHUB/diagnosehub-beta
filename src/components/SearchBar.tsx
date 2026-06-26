@@ -19,13 +19,15 @@ import {
   type FaultCodeContext,
   type SavedDiagnosisCase,
 } from "@/services/diagnosisCasesSupabase";
+import {
+  getInitialDiagnosisUsage,
+  incrementDiagnosisUsageInSupabase,
+  loadDiagnosisUsageFromSupabase,
+  normalizeDiagnosisUsage,
+  type DiagnosisUsage,
+} from "@/services/diagnosisUsageSupabase";
 
 type UserPlan = "free" | "werkstatt" | "pro";
-
-type DiagnosisUsage = {
-  date: string;
-  count: number;
-};
 
 type CurrentDiagnosisCase = {
   messages: ChatMessage[];
@@ -36,6 +38,7 @@ type CurrentDiagnosisCase = {
 };
 
 type CaseStorageSource = "local" | "supabase";
+type UsageStorageSource = "local" | "supabase";
 
 const STORAGE_KEY = "diagnosehub-current-case";
 const SAVED_CASES_STORAGE_KEY = "diagnosehub-saved-cases";
@@ -81,30 +84,6 @@ const baseQuickQuestions = [
   "Häufigste Ursache eingrenzen",
   "Welche Live-Daten sind wichtig?",
 ];
-
-function getTodayKey() {
-  return new Date().toLocaleDateString("sv-SE");
-}
-
-function getInitialDiagnosisUsage(): DiagnosisUsage {
-  return {
-    date: getTodayKey(),
-    count: 0,
-  };
-}
-
-function normalizeDiagnosisUsage(usage: DiagnosisUsage): DiagnosisUsage {
-  const today = getTodayKey();
-
-  if (usage.date !== today) {
-    return {
-      date: today,
-      count: 0,
-    };
-  }
-
-  return usage;
-}
 
 function isValidUserPlan(value: string | null): value is UserPlan {
   return value === "free" || value === "werkstatt" || value === "pro";
@@ -253,14 +232,24 @@ function saveCasesToLocalStorage(savedCases: SavedDiagnosisCase[]) {
   localStorage.setItem(SAVED_CASES_STORAGE_KEY, JSON.stringify(savedCases));
 }
 
+function saveUsageToLocalStorage(usage: DiagnosisUsage) {
+  localStorage.setItem(DIAGNOSIS_USAGE_STORAGE_KEY, JSON.stringify(usage));
+}
+
 export default function SearchBar() {
   const supabase = useMemo(() => createClient(), []);
 
   const [user, setUser] = useState<User | null>(null);
+
   const [caseStorageSource, setCaseStorageSource] =
     useState<CaseStorageSource>("local");
   const [caseSyncLoading, setCaseSyncLoading] = useState(false);
   const [caseSyncMessage, setCaseSyncMessage] = useState("");
+
+  const [usageStorageSource, setUsageStorageSource] =
+    useState<UsageStorageSource>("local");
+  const [usageSyncLoading, setUsageSyncLoading] = useState(false);
+  const [usageSyncMessage, setUsageSyncMessage] = useState("");
 
   const [search, setSearch] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -359,17 +348,21 @@ export default function SearchBar() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, nextSession: Session | null) => {
+      async (_event: AuthChangeEvent, nextSession: Session | null) => {
         const nextUser = nextSession?.user ?? null;
 
         setUser(nextUser);
 
         if (nextUser) {
-          void loadCasesForAuthenticatedUser(nextUser, loadLocalSavedCases());
+          await loadUsageForAuthenticatedUser(nextUser);
+          await loadCasesForAuthenticatedUser(nextUser, loadLocalSavedCases());
         } else {
           setCaseStorageSource("local");
+          setUsageStorageSource("local");
           setCaseSyncMessage("");
+          setUsageSyncMessage("");
           loadLocalSavedCasesIntoState();
+          loadLocalPlanAndUsage();
         }
       }
     );
@@ -413,6 +406,7 @@ export default function SearchBar() {
       if (error) {
         setError(error.message);
         setCaseStorageSource("local");
+        setUsageStorageSource("local");
         return;
       }
 
@@ -421,9 +415,11 @@ export default function SearchBar() {
       setUser(activeUser);
 
       if (activeUser) {
+        await loadUsageForAuthenticatedUser(activeUser);
         await loadCasesForAuthenticatedUser(activeUser, localCases);
       } else {
         setCaseStorageSource("local");
+        setUsageStorageSource("local");
       }
     } catch (error) {
       console.error("SearchBar konnte nicht initialisiert werden:", error);
@@ -473,18 +469,44 @@ export default function SearchBar() {
       if (savedDiagnosisUsage) {
         const parsedUsage = JSON.parse(savedDiagnosisUsage);
         const normalizedSavedUsage = normalizeDiagnosisUsage({
-          date: parsedUsage.date || getTodayKey(),
+          date: parsedUsage.date || getInitialDiagnosisUsage().date,
           count: Number(parsedUsage.count) || 0,
         });
 
         setDiagnosisUsage(normalizedSavedUsage);
-        localStorage.setItem(
-          DIAGNOSIS_USAGE_STORAGE_KEY,
-          JSON.stringify(normalizedSavedUsage)
-        );
+        saveUsageToLocalStorage(normalizedSavedUsage);
       }
     } catch (error) {
       console.error("Plan oder Nutzung konnte nicht geladen werden:", error);
+    }
+  }
+
+  async function loadUsageForAuthenticatedUser(activeUser: User) {
+    setUsageSyncLoading(true);
+    setError("");
+
+    try {
+      const remoteUsage = await loadDiagnosisUsageFromSupabase(
+        supabase,
+        activeUser
+      );
+
+      setDiagnosisUsage(remoteUsage);
+      saveUsageToLocalStorage(remoteUsage);
+      setUsageStorageSource("supabase");
+      setUsageSyncMessage("Supabase-Nutzungszähler wurde geladen.");
+
+      window.setTimeout(() => {
+        setUsageSyncMessage("");
+      }, 3000);
+    } catch (error) {
+      console.error("Supabase-Nutzung konnte nicht geladen werden:", error);
+      setUsageStorageSource("local");
+      setError(
+        "Supabase-Nutzungszähler konnte nicht geladen werden. Lokaler Zähler bleibt aktiv."
+      );
+    } finally {
+      setUsageSyncLoading(false);
     }
   }
 
@@ -545,6 +567,15 @@ export default function SearchBar() {
     await loadCasesForAuthenticatedUser(user, []);
   }
 
+  async function reloadSupabaseUsage() {
+    if (!user) {
+      setError("Für Supabase-Nutzungszähler zuerst einloggen.");
+      return;
+    }
+
+    await loadUsageForAuthenticatedUser(user);
+  }
+
   async function migrateLocalCasesNow() {
     if (!user) {
       setError("Für Migration zuerst einloggen.");
@@ -563,7 +594,40 @@ export default function SearchBar() {
     setSaveSuccess(false);
   }
 
-  function registerSuccessfulDiagnosis() {
+  async function registerSuccessfulDiagnosis() {
+    if (user) {
+      setUsageSyncLoading(true);
+
+      try {
+        const nextUsage = await incrementDiagnosisUsageInSupabase(
+          supabase,
+          user
+        );
+
+        setDiagnosisUsage(nextUsage);
+        saveUsageToLocalStorage(nextUsage);
+        setUsageStorageSource("supabase");
+        setUsageSyncMessage("Diagnose wurde in Supabase gezählt.");
+
+        window.setTimeout(() => {
+          setUsageSyncMessage("");
+        }, 2500);
+
+        return;
+      } catch (error) {
+        console.error(
+          "Supabase-Nutzungszähler konnte nicht aktualisiert werden:",
+          error
+        );
+        setUsageStorageSource("local");
+        setError(
+          "Diagnose wurde erstellt, aber der Supabase-Nutzungszähler konnte nicht aktualisiert werden. Lokaler Zähler wurde verwendet."
+        );
+      } finally {
+        setUsageSyncLoading(false);
+      }
+    }
+
     const usageBeforeRequest = normalizeDiagnosisUsage(diagnosisUsage);
 
     const nextUsage: DiagnosisUsage = {
@@ -572,7 +636,8 @@ export default function SearchBar() {
     };
 
     setDiagnosisUsage(nextUsage);
-    localStorage.setItem(DIAGNOSIS_USAGE_STORAGE_KEY, JSON.stringify(nextUsage));
+    saveUsageToLocalStorage(nextUsage);
+    setUsageStorageSource("local");
   }
 
   async function sendDiagnosis(questionOverride?: string) {
@@ -592,10 +657,7 @@ export default function SearchBar() {
 
     if (usageBeforeRequest.count >= limitBeforeRequest) {
       setDiagnosisUsage(usageBeforeRequest);
-      localStorage.setItem(
-        DIAGNOSIS_USAGE_STORAGE_KEY,
-        JSON.stringify(usageBeforeRequest)
-      );
+      saveUsageToLocalStorage(usageBeforeRequest);
 
       setError(
         `Tageslimit erreicht: Im ${planLimits[userPlan].label}-Plan sind aktuell ${limitBeforeRequest} KI-Diagnosen pro Tag vorgesehen. Für mehr Diagnosen den Werkstatt-Demo-Plan aktivieren.`
@@ -650,7 +712,7 @@ export default function SearchBar() {
       setEngineContext(data.engineContext);
       setFaultCodeContext(data.faultCodeContext || null);
       setQualityCheck(data.qualityCheck || "");
-      registerSuccessfulDiagnosis();
+      await registerSuccessfulDiagnosis();
     } catch (error) {
       console.error(error);
       setError(
@@ -972,6 +1034,11 @@ ${chatText}
       ? "Supabase-Fallhistorie"
       : "Lokale Fallhistorie";
 
+  const usageStorageLabel =
+    usageStorageSource === "supabase"
+      ? "Supabase-Nutzung"
+      : "Lokale Nutzung";
+
   return (
     <div className="w-full">
       <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 shadow-2xl shadow-blue-950/30">
@@ -1015,6 +1082,16 @@ ${chatText}
                 >
                   {caseStorageLabel}
                 </span>
+
+                <span
+                  className={
+                    usageStorageSource === "supabase"
+                      ? "rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-green-300"
+                      : "rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-300"
+                  }
+                >
+                  {usageStorageLabel}
+                </span>
               </div>
 
               <p className="mt-2 text-sm text-slate-500">
@@ -1032,7 +1109,7 @@ ${chatText}
               <p className="mt-2 text-sm text-slate-500">
                 {user
                   ? `Supabase-Login aktiv: ${user.email}`
-                  : "Nicht eingeloggt: Fälle bleiben nur lokal auf diesem Gerät."}
+                  : "Nicht eingeloggt: Fälle und Nutzung bleiben lokal auf diesem Gerät."}
               </p>
             </div>
 
@@ -1059,7 +1136,15 @@ ${chatText}
               disabled={!user || caseSyncLoading}
               className="rounded-xl border border-green-500/40 px-4 py-2 text-sm font-semibold text-green-300 transition hover:bg-green-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {caseSyncLoading ? "Synchronisiert..." : "Supabase neu laden"}
+              {caseSyncLoading ? "Synchronisiert..." : "Fälle neu laden"}
+            </button>
+
+            <button
+              onClick={reloadSupabaseUsage}
+              disabled={!user || usageSyncLoading}
+              className="rounded-xl border border-green-500/40 px-4 py-2 text-sm font-semibold text-green-300 transition hover:bg-green-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {usageSyncLoading ? "Lädt..." : "Nutzung neu laden"}
             </button>
 
             <button
@@ -1083,6 +1168,12 @@ ${chatText}
           {caseSyncMessage && (
             <div className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
               {caseSyncMessage}
+            </div>
+          )}
+
+          {usageSyncMessage && (
+            <div className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+              {usageSyncMessage}
             </div>
           )}
 
