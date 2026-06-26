@@ -22,10 +22,11 @@ const quickQuestions = [
   "Häufigste Ursache eingrenzen",
 ];
 
-function SearchBar() {
+export default function SearchBar() {
   const [search, setSearch] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [engineContext, setEngineContext] = useState<EngineContext | null>(null);
+  const [qualityCheck, setQualityCheck] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,6 +49,7 @@ function SearchBar() {
     setSearch("");
     setLoading(true);
     setError("");
+    setQualityCheck("");
 
     try {
       const response = await fetch("/api/diagnose", {
@@ -74,6 +76,7 @@ function SearchBar() {
 
       setMessages([...nextMessages, assistantMessage]);
       setEngineContext(data.engineContext);
+      setQualityCheck(data.qualityCheck || "");
     } catch (error) {
       console.error(error);
       setError(
@@ -88,6 +91,7 @@ function SearchBar() {
     setSearch("");
     setMessages([]);
     setEngineContext(null);
+    setQualityCheck("");
     setError("");
   }
 
@@ -162,12 +166,16 @@ function SearchBar() {
           <div className="grid gap-4 md:grid-cols-4">
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
               <p className="text-sm text-slate-500">Motortyp</p>
-              <p className="mt-2 font-bold text-white">{engineContext.engineType}</p>
+              <p className="mt-2 font-bold text-white">
+                {engineContext.engineType}
+              </p>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
               <p className="text-sm text-slate-500">Erkennung</p>
-              <p className="mt-2 font-bold text-white">{engineContext.source}</p>
+              <p className="mt-2 font-bold text-white">
+                {engineContext.source}
+              </p>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
@@ -184,8 +192,20 @@ function SearchBar() {
           </div>
 
           {engineContext.notes && (
-            <p className="mt-4 text-sm text-slate-400">{engineContext.notes}</p>
+            <p className="mt-4 text-sm text-slate-400">
+              {engineContext.notes}
+            </p>
           )}
+        </section>
+      )}
+
+      {qualityCheck && (
+        <section className="mt-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
+          <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
+            Qualitätsprüfung
+          </p>
+
+          <p className="mt-2 text-slate-300">{qualityCheck}</p>
         </section>
       )}
 
@@ -230,5 +250,3 @@ function SearchBar() {
     </div>
   );
 }
-
-export default SearchBar;

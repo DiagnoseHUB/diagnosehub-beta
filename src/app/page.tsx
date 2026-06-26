@@ -22,8 +22,9 @@ export default function Home() {
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-400">
-              DiagnoseHUB kombiniert strukturierte Prüfpläne, bekannte
-              Schwachstellen und KI-gestützte Analyse für den Werkstattalltag.
+              DiagnoseHUB kombiniert Motorkennbuchstaben, Fehlercodes, Symptome
+              und KI-gestützte Analyse zu einer praxisnahen Diagnosehilfe für
+              Werkstätten.
             </p>
 
             <div className="mt-10">
@@ -33,36 +34,44 @@ export default function Home() {
 
           <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-8 shadow-2xl shadow-blue-950/40">
             <p className="mb-4 text-sm font-medium text-blue-400">
-              Live-Diagnose Beispiel
+              DiagnoseHUB Workflow
             </p>
 
             <h2 className="text-2xl font-bold">
-              Audi A4 B8 · 1.8 TFSI · CDHB
+              Diagnose mit Fallkontext
             </h2>
 
             <p className="mt-3 text-slate-400">
-              Symptom: Ruckeln im Leerlauf, unter Last unauffällig.
+              Starte mit Fahrzeug, Motorcode, Fehlercode oder Symptom. Danach
+              kannst du Folgefragen im gleichen Diagnosefall stellen.
             </p>
 
             <div className="mt-8 space-y-4">
               <div className="rounded-xl border border-slate-800 bg-slate-950 p-5">
-                <div className="flex items-center justify-between">
-                  <span>Kurbelgehäuseentlüftung / Falschluft</span>
-                  <span className="font-bold text-green-400">85%</span>
+                <div className="flex items-center justify-between gap-4">
+                  <span>Motorkontext erkennen</span>
+                  <span className="font-bold text-green-400">aktiv</span>
                 </div>
               </div>
 
               <div className="rounded-xl border border-slate-800 bg-slate-950 p-5">
-                <div className="flex items-center justify-between">
-                  <span>Zündaussetzer / Zündspule</span>
-                  <span className="font-bold text-yellow-400">65%</span>
+                <div className="flex items-center justify-between gap-4">
+                  <span>KI-Diagnose erstellen</span>
+                  <span className="font-bold text-blue-400">aktiv</span>
                 </div>
               </div>
 
               <div className="rounded-xl border border-slate-800 bg-slate-950 p-5">
-                <div className="flex items-center justify-between">
-                  <span>Einlassventile verkokt</span>
-                  <span className="font-bold text-orange-400">45%</span>
+                <div className="flex items-center justify-between gap-4">
+                  <span>Folgefragen beantworten</span>
+                  <span className="font-bold text-cyan-400">aktiv</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <span>Diesel/Benziner-Qualitätscheck</span>
+                  <span className="font-bold text-yellow-400">aktiv</span>
                 </div>
               </div>
             </div>
@@ -71,23 +80,26 @@ export default function Home() {
 
         <section className="mt-24 grid gap-6 md:grid-cols-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-7">
-            <h3 className="text-xl font-bold">KI-Analyse</h3>
+            <h3 className="text-xl font-bold">Motorkontext</h3>
             <p className="mt-3 text-slate-400">
-              Symptome, Fehlercodes und Fahrzeugdaten strukturiert auswerten.
+              Erkennt bekannte Motorkennbuchstaben und unterscheidet Diesel und
+              Benziner.
             </p>
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-7">
-            <h3 className="text-xl font-bold">Prüfplan</h3>
+            <h3 className="text-xl font-bold">Folgefragen</h3>
             <p className="mt-3 text-slate-400">
-              Schrittweise Diagnose statt unnötigem Teiletausch.
+              Der Diagnoseverlauf bleibt erhalten, damit kurze Rückfragen im
+              gleichen Fall beantwortet werden können.
             </p>
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-7">
-            <h3 className="text-xl font-bold">Werkstattfokus</h3>
+            <h3 className="text-xl font-bold">Qualitätsprüfung</h3>
             <p className="mt-3 text-slate-400">
-              Entwickelt für reale Fälle im Kfz-Betrieb.
+              Erkennt grobe technische Konflikte wie Zündkerzen bei Diesel und
+              generiert die Antwort neu.
             </p>
           </div>
         </section>

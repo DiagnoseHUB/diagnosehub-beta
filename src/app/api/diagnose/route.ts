@@ -140,31 +140,40 @@ function formatHistory(messages: ChatMessage[]) {
     .join("\n\n");
 }
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const input = body.input;
-    const messages = Array.isArray(body.messages)
-      ? (body.messages as ChatMessage[])
-      : [];
+function hasTechnicalConflict(engineType: EngineType, answer: string) {
+  const text = answer.toLowerCase();
 
-    if (!input || typeof input !== "string") {
-      return NextResponse.json(
-        { error: "Keine gültige Diagnose-Eingabe erhalten." },
-        { status: 400 }
-      );
-    }
+  if (engineType === "Diesel") {
+    const forbiddenDieselTerms = [
+      "zündkerze",
+      "zündkerzen",
+      "zündspule",
+      "zündspulen",
+      "zündfunke",
+      "zündanlage",
+    ];
 
-    const combinedContext = `${formatHistory(messages)}\n\nAktuelle Eingabe: ${input}`;
-    const engineContext = detectEngineContext(combinedContext);
+    return forbiddenDieselTerms.some((term) => text.includes(term));
+  }
 
-    const response = await client.responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-      temperature: 0.15,
-      input: [
-        {
-          role: "system",
-          content: `
+  if (engineType === "Benziner") {
+    const forbiddenPetrolTerms = [
+      "glühkerze",
+      "glühkerzen",
+      "glühsteuergerät",
+    ];
+
+    return forbiddenPetrolTerms.some((term) => text.includes(term));
+  }
+
+  return false;
+}
+
+function buildSystemPrompt(
+  engineContext: ReturnType<typeof detectEngineContext>,
+  retryWarning?: string
+) {
+  return `
 Du bist DiagnoseHUB, ein spezialisierter KI-Diagnoseassistent für professionelle Kfz-Werkstätten.
 
 Antworte immer auf Deutsch.
@@ -194,11 +203,14 @@ ${engineContext.code ?? "nicht erkannt"}
 Zusatzhinweis:
 ${engineContext.notes}
 
+${retryWarning ?? ""}
+
 Technische Regeln:
 
 1. Wenn Motortyp Diesel:
 - Niemals Zündkerzen nennen.
 - Niemals Zündspulen nennen.
+- Niemals Zündfunken oder Zündanlage nennen.
 - Bei Startproblemen/Kaltstart maximal Glühkerzen oder Glühsteuergerät nennen.
 - Bei Ruckeln, schlechtem Lauf, Leistungsverlust oder Druckproblemen bevorzugt prüfen:
   - Injektoren / Rücklaufmenge
@@ -213,6 +225,7 @@ Technische Regeln:
 
 2. Wenn Motortyp Benziner:
 - Zündkerzen und Zündspulen dürfen genannt werden.
+- Glühkerzen und Glühsteuergerät nicht nennen.
 - Bei TFSI/TSI/FSI außerdem berücksichtigen:
   - Falschluft / Kurbelgehäuseentlüftung
   - Injektoren
@@ -237,24 +250,82 @@ Antwortformat bei kurzer Folgefrage:
 - Direkt auf die Folgefrage antworten.
 - Bezug zum bisherigen Fahrzeug/Fall herstellen.
 - Kurz und werkstattnah bleiben.
-          `,
-        },
-        {
-          role: "user",
-          content: `
+`;
+}
+
+async function createDiagnosisAnswer(
+  engineContext: ReturnType<typeof detectEngineContext>,
+  messages: ChatMessage[],
+  input: string,
+  retryWarning?: string
+) {
+  const response = await client.responses.create({
+    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+    temperature: 0.1,
+    input: [
+      {
+        role: "system",
+        content: buildSystemPrompt(engineContext, retryWarning),
+      },
+      {
+        role: "user",
+        content: `
 Bisheriger Diagnoseverlauf:
 ${formatHistory(messages) || "Noch kein Verlauf vorhanden."}
 
 Aktuelle Eingabe / Folgefrage:
 ${input}
-          `,
-        },
-      ],
-    });
+        `,
+      },
+    ],
+  });
+
+  return response.output_text;
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const input = body.input;
+    const messages = Array.isArray(body.messages)
+      ? (body.messages as ChatMessage[])
+      : [];
+
+    if (!input || typeof input !== "string") {
+      return NextResponse.json(
+        { error: "Keine gültige Diagnose-Eingabe erhalten." },
+        { status: 400 }
+      );
+    }
+
+    const combinedContext = `${formatHistory(messages)}\n\nAktuelle Eingabe: ${input}`;
+    const engineContext = detectEngineContext(combinedContext);
+
+    let result = await createDiagnosisAnswer(engineContext, messages, input);
+
+    let qualityCheck = "Antwort ohne technischen Konflikt erstellt.";
+
+    if (hasTechnicalConflict(engineContext.engineType, result)) {
+      qualityCheck =
+        "Technischer Konflikt erkannt. Antwort wurde automatisch neu generiert.";
+
+      result = await createDiagnosisAnswer(
+        engineContext,
+        messages,
+        input,
+        `
+ACHTUNG: Die vorherige Antwort enthielt ein Bauteil, das zum erkannten Motortyp nicht passt.
+Erzeuge die Antwort neu und beachte den Motortyp zwingend.
+Bei Diesel keine Zündkerzen, Zündspulen, Zündfunken oder Zündanlage nennen.
+Bei Benziner keine Glühkerzen oder Glühsteuergerät nennen.
+        `
+      );
+    }
 
     return NextResponse.json({
-      result: response.output_text,
+      result,
       engineContext,
+      qualityCheck,
     });
   } catch (error) {
     console.error("KI-Diagnosefehler:", error);
