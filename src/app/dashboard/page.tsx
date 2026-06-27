@@ -40,6 +40,7 @@ const SAVED_CASES_STORAGE_KEY = "diagnosehub-saved-cases";
 const CURRENT_CASE_STORAGE_KEY = "diagnosehub-current-case";
 const DIAGNOSIS_USAGE_STORAGE_KEY = "diagnosehub-diagnosis-usage";
 const PREMIUM_LEADS_STORAGE_KEY = "diagnosehub-premium-leads";
+const PREMIUM_LEADS_UPDATED_EVENT = "diagnosehub-premium-leads-updated";
 
 const legacyUsageStorageKeys = [
   "diagnosehub-diagnosis-usage",
@@ -185,6 +186,11 @@ function loadLocalPremiumLeads(): PremiumLead[] {
 
 function savePremiumLeadsToLocalStorage(leads: PremiumLead[]) {
   localStorage.setItem(PREMIUM_LEADS_STORAGE_KEY, JSON.stringify(leads));
+}
+
+function notifyPremiumLeadsUpdated() {
+  window.dispatchEvent(new Event("storage"));
+  window.dispatchEvent(new Event(PREMIUM_LEADS_UPDATED_EVENT));
 }
 
 function getFaultCodeText(savedCase: SavedDiagnosisCase) {
@@ -394,8 +400,43 @@ export default function DashboardPage() {
       }
     );
 
+    async function handleDashboardDataChange() {
+      const { data } = await supabase.auth.getSession();
+      const currentUser = data.session?.user ?? null;
+
+      if (!currentUser) {
+        return;
+      }
+
+      await Promise.all([
+        loadWorkshopProfile(currentUser),
+        loadSupabaseCases(currentUser, false),
+        loadSupabaseUsage(currentUser),
+        loadSupabasePremiumLeads(currentUser, false),
+      ]);
+    }
+
+    window.addEventListener("storage", handleDashboardDataChange);
+    window.addEventListener(
+      PREMIUM_LEADS_UPDATED_EVENT,
+      handleDashboardDataChange
+    );
+    window.addEventListener(
+      "diagnosehub-account-updated",
+      handleDashboardDataChange
+    );
+
     return () => {
       subscription.unsubscribe();
+      window.removeEventListener("storage", handleDashboardDataChange);
+      window.removeEventListener(
+        PREMIUM_LEADS_UPDATED_EVENT,
+        handleDashboardDataChange
+      );
+      window.removeEventListener(
+        "diagnosehub-account-updated",
+        handleDashboardDataChange
+      );
     };
   }, [supabase]);
 
@@ -716,6 +757,7 @@ export default function DashboardPage() {
 
       setPremiumLeads(updatedLeads);
       savePremiumLeadsToLocalStorage(updatedLeads);
+      notifyPremiumLeadsUpdated();
       setSuccess("Premium-Vormerkung wurde gelöscht.");
     } catch (error) {
       setError(
