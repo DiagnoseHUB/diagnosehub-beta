@@ -21,7 +21,6 @@ import {
 } from "@/services/diagnosisCasesSupabase";
 import {
   getInitialDiagnosisUsage,
-  incrementDiagnosisUsageInSupabase,
   loadDiagnosisUsageFromSupabase,
   normalizeDiagnosisUsage,
   type DiagnosisUsage,
@@ -39,6 +38,30 @@ type CurrentDiagnosisCase = {
 
 type CaseStorageSource = "local" | "supabase";
 type UsageStorageSource = "local" | "supabase";
+
+type UsageLimitPayload = {
+  enabled: boolean;
+  source: "disabled" | "supabase";
+  plan: UserPlan;
+  planLabel: string;
+  todayKey: string;
+  countBefore: number;
+  countAfter: number | null;
+  maxDailyDiagnoses: number;
+  remainingBefore: number;
+  remainingAfter: number | null;
+  limitReached: boolean;
+  warning?: string;
+};
+
+type DiagnosisApiResponse = {
+  result?: string;
+  engineContext?: EngineContext;
+  faultCodeContext?: FaultCodeContext | null;
+  qualityCheck?: string;
+  usageLimit?: UsageLimitPayload;
+  error?: string;
+};
 
 const STORAGE_KEY = "diagnosehub-current-case";
 const SAVED_CASES_STORAGE_KEY = "diagnosehub-saved-cases";
@@ -64,14 +87,14 @@ const planLimits: Record<
   },
   werkstatt: {
     label: "Werkstatt Demo",
-    dailyLimit: 50,
+    dailyLimit: 30,
     savedCaseLimit: 25,
     badge: "Premium Demo",
     description: "Vorbereitung für den späteren Werkstatt-Zugang.",
   },
   pro: {
     label: "Werkstatt Pro Demo",
-    dailyLimit: 150,
+    dailyLimit: 100,
     savedCaseLimit: 100,
     badge: "Pro Demo",
     description: "Vorbereitung für größere Betriebe und höhere Nutzung.",
@@ -87,6 +110,14 @@ const baseQuickQuestions = [
 
 function isValidUserPlan(value: string | null): value is UserPlan {
   return value === "free" || value === "werkstatt" || value === "pro";
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unbekannter Fehler";
 }
 
 function buildDynamicQuickQuestions(
@@ -354,6 +385,7 @@ export default function SearchBar() {
         setUser(nextUser);
 
         if (nextUser) {
+          await loadPlanForAuthenticatedUser(nextUser);
           await loadUsageForAuthenticatedUser(nextUser);
           await loadCasesForAuthenticatedUser(nextUser, loadLocalSavedCases());
         } else {
@@ -397,6 +429,7 @@ export default function SearchBar() {
     try {
       loadCurrentCaseFromLocalStorage();
       loadLocalPlanAndUsage();
+
       const localCases = loadLocalSavedCases();
 
       setSavedCases(localCases);
@@ -415,6 +448,7 @@ export default function SearchBar() {
       setUser(activeUser);
 
       if (activeUser) {
+        await loadPlanForAuthenticatedUser(activeUser);
         await loadUsageForAuthenticatedUser(activeUser);
         await loadCasesForAuthenticatedUser(activeUser, localCases);
       } else {
@@ -481,6 +515,32 @@ export default function SearchBar() {
     }
   }
 
+  async function loadPlanForAuthenticatedUser(activeUser: User) {
+    try {
+      const { data, error } = await supabase
+        .from("workshop_profiles")
+        .select("plan")
+        .eq("id", activeUser.id)
+        .maybeSingle();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const remotePlan =
+        data && isValidUserPlan(String(data.plan)) ? data.plan : "free";
+
+      setUserPlan(remotePlan);
+      localStorage.setItem(USER_PLAN_STORAGE_KEY, remotePlan);
+    } catch (error) {
+      console.error("Supabase-Plan konnte nicht geladen werden:", error);
+      setError(
+        "Supabase-Plan konnte nicht geladen werden. Lokaler Plan bleibt aktiv."
+      );
+      loadLocalPlanAndUsage();
+    }
+  }
+
   async function loadUsageForAuthenticatedUser(activeUser: User) {
     setUsageSyncLoading(true);
     setError("");
@@ -536,9 +596,7 @@ export default function SearchBar() {
       setCaseStorageSource("supabase");
 
       if (localCasesForMigration.length > 0) {
-        setCaseSyncMessage(
-          "Lokale Fälle wurden mit Supabase synchronisiert."
-        );
+        setCaseSyncMessage("Lokale Fälle wurden mit Supabase synchronisiert.");
       } else {
         setCaseSyncMessage("Supabase-Fallhistorie wurde geladen.");
       }
@@ -573,6 +631,7 @@ export default function SearchBar() {
       return;
     }
 
+    await loadPlanForAuthenticatedUser(user);
     await loadUsageForAuthenticatedUser(user);
   }
 
@@ -586,6 +645,13 @@ export default function SearchBar() {
   }
 
   function changeUserPlan(nextPlan: UserPlan) {
+    if (user) {
+      setError(
+        "Bei aktivem Supabase-Login wird der Plan über Login/Profil gespeichert. Die Schnellumschaltung ist nur für lokale Tests ohne Login aktiv."
+      );
+      return;
+    }
+
     setUserPlan(nextPlan);
     localStorage.setItem(USER_PLAN_STORAGE_KEY, nextPlan);
     setError("");
@@ -594,40 +660,40 @@ export default function SearchBar() {
     setSaveSuccess(false);
   }
 
-  async function registerSuccessfulDiagnosis() {
-    if (user) {
-      setUsageSyncLoading(true);
-
-      try {
-        const nextUsage = await incrementDiagnosisUsageInSupabase(
-          supabase,
-          user
-        );
-
-        setDiagnosisUsage(nextUsage);
-        saveUsageToLocalStorage(nextUsage);
-        setUsageStorageSource("supabase");
-        setUsageSyncMessage("Diagnose wurde in Supabase gezählt.");
-
-        window.setTimeout(() => {
-          setUsageSyncMessage("");
-        }, 2500);
-
-        return;
-      } catch (error) {
-        console.error(
-          "Supabase-Nutzungszähler konnte nicht aktualisiert werden:",
-          error
-        );
-        setUsageStorageSource("local");
-        setError(
-          "Diagnose wurde erstellt, aber der Supabase-Nutzungszähler konnte nicht aktualisiert werden. Lokaler Zähler wurde verwendet."
-        );
-      } finally {
-        setUsageSyncLoading(false);
-      }
+  function applyServerUsageLimit(usageLimit: UsageLimitPayload) {
+    if (isValidUserPlan(usageLimit.plan)) {
+      setUserPlan(usageLimit.plan);
+      localStorage.setItem(USER_PLAN_STORAGE_KEY, usageLimit.plan);
     }
 
+    const nextCount =
+      typeof usageLimit.countAfter === "number"
+        ? usageLimit.countAfter
+        : usageLimit.countBefore;
+
+    const nextUsage: DiagnosisUsage = {
+      date: usageLimit.todayKey,
+      count: nextCount,
+    };
+
+    setDiagnosisUsage(nextUsage);
+    saveUsageToLocalStorage(nextUsage);
+    setUsageStorageSource("supabase");
+
+    if (usageLimit.warning) {
+      setUsageSyncMessage(usageLimit.warning);
+    } else {
+      setUsageSyncMessage(
+        `Serverlimit aktiv: ${nextCount} / ${usageLimit.maxDailyDiagnoses} Diagnosen heute.`
+      );
+    }
+
+    window.setTimeout(() => {
+      setUsageSyncMessage("");
+    }, 3000);
+  }
+
+  function registerLocalSuccessfulDiagnosis() {
     const usageBeforeRequest = normalizeDiagnosisUsage(diagnosisUsage);
 
     const nextUsage: DiagnosisUsage = {
@@ -638,6 +704,21 @@ export default function SearchBar() {
     setDiagnosisUsage(nextUsage);
     saveUsageToLocalStorage(nextUsage);
     setUsageStorageSource("local");
+  }
+
+  async function getAccessTokenForServerLimit() {
+    if (!user) {
+      return "";
+    }
+
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+      console.error("Supabase-Session konnte nicht gelesen werden:", error);
+      return "";
+    }
+
+    return data.session?.access_token || "";
   }
 
   async function sendDiagnosis(questionOverride?: string) {
@@ -660,7 +741,7 @@ export default function SearchBar() {
       saveUsageToLocalStorage(usageBeforeRequest);
 
       setError(
-        `Tageslimit erreicht: Im ${planLimits[userPlan].label}-Plan sind aktuell ${limitBeforeRequest} KI-Diagnosen pro Tag vorgesehen. Für mehr Diagnosen den Werkstatt-Demo-Plan aktivieren.`
+        `Tageslimit erreicht: Im ${planLimits[userPlan].label}-Plan sind aktuell ${limitBeforeRequest} KI-Diagnosen pro Tag vorgesehen.`
       );
 
       return;
@@ -686,6 +767,9 @@ export default function SearchBar() {
     setCopiedMessageIndex(null);
 
     try {
+      const accessToken = await getAccessTokenForServerLimit();
+      const useServerUsageTracking = accessToken.length > 0;
+
       const response = await fetch("/api/diagnose", {
         method: "POST",
         headers: {
@@ -693,14 +777,24 @@ export default function SearchBar() {
         },
         body: JSON.stringify({
           input: currentInput,
-          messages: messages,
+          messages,
+          accessToken,
+          useServerUsageTracking,
         }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as DiagnosisApiResponse;
 
       if (!response.ok) {
+        if (data.usageLimit) {
+          applyServerUsageLimit(data.usageLimit);
+        }
+
         throw new Error(data.error || "Unbekannter Fehler bei der KI-Diagnose.");
+      }
+
+      if (!data.result || !data.engineContext) {
+        throw new Error("Die API hat keine vollständige Diagnose zurückgegeben.");
       }
 
       const assistantMessage: ChatMessage = {
@@ -712,12 +806,15 @@ export default function SearchBar() {
       setEngineContext(data.engineContext);
       setFaultCodeContext(data.faultCodeContext || null);
       setQualityCheck(data.qualityCheck || "");
-      await registerSuccessfulDiagnosis();
+
+      if (data.usageLimit?.enabled) {
+        applyServerUsageLimit(data.usageLimit);
+      } else {
+        registerLocalSuccessfulDiagnosis();
+      }
     } catch (error) {
       console.error(error);
-      setError(
-        "Die KI-Diagnose konnte nicht erstellt werden. Prüfe API-Key, Guthaben oder Server-Log."
-      );
+      setError(getErrorMessage(error));
       shouldAutoScrollRef.current = false;
     } finally {
       setLoading(false);
@@ -1108,7 +1205,7 @@ ${chatText}
 
               <p className="mt-2 text-sm text-slate-500">
                 {user
-                  ? `Supabase-Login aktiv: ${user.email}`
+                  ? `Supabase-Login aktiv: ${user.email}. Planänderung über Login/Profil speichern.`
                   : "Nicht eingeloggt: Fälle und Nutzung bleiben lokal auf diesem Gerät."}
               </p>
             </div>
@@ -1118,10 +1215,16 @@ ${chatText}
                 <button
                   key={plan}
                   onClick={() => changeUserPlan(plan)}
+                  disabled={Boolean(user)}
+                  title={
+                    user
+                      ? "Bei Supabase-Login Plan über Login/Profil ändern"
+                      : "Lokalen Testplan ändern"
+                  }
                   className={
                     userPlan === plan
-                      ? "rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white"
-                      : "rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 transition hover:bg-slate-800"
+                      ? "rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-70"
+                      : "rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   }
                 >
                   {planLimits[plan].label}
@@ -1144,7 +1247,7 @@ ${chatText}
               disabled={!user || usageSyncLoading}
               className="rounded-xl border border-green-500/40 px-4 py-2 text-sm font-semibold text-green-300 transition hover:bg-green-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {usageSyncLoading ? "Lädt..." : "Nutzung neu laden"}
+              {usageSyncLoading ? "Lädt..." : "Plan/Nutzung neu laden"}
             </button>
 
             <button
@@ -1179,8 +1282,8 @@ ${chatText}
 
           {diagnosisLimitReached && (
             <div className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
-              Tageslimit erreicht. Für weitere Tests kannst du im Prototyp den
-              Werkstatt-Demo-Plan aktivieren.
+              Tageslimit erreicht. Ändere den Plan im Login-Profil oder warte
+              bis zum nächsten Tag.
             </div>
           )}
 

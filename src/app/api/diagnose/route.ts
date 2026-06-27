@@ -1,6 +1,11 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import {
+  createClient as createSupabaseClient,
+  type SupabaseClient,
+  type User,
+} from "@supabase/supabase-js";
+import {
   detectEngineContext,
   type EngineContext,
   type EngineType,
@@ -15,10 +20,84 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+type UserPlan = "free" | "werkstatt" | "pro";
+
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
 };
+
+type WorkshopProfileDatabaseRow = {
+  id: string;
+  full_name: string;
+  workshop_name: string;
+  email: string;
+  role: string;
+  plan: UserPlan;
+  created_at: string;
+  updated_at: string;
+};
+
+type DiagnosisUsageDatabaseRow = {
+  id: string;
+  user_id: string;
+  usage_date: string;
+  diagnosis_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type UsageControl = {
+  enabled: boolean;
+  source: "disabled" | "supabase";
+  supabase: SupabaseClient | null;
+  user: User | null;
+  plan: UserPlan;
+  planLabel: string;
+  todayKey: string;
+  countBefore: number;
+  maxDailyDiagnoses: number;
+};
+
+type UsageLimitPayload = {
+  enabled: boolean;
+  source: "disabled" | "supabase";
+  plan: UserPlan;
+  planLabel: string;
+  todayKey: string;
+  countBefore: number;
+  countAfter: number | null;
+  maxDailyDiagnoses: number;
+  remainingBefore: number;
+  remainingAfter: number | null;
+  limitReached: boolean;
+  warning?: string;
+};
+
+const planLabels: Record<UserPlan, string> = {
+  free: "Free",
+  werkstatt: "Werkstatt Demo",
+  pro: "Werkstatt Pro Demo",
+};
+
+const planDailyLimits: Record<UserPlan, number> = {
+  free: 3,
+  werkstatt: 30,
+  pro: 100,
+};
+
+function isValidUserPlan(value: unknown): value is UserPlan {
+  return value === "free" || value === "werkstatt" || value === "pro";
+}
+
+function getTodayKeyGermany() {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
 
 function formatHistory(messages: ChatMessage[]) {
   return messages
@@ -27,6 +106,236 @@ function formatHistory(messages: ChatMessage[]) {
       return `${speaker}: ${message.content}`;
     })
     .join("\n\n");
+}
+
+function normalizeMessages(value: unknown): ChatMessage[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((message) => {
+      return (
+        message &&
+        typeof message === "object" &&
+        (message.role === "user" || message.role === "assistant") &&
+        typeof message.content === "string"
+      );
+    })
+    .map((message) => {
+      return {
+        role: message.role,
+        content: message.content,
+      };
+    });
+}
+
+function createAuthenticatedSupabaseClient(accessToken: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL fehlt in .env.local");
+  }
+
+  if (!supabaseKey) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY oder NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY fehlt in .env.local"
+    );
+  }
+
+  return createSupabaseClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+}
+
+async function loadUserFromAccessToken(
+  supabase: SupabaseClient,
+  accessToken: string
+) {
+  const { data, error } = await supabase.auth.getUser(accessToken);
+
+  if (error) {
+    throw new Error(`Supabase-Session ungültig: ${error.message}`);
+  }
+
+  if (!data.user) {
+    throw new Error("Keine gültige Supabase-Session gefunden.");
+  }
+
+  return data.user;
+}
+
+async function loadUserPlanFromSupabase(
+  supabase: SupabaseClient,
+  user: User
+): Promise<UserPlan> {
+  const { data, error } = await supabase
+    .from("workshop_profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Plan konnte nicht geladen werden: ${error.message}`);
+  }
+
+  if (!data) {
+    return "free";
+  }
+
+  const profile = data as WorkshopProfileDatabaseRow;
+
+  if (!isValidUserPlan(profile.plan)) {
+    return "free";
+  }
+
+  return profile.plan;
+}
+
+async function loadDiagnosisUsageCount(
+  supabase: SupabaseClient,
+  user: User,
+  todayKey: string
+) {
+  const { data, error } = await supabase
+    .from("diagnosis_usage")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("usage_date", todayKey)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Nutzungszähler konnte nicht geladen werden: ${error.message}`
+    );
+  }
+
+  if (!data) {
+    return 0;
+  }
+
+  const usageRow = data as DiagnosisUsageDatabaseRow;
+
+  return usageRow.diagnosis_count || 0;
+}
+
+async function saveDiagnosisUsageCount(
+  supabase: SupabaseClient,
+  user: User,
+  todayKey: string,
+  nextCount: number
+) {
+  const { data, error } = await supabase
+    .from("diagnosis_usage")
+    .upsert(
+      {
+        user_id: user.id,
+        usage_date: todayKey,
+        diagnosis_count: nextCount,
+      },
+      {
+        onConflict: "user_id,usage_date",
+      }
+    )
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(
+      `Nutzungszähler konnte nicht gespeichert werden: ${error.message}`
+    );
+  }
+
+  const usageRow = data as DiagnosisUsageDatabaseRow;
+
+  return usageRow.diagnosis_count || nextCount;
+}
+
+async function resolveUsageControl(
+  accessToken: string,
+  useServerUsageTracking: boolean
+): Promise<UsageControl> {
+  const todayKey = getTodayKeyGermany();
+
+  if (!useServerUsageTracking) {
+    return {
+      enabled: false,
+      source: "disabled",
+      supabase: null,
+      user: null,
+      plan: "free",
+      planLabel: planLabels.free,
+      todayKey,
+      countBefore: 0,
+      maxDailyDiagnoses: planDailyLimits.free,
+    };
+  }
+
+  if (!accessToken) {
+    throw new Error(
+      "Für serverseitige Plan-Limits fehlt der Supabase-Zugriffstoken."
+    );
+  }
+
+  const supabase = createAuthenticatedSupabaseClient(accessToken);
+  const user = await loadUserFromAccessToken(supabase, accessToken);
+  const plan = await loadUserPlanFromSupabase(supabase, user);
+  const countBefore = await loadDiagnosisUsageCount(supabase, user, todayKey);
+
+  return {
+    enabled: true,
+    source: "supabase",
+    supabase,
+    user,
+    plan,
+    planLabel: planLabels[plan],
+    todayKey,
+    countBefore,
+    maxDailyDiagnoses: planDailyLimits[plan],
+  };
+}
+
+function buildUsageLimitPayload(
+  usageControl: UsageControl,
+  countAfter: number | null,
+  warning?: string
+): UsageLimitPayload {
+  const effectiveCountAfter = countAfter ?? null;
+
+  return {
+    enabled: usageControl.enabled,
+    source: usageControl.source,
+    plan: usageControl.plan,
+    planLabel: usageControl.planLabel,
+    todayKey: usageControl.todayKey,
+    countBefore: usageControl.countBefore,
+    countAfter: effectiveCountAfter,
+    maxDailyDiagnoses: usageControl.maxDailyDiagnoses,
+    remainingBefore: Math.max(
+      usageControl.maxDailyDiagnoses - usageControl.countBefore,
+      0
+    ),
+    remainingAfter:
+      effectiveCountAfter === null
+        ? null
+        : Math.max(usageControl.maxDailyDiagnoses - effectiveCountAfter, 0),
+    limitReached:
+      usageControl.enabled &&
+      usageControl.countBefore >= usageControl.maxDailyDiagnoses,
+    warning,
+  };
 }
 
 function termHasNegationContext(text: string, term: string) {
@@ -244,10 +553,12 @@ ${input}
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
     const input = body.input;
-    const messages = Array.isArray(body.messages)
-      ? (body.messages as ChatMessage[])
-      : [];
+    const messages = normalizeMessages(body.messages);
+    const accessToken =
+      typeof body.accessToken === "string" ? body.accessToken : "";
+    const useServerUsageTracking = body.useServerUsageTracking === true;
 
     if (!input || typeof input !== "string") {
       return NextResponse.json(
@@ -256,7 +567,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const combinedContext = `${formatHistory(messages)}\n\nAktuelle Eingabe: ${input}`;
+    const usageControl = await resolveUsageControl(
+      accessToken,
+      useServerUsageTracking
+    );
+
+    if (
+      usageControl.enabled &&
+      usageControl.countBefore >= usageControl.maxDailyDiagnoses
+    ) {
+      return NextResponse.json(
+        {
+          error: `Tageslimit erreicht. Dein aktueller Plan ${usageControl.planLabel} erlaubt ${usageControl.maxDailyDiagnoses} Diagnosen pro Tag.`,
+          usageLimit: buildUsageLimitPayload(usageControl, null),
+        },
+        { status: 429 }
+      );
+    }
+
+    const combinedContext = `${formatHistory(
+      messages
+    )}\n\nAktuelle Eingabe: ${input}`;
     const engineContext = detectEngineContext(combinedContext);
     const faultCodeContext = detectFaultCodeContext(combinedContext);
 
@@ -287,18 +618,43 @@ Bei Benziner keine Glühkerzen oder Glühsteuergerät als Ursache oder Prüfpunk
       );
     }
 
+    let countAfter: number | null = null;
+    let usageWarning: string | undefined;
+
+    if (usageControl.enabled && usageControl.supabase && usageControl.user) {
+      try {
+        countAfter = await saveDiagnosisUsageCount(
+          usageControl.supabase,
+          usageControl.user,
+          usageControl.todayKey,
+          usageControl.countBefore + 1
+        );
+      } catch (error) {
+        console.error("Serverseitige Nutzung konnte nicht erhöht werden:", error);
+        usageWarning =
+          "Diagnose wurde erstellt, aber der serverseitige Nutzungszähler konnte nicht aktualisiert werden.";
+      }
+    }
+
     return NextResponse.json({
       result,
       engineContext,
       faultCodeContext,
       qualityCheck,
+      usageLimit: buildUsageLimitPayload(
+        usageControl,
+        countAfter,
+        usageWarning
+      ),
     });
   } catch (error) {
     console.error("KI-Diagnosefehler:", error);
 
-    return NextResponse.json(
-      { error: "Die KI-Diagnose konnte nicht erstellt werden." },
-      { status: 500 }
-    );
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Die KI-Diagnose konnte nicht erstellt werden.";
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

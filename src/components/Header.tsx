@@ -1,10 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import ThemeToggle from "@/components/ThemeToggle";
+import { createClient } from "@/lib/supabase/client";
 
 type UserPlan = "free" | "werkstatt" | "pro";
+
+type AccountSource = "none" | "localStorage" | "supabase";
 
 type DemoAccount = {
   name: string;
@@ -13,6 +17,18 @@ type DemoAccount = {
   role: string;
   plan: UserPlan;
   updatedAt: string;
+  supabaseUserId?: string;
+};
+
+type WorkshopProfileDatabaseRow = {
+  id: string;
+  full_name: string;
+  workshop_name: string;
+  email: string;
+  role: string;
+  plan: UserPlan;
+  created_at: string;
+  updated_at: string;
 };
 
 const DEMO_ACCOUNT_STORAGE_KEY = "diagnosehub-demo-account";
@@ -28,71 +44,251 @@ const navigationLinks = [
 const planLabels: Record<UserPlan, string> = {
   free: "Free",
   werkstatt: "Werkstatt Demo",
-  pro: "Pro Demo",
+  pro: "Werkstatt Pro Demo",
+};
+
+const accountSourceLabels: Record<AccountSource, string> = {
+  none: "Kein Account",
+  localStorage: "Lokal",
+  supabase: "Supabase",
 };
 
 function isValidUserPlan(value: string | null): value is UserPlan {
   return value === "free" || value === "werkstatt" || value === "pro";
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unbekannter Fehler";
+}
+
+function readLocalAccount(): DemoAccount | null {
+  try {
+    const savedAccount = localStorage.getItem(DEMO_ACCOUNT_STORAGE_KEY);
+
+    if (!savedAccount) {
+      return null;
+    }
+
+    return JSON.parse(savedAccount) as DemoAccount;
+  } catch (error) {
+    console.error("Lokaler Account konnte nicht gelesen werden:", error);
+    return null;
+  }
+}
+
+function readLocalPlan(): UserPlan {
+  try {
+    const savedPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
+
+    if (isValidUserPlan(savedPlan)) {
+      return savedPlan;
+    }
+
+    const savedAccount = readLocalAccount();
+
+    if (savedAccount && isValidUserPlan(savedAccount.plan)) {
+      return savedAccount.plan;
+    }
+  } catch (error) {
+    console.error("Lokaler Plan konnte nicht gelesen werden:", error);
+  }
+
+  return "free";
+}
+
+function syncProfileToLocalStorage(profile: WorkshopProfileDatabaseRow) {
+  const localAccount: DemoAccount = {
+    name: profile.full_name,
+    workshop: profile.workshop_name,
+    email: profile.email,
+    role: profile.role,
+    plan: profile.plan,
+    updatedAt: profile.updated_at,
+    supabaseUserId: profile.id,
+  };
+
+  localStorage.setItem(DEMO_ACCOUNT_STORAGE_KEY, JSON.stringify(localAccount));
+  localStorage.setItem(USER_PLAN_STORAGE_KEY, profile.plan);
+}
+
+function convertProfileToDemoAccount(
+  profile: WorkshopProfileDatabaseRow
+): DemoAccount {
+  return {
+    name: profile.full_name,
+    workshop: profile.workshop_name,
+    email: profile.email,
+    role: profile.role,
+    plan: profile.plan,
+    updatedAt: profile.updated_at,
+    supabaseUserId: profile.id,
+  };
+}
+
 function Header() {
+  const supabase = useMemo(() => createClient(), []);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [demoAccount, setDemoAccount] = useState<DemoAccount | null>(null);
   const [userPlan, setUserPlan] = useState<UserPlan>("free");
+  const [accountSource, setAccountSource] = useState<AccountSource>("none");
+  const [accountLoading, setAccountLoading] = useState(true);
 
   function closeMobileMenu() {
     setMobileMenuOpen(false);
   }
 
-  function loadAccountState() {
-    try {
-      const savedAccount = localStorage.getItem(DEMO_ACCOUNT_STORAGE_KEY);
-      const savedPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
+  function applyLocalFallback() {
+    const localAccount = readLocalAccount();
+    const localPlan = readLocalPlan();
 
-      if (isValidUserPlan(savedPlan)) {
-        setUserPlan(savedPlan);
-      } else {
-        setUserPlan("free");
+    setDemoAccount(localAccount);
+    setUserPlan(localAccount?.plan || localPlan);
+
+    if (localAccount) {
+      setAccountSource("localStorage");
+    } else {
+      setAccountSource("none");
+    }
+  }
+
+  async function loadAccountState(existingSession?: Session | null) {
+    setAccountLoading(true);
+
+    try {
+      applyLocalFallback();
+
+      const session =
+        existingSession ??
+        (await supabase.auth.getSession()).data.session ??
+        null;
+
+      if (!session?.user) {
+        setAccountLoading(false);
+        return;
       }
 
-      if (savedAccount) {
-        const parsedAccount = JSON.parse(savedAccount) as DemoAccount;
+      const { data, error } = await supabase
+        .from("workshop_profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .maybeSingle();
 
-        setDemoAccount(parsedAccount);
+      if (error) {
+        console.error(
+          "Header-Profil konnte nicht aus Supabase geladen werden:",
+          error.message
+        );
 
-        if (isValidUserPlan(parsedAccount.plan)) {
-          setUserPlan(parsedAccount.plan);
+        const localPlan = readLocalPlan();
+        const localAccount = readLocalAccount();
+
+        if (localAccount) {
+          setDemoAccount({
+            ...localAccount,
+            email: session.user.email || localAccount.email,
+            supabaseUserId: session.user.id,
+          });
+          setUserPlan(localAccount.plan || localPlan);
+          setAccountSource("localStorage");
+        } else {
+          setDemoAccount({
+            name: "Supabase Nutzer",
+            workshop: "Profil unvollständig",
+            email: session.user.email || "nicht hinterlegt",
+            role: "Werkstatt",
+            plan: localPlan,
+            updatedAt: new Date().toISOString(),
+            supabaseUserId: session.user.id,
+          });
+          setUserPlan(localPlan);
+          setAccountSource("localStorage");
         }
 
         return;
       }
 
-      setDemoAccount(null);
+      if (!data) {
+        const localPlan = readLocalPlan();
+        const localAccount = readLocalAccount();
+
+        if (localAccount) {
+          setDemoAccount({
+            ...localAccount,
+            email: session.user.email || localAccount.email,
+            supabaseUserId: session.user.id,
+          });
+          setUserPlan(localAccount.plan || localPlan);
+          setAccountSource("localStorage");
+          return;
+        }
+
+        setDemoAccount({
+          name: "Supabase Nutzer",
+          workshop: "Profil noch nicht gespeichert",
+          email: session.user.email || "nicht hinterlegt",
+          role: "Werkstatt",
+          plan: localPlan,
+          updatedAt: new Date().toISOString(),
+          supabaseUserId: session.user.id,
+        });
+        setUserPlan(localPlan);
+        setAccountSource("localStorage");
+        return;
+      }
+
+      const profile = data as WorkshopProfileDatabaseRow;
+      const nextAccount = convertProfileToDemoAccount(profile);
+
+      setDemoAccount(nextAccount);
+      setUserPlan(profile.plan);
+      setAccountSource("supabase");
+      syncProfileToLocalStorage(profile);
     } catch (error) {
-      console.error("Accountstatus konnte nicht geladen werden:", error);
-      setDemoAccount(null);
-      setUserPlan("free");
+      console.error("Header-Accountstatus konnte nicht geladen werden:", error);
+      console.error(getErrorMessage(error));
+      applyLocalFallback();
+    } finally {
+      setAccountLoading(false);
     }
   }
 
   useEffect(() => {
-    loadAccountState();
+    void loadAccountState();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      async (_event: AuthChangeEvent, nextSession: Session | null) => {
+        await loadAccountState(nextSession);
+      }
+    );
 
     function handleStorageChange() {
-      loadAccountState();
+      void loadAccountState();
+    }
+
+    function handleFocus() {
+      void loadAccountState();
     }
 
     window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("focus", handleStorageChange);
+    window.addEventListener("focus", handleFocus);
 
     return () => {
+      subscription.unsubscribe();
       window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("focus", handleStorageChange);
+      window.removeEventListener("focus", handleFocus);
     };
-  }, []);
+  }, [supabase]);
 
   const accountLabel = demoAccount?.workshop || "Kein Account";
   const planLabel = planLabels[userPlan];
+  const sourceLabel = accountSourceLabels[accountSource];
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-xl">
@@ -152,11 +348,26 @@ function Header() {
             >
               {demoAccount ? (
                 <span className="flex items-center gap-2">
-                  <span className="max-w-40 truncate">{accountLabel}</span>
+                  <span className="max-w-40 truncate">
+                    {accountLoading ? "Lädt..." : accountLabel}
+                  </span>
+
                   <span className="rounded-full bg-slate-950/70 px-2 py-0.5 text-xs">
                     {planLabel}
                   </span>
+
+                  <span
+                    className={
+                      accountSource === "supabase"
+                        ? "rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs text-green-300"
+                        : "rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-xs text-yellow-300"
+                    }
+                  >
+                    {sourceLabel}
+                  </span>
                 </span>
+              ) : accountLoading ? (
+                "Lädt..."
               ) : (
                 "Login"
               )}
@@ -205,8 +416,32 @@ function Header() {
                   <p className="text-sm font-semibold uppercase tracking-wide text-blue-300">
                     Aktiver Account
                   </p>
-                  <p className="mt-2 font-bold text-white">{accountLabel}</p>
-                  <p className="mt-1 text-sm text-slate-400">{planLabel}</p>
+
+                  <p className="mt-2 font-bold text-white">
+                    {accountLoading ? "Lädt..." : accountLabel}
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-slate-950/70 px-3 py-1 text-xs font-semibold text-slate-300">
+                      {planLabel}
+                    </span>
+
+                    <span
+                      className={
+                        accountSource === "supabase"
+                          ? "rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-300"
+                          : "rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-300"
+                      }
+                    >
+                      {sourceLabel}
+                    </span>
+                  </div>
+
+                  {demoAccount.email && (
+                    <p className="mt-2 break-words text-sm text-slate-400">
+                      {demoAccount.email}
+                    </p>
+                  )}
                 </a>
               )}
 
