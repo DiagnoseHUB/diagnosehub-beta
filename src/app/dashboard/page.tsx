@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -9,9 +9,6 @@ import {
   deleteDiagnosisCaseFromSupabase,
   loadDiagnosisCasesFromSupabase,
   migrateLocalDiagnosisCasesToSupabase,
-  type ChatMessage,
-  type EngineContext,
-  type FaultCodeContext,
   type SavedDiagnosisCase,
 } from "@/services/diagnosisCasesSupabase";
 import {
@@ -21,8 +18,18 @@ import {
   resetDiagnosisUsageInSupabase,
   type DiagnosisUsage,
 } from "@/services/diagnosisUsageSupabase";
+import {
+  deletePremiumLeadFromSupabase,
+  loadPremiumLeadsFromSupabase,
+  migrateLocalPremiumLeadsToSupabase,
+  type PremiumLead,
+  type PremiumPlan,
+} from "@/services/premiumLeadsSupabase";
 
 type UserPlan = "free" | "werkstatt" | "pro";
+
+type DataSource = "local" | "supabase";
+type ProfileSource = "localStorage" | "supabase" | "fallback";
 
 type DemoAccount = {
   name: string;
@@ -34,7 +41,7 @@ type DemoAccount = {
   supabaseUserId?: string;
 };
 
-type WorkshopProfile = {
+type WorkshopProfileDatabaseRow = {
   id: string;
   full_name: string;
   workshop_name: string;
@@ -45,96 +52,266 @@ type WorkshopProfile = {
   updated_at: string;
 };
 
-type CurrentDiagnosisCase = {
-  messages: ChatMessage[];
-  engineContext: EngineContext | null;
-  faultCodeContext: FaultCodeContext | null;
-  qualityCheck: string;
-  openedCaseId?: string | null;
-};
-
-type PremiumLead = {
-  id: string;
-  createdAt: string;
-  plan: "werkstatt" | "pro";
+type WorkshopData = {
   name: string;
   workshop: string;
   email: string;
-  phone: string;
-  note: string;
+  role: string;
+  plan: UserPlan;
+  updatedAt: string;
+  source: ProfileSource;
 };
-
-type CaseStorageSource = "local" | "supabase";
-type UsageStorageSource = "local" | "supabase";
 
 const DEMO_ACCOUNT_STORAGE_KEY = "diagnosehub-demo-account";
 const USER_PLAN_STORAGE_KEY = "diagnosehub-user-plan";
-const DIAGNOSIS_USAGE_STORAGE_KEY = "diagnosehub-diagnosis-usage";
 const SAVED_CASES_STORAGE_KEY = "diagnosehub-saved-cases";
 const CURRENT_CASE_STORAGE_KEY = "diagnosehub-current-case";
+const DIAGNOSIS_USAGE_STORAGE_KEY = "diagnosehub-diagnosis-usage";
 const PREMIUM_LEADS_STORAGE_KEY = "diagnosehub-premium-leads";
 
-const planLimits: Record<
-  UserPlan,
-  {
-    label: string;
-    badge: string;
-    dailyLimit: number;
-    savedCaseLimit: number;
-    description: string;
-  }
-> = {
-  free: {
-    label: "Free",
-    badge: "Kostenlos",
-    dailyLimit: 3,
-    savedCaseLimit: 3,
-    description: "Für Tests und einzelne Diagnosefälle.",
-  },
-  werkstatt: {
-    label: "Werkstatt Demo",
-    badge: "Premium Demo",
-    dailyLimit: 50,
-    savedCaseLimit: 25,
-    description: "Vorbereitung für den späteren Werkstatt-Zugang.",
-  },
-  pro: {
-    label: "Werkstatt Pro Demo",
-    badge: "Pro Demo",
-    dailyLimit: 150,
-    savedCaseLimit: 100,
-    description: "Vorbereitung für größere Betriebe.",
-  },
+const legacyUsageStorageKeys = [
+  "diagnosehub-diagnosis-usage",
+  "diagnosehub-usage",
+];
+
+const planLabels: Record<UserPlan, string> = {
+  free: "Free",
+  werkstatt: "Werkstatt Demo",
+  pro: "Werkstatt Pro Demo",
 };
 
-const premiumLeadPlanLabels: Record<"werkstatt" | "pro", string> = {
+const planDailyLimits: Record<UserPlan, number> = {
+  free: 3,
+  werkstatt: 30,
+  pro: 100,
+};
+
+const planSavedCaseLimits: Record<UserPlan, number> = {
+  free: 3,
+  werkstatt: 25,
+  pro: 100,
+};
+
+const premiumLeadPlanLabels: Record<PremiumPlan, string> = {
   werkstatt: "Werkstatt",
-  pro: "Werkstatt Pro",
+  pro: "Pro",
+};
+
+const dataSourceLabels: Record<DataSource, string> = {
+  local: "Lokal",
+  supabase: "Supabase",
+};
+
+const profileSourceLabels: Record<ProfileSource, string> = {
+  localStorage: "Lokaler Fallback",
+  supabase: "Supabase Datenbank",
+  fallback: "Fallback",
+};
+
+const defaultWorkshopData: WorkshopData = {
+  name: "Nicht hinterlegt",
+  workshop: "Nicht hinterlegt",
+  email: "Nicht hinterlegt",
+  role: "Werkstatt",
+  plan: "free",
+  updatedAt: "",
+  source: "fallback",
 };
 
 function isValidUserPlan(value: string | null): value is UserPlan {
   return value === "free" || value === "werkstatt" || value === "pro";
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value?: string) {
   if (!value) {
-    return "";
+    return "nicht vorhanden";
   }
 
-  return new Date(value).toLocaleString("de-DE", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+  try {
+    return new Date(value).toLocaleString("de-DE", {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+  } catch {
+    return value;
+  }
 }
 
-function getLatestCase(savedCases: SavedDiagnosisCase[]) {
-  if (savedCases.length === 0) {
-    return null;
+function formatDate(value?: string) {
+  if (!value) {
+    return "nicht vorhanden";
   }
 
-  return [...savedCases].sort((a, b) => {
-    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-  })[0];
+  try {
+    return new Date(value).toLocaleDateString("de-DE", {
+      dateStyle: "medium",
+    });
+  } catch {
+    return value;
+  }
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unbekannter Fehler";
+}
+
+function loadLocalAccount(): DemoAccount | null {
+  try {
+    const savedAccount = localStorage.getItem(DEMO_ACCOUNT_STORAGE_KEY);
+
+    if (!savedAccount) {
+      return null;
+    }
+
+    return JSON.parse(savedAccount) as DemoAccount;
+  } catch (error) {
+    console.error("Lokaler Account konnte nicht geladen werden:", error);
+    return null;
+  }
+}
+
+function getLocalPlan(): UserPlan {
+  try {
+    const savedPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
+
+    if (isValidUserPlan(savedPlan)) {
+      return savedPlan;
+    }
+
+    const localAccount = loadLocalAccount();
+
+    if (localAccount && isValidUserPlan(localAccount.plan)) {
+      return localAccount.plan;
+    }
+  } catch (error) {
+    console.error("Lokaler Plan konnte nicht geladen werden:", error);
+  }
+
+  return "free";
+}
+
+function getLocalWorkshopData(): WorkshopData {
+  const localAccount = loadLocalAccount();
+  const localPlan = getLocalPlan();
+
+  if (!localAccount) {
+    return {
+      ...defaultWorkshopData,
+      plan: localPlan,
+      source: localPlan === "free" ? "fallback" : "localStorage",
+    };
+  }
+
+  return {
+    name: localAccount.name || defaultWorkshopData.name,
+    workshop: localAccount.workshop || defaultWorkshopData.workshop,
+    email: localAccount.email || defaultWorkshopData.email,
+    role: localAccount.role || defaultWorkshopData.role,
+    plan: isValidUserPlan(localAccount.plan) ? localAccount.plan : localPlan,
+    updatedAt: localAccount.updatedAt || "",
+    source: "localStorage",
+  };
+}
+
+function syncWorkshopProfileToLocalStorage(profile: WorkshopProfileDatabaseRow) {
+  const localAccount: DemoAccount = {
+    name: profile.full_name,
+    workshop: profile.workshop_name,
+    email: profile.email,
+    role: profile.role,
+    plan: profile.plan,
+    updatedAt: profile.updated_at,
+    supabaseUserId: profile.id,
+  };
+
+  localStorage.setItem(DEMO_ACCOUNT_STORAGE_KEY, JSON.stringify(localAccount));
+  localStorage.setItem(USER_PLAN_STORAGE_KEY, profile.plan);
+}
+
+function loadLocalDiagnosisCases(): SavedDiagnosisCase[] {
+  try {
+    const savedCases = localStorage.getItem(SAVED_CASES_STORAGE_KEY);
+
+    if (!savedCases) {
+      return [];
+    }
+
+    const parsedCases = JSON.parse(savedCases);
+
+    if (!Array.isArray(parsedCases)) {
+      return [];
+    }
+
+    return parsedCases as SavedDiagnosisCase[];
+  } catch (error) {
+    console.error("Lokale Diagnosefälle konnten nicht geladen werden:", error);
+    return [];
+  }
+}
+
+function saveDiagnosisCasesToLocalStorage(cases: SavedDiagnosisCase[]) {
+  localStorage.setItem(SAVED_CASES_STORAGE_KEY, JSON.stringify(cases));
+}
+
+function loadLocalDiagnosisUsage(): DiagnosisUsage {
+  try {
+    for (const storageKey of legacyUsageStorageKeys) {
+      const savedUsage = localStorage.getItem(storageKey);
+
+      if (!savedUsage) {
+        continue;
+      }
+
+      const parsedUsage = JSON.parse(savedUsage) as Partial<DiagnosisUsage>;
+
+      if (
+        typeof parsedUsage.date === "string" &&
+        typeof parsedUsage.count === "number"
+      ) {
+        return normalizeDiagnosisUsage({
+          date: parsedUsage.date,
+          count: parsedUsage.count,
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Lokale Nutzung konnte nicht geladen werden:", error);
+  }
+
+  return getInitialDiagnosisUsage();
+}
+
+function saveDiagnosisUsageToLocalStorage(usage: DiagnosisUsage) {
+  localStorage.setItem(DIAGNOSIS_USAGE_STORAGE_KEY, JSON.stringify(usage));
+}
+
+function loadLocalPremiumLeads(): PremiumLead[] {
+  try {
+    const savedLeads = localStorage.getItem(PREMIUM_LEADS_STORAGE_KEY);
+
+    if (!savedLeads) {
+      return [];
+    }
+
+    const parsedLeads = JSON.parse(savedLeads);
+
+    if (!Array.isArray(parsedLeads)) {
+      return [];
+    }
+
+    return parsedLeads as PremiumLead[];
+  } catch (error) {
+    console.error("Lokale Premium-Vormerkungen konnten nicht geladen werden:", error);
+    return [];
+  }
+}
+
+function savePremiumLeadsToLocalStorage(leads: PremiumLead[]) {
+  localStorage.setItem(PREMIUM_LEADS_STORAGE_KEY, JSON.stringify(leads));
 }
 
 function getFaultCodeText(savedCase: SavedDiagnosisCase) {
@@ -147,68 +324,128 @@ function getFaultCodeText(savedCase: SavedDiagnosisCase) {
   return firstCode;
 }
 
-function convertProfileToLocalAccount(
-  profile: WorkshopProfile,
-  userId: string
-): DemoAccount {
-  return {
-    name: profile.full_name,
-    workshop: profile.workshop_name,
-    email: profile.email,
-    role: profile.role,
-    plan: profile.plan,
-    updatedAt: profile.updated_at,
-    supabaseUserId: userId,
-  };
-}
-
-function loadLocalSavedCases() {
-  try {
-    const savedCaseList = localStorage.getItem(SAVED_CASES_STORAGE_KEY);
-
-    if (!savedCaseList) {
-      return [];
-    }
-
-    const parsedSavedCases = JSON.parse(savedCaseList);
-
-    if (!Array.isArray(parsedSavedCases)) {
-      return [];
-    }
-
-    return parsedSavedCases as SavedDiagnosisCase[];
-  } catch (error) {
-    console.error("Lokale Fälle konnten nicht gelesen werden:", error);
-    return [];
-  }
-}
-
-function saveCasesToLocalStorage(savedCases: SavedDiagnosisCase[]) {
-  localStorage.setItem(SAVED_CASES_STORAGE_KEY, JSON.stringify(savedCases));
-}
-
-function saveUsageToLocalStorage(usage: DiagnosisUsage) {
-  localStorage.setItem(DIAGNOSIS_USAGE_STORAGE_KEY, JSON.stringify(usage));
-}
-
-function StatCard({
-  label,
+function DashboardCard({
+  title,
   value,
-  subtext,
+  description,
+  children,
 }: {
-  label: string;
-  value: string;
-  subtext: string;
+  title: string;
+  value: ReactNode;
+  description?: string;
+  children?: ReactNode;
 }) {
   return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-      <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-        {label}
+    <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-lg shadow-blue-950/20">
+      <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        {title}
       </p>
 
-      <p className="mt-4 text-4xl font-black text-white">{value}</p>
+      <div className="mt-3 text-3xl font-black text-white">{value}</div>
 
-      <p className="mt-3 leading-7 text-slate-400">{subtext}</p>
+      {description && (
+        <p className="mt-3 leading-7 text-slate-400">{description}</p>
+      )}
+
+      {children && <div className="mt-5">{children}</div>}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  description,
+  right,
+  children,
+}: {
+  title: string;
+  description?: string;
+  right?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6 shadow-xl shadow-blue-950/20">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-2xl font-black text-white">{title}</h2>
+          {description && (
+            <p className="mt-2 max-w-3xl leading-7 text-slate-400">
+              {description}
+            </p>
+          )}
+        </div>
+
+        {right && <div className="flex flex-wrap gap-3">{right}</div>}
+      </div>
+
+      <div className="mt-6">{children}</div>
+    </section>
+  );
+}
+
+function SourceBadge({ source }: { source: DataSource }) {
+  return (
+    <span
+      className={
+        source === "supabase"
+          ? "rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-green-300"
+          : "rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-300"
+      }
+    >
+      {dataSourceLabels[source]}
+    </span>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-950/60 p-8 text-center text-slate-400">
+      {text}
+    </div>
+  );
+}
+
+function LoginRequired() {
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      <Header />
+
+      <main className="mx-auto max-w-5xl px-6 py-16">
+        <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-8 shadow-2xl shadow-blue-950/30">
+          <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-400">
+            DiagnoseHUB Dashboard
+          </p>
+
+          <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
+            Bitte einloggen.
+          </h1>
+
+          <p className="mt-5 max-w-3xl leading-8 text-slate-400">
+            Das Dashboard zeigt Werkstattprofil, Supabase-Fallhistorie,
+            Nutzungszähler und Premium-Vormerkungen. Dafür brauchst du eine
+            aktive Supabase-Session. Lokale Alt-Daten werden hier bewusst nicht
+            mehr als Dashboard angezeigt.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a
+              href="/login"
+              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500"
+            >
+              Zum Login
+            </a>
+
+            <a
+              href="/#diagnose"
+              className="rounded-xl border border-slate-700 px-6 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            >
+              Zur Diagnose
+            </a>
+          </div>
+        </section>
+      </main>
+
+      <Footer />
     </div>
   );
 }
@@ -216,50 +453,50 @@ function StatCard({
 export default function DashboardPage() {
   const supabase = useMemo(() => createClient(), []);
 
-  const [session, setSession] = useState<Session | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [databaseProfile, setDatabaseProfile] =
-    useState<WorkshopProfile | null>(null);
+  const [workshopData, setWorkshopData] =
+    useState<WorkshopData>(defaultWorkshopData);
 
-  const [account, setAccount] = useState<DemoAccount | null>(null);
-  const [userPlan, setUserPlan] = useState<UserPlan>("free");
-  const [usage, setUsage] = useState<DiagnosisUsage>(
+  const [diagnosisCases, setDiagnosisCases] = useState<SavedDiagnosisCase[]>(
+    []
+  );
+  const [diagnosisUsage, setDiagnosisUsage] = useState<DiagnosisUsage>(
     getInitialDiagnosisUsage()
   );
-  const [usageStorageSource, setUsageStorageSource] =
-    useState<UsageStorageSource>("local");
-  const [savedCases, setSavedCases] = useState<SavedDiagnosisCase[]>([]);
-  const [caseStorageSource, setCaseStorageSource] =
-    useState<CaseStorageSource>("local");
   const [premiumLeads, setPremiumLeads] = useState<PremiumLead[]>([]);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
+
+  const [caseSource, setCaseSource] = useState<DataSource>("local");
+  const [usageSource, setUsageSource] = useState<DataSource>("local");
+  const [leadSource, setLeadSource] = useState<DataSource>("local");
+
   const [profileLoading, setProfileLoading] = useState(false);
   const [caseLoading, setCaseLoading] = useState(false);
   const [usageLoading, setUsageLoading] = useState(false);
+  const [leadLoading, setLeadLoading] = useState(false);
 
-  const currentPlan = planLimits[userPlan];
-  const normalizedUsage = normalizeDiagnosisUsage(usage);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const normalizedUsage = normalizeDiagnosisUsage(diagnosisUsage);
+  const currentDailyLimit = planDailyLimits[workshopData.plan];
+  const currentSavedCaseLimit = planSavedCaseLimits[workshopData.plan];
 
   const remainingDiagnoses = Math.max(
-    currentPlan.dailyLimit - normalizedUsage.count,
+    currentDailyLimit - normalizedUsage.count,
     0
   );
 
   const remainingSavedCases = Math.max(
-    currentPlan.savedCaseLimit - savedCases.length,
+    currentSavedCaseLimit - diagnosisCases.length,
     0
   );
 
-  const latestCase = useMemo(() => {
-    return getLatestCase(savedCases);
-  }, [savedCases]);
-
   const sortedCases = useMemo(() => {
-    return [...savedCases].sort((a, b) => {
+    return [...diagnosisCases].sort((a, b) => {
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
-  }, [savedCases]);
+  }, [diagnosisCases]);
 
   const sortedLeads = useMemo(() => {
     return [...premiumLeads].sort((a, b) => {
@@ -267,27 +504,19 @@ export default function DashboardPage() {
     });
   }, [premiumLeads]);
 
+  const latestCase = sortedCases[0] || null;
+
+  const isLoading =
+    profileLoading || caseLoading || usageLoading || leadLoading;
+
   useEffect(() => {
-    void loadDashboardData();
+    void loadDashboard();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, nextSession: Session | null) => {
-        setSession(nextSession);
-        setUser(nextSession?.user ?? null);
-
-        if (nextSession?.user) {
-          await loadWorkshopProfile(nextSession.user);
-          await loadSupabaseUsage(nextSession.user);
-          await loadSupabaseCases(nextSession.user, false);
-        } else {
-          setDatabaseProfile(null);
-          setUsageStorageSource("local");
-          loadLocalAccountFallback();
-          loadLocalUsageAndLeads();
-          loadLocalCasesIntoState();
-        }
+        await loadDashboard(nextSession);
       }
     );
 
@@ -296,105 +525,61 @@ export default function DashboardPage() {
     };
   }, [supabase]);
 
-  function showSuccess(message: string) {
-    setSuccess(message);
+  function resetDashboardState() {
+    setWorkshopData(defaultWorkshopData);
+    setDiagnosisCases([]);
+    setDiagnosisUsage(getInitialDiagnosisUsage());
+    setPremiumLeads([]);
+    setCaseSource("local");
+    setUsageSource("local");
+    setLeadSource("local");
+  }
+
+  async function loadDashboard(existingSession?: Session | null) {
     setError("");
-
-    window.setTimeout(() => {
-      setSuccess("");
-    }, 2500);
-  }
-
-  function showError(message: string) {
-    setError(message);
     setSuccess("");
-  }
+    setProfileLoading(true);
+    setCaseLoading(true);
+    setUsageLoading(true);
+    setLeadLoading(true);
 
-  function syncProfileToLocalStorage(profile: WorkshopProfile, userId: string) {
-    const localAccount = convertProfileToLocalAccount(profile, userId);
-
-    setAccount(localAccount);
-    setUserPlan(localAccount.plan);
-    setDatabaseProfile(profile);
-
-    localStorage.setItem(DEMO_ACCOUNT_STORAGE_KEY, JSON.stringify(localAccount));
-    localStorage.setItem(USER_PLAN_STORAGE_KEY, localAccount.plan);
-  }
-
-  function loadLocalAccountFallback() {
     try {
-      const savedAccount = localStorage.getItem(DEMO_ACCOUNT_STORAGE_KEY);
-      const savedPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
+      const session =
+        existingSession ??
+        (await supabase.auth.getSession()).data.session ??
+        null;
 
-      if (savedAccount) {
-        const parsedAccount = JSON.parse(savedAccount) as DemoAccount;
-        setAccount(parsedAccount);
-
-        if (isValidUserPlan(parsedAccount.plan)) {
-          setUserPlan(parsedAccount.plan);
-        }
-
+      if (!session?.user) {
+        setUser(null);
+        resetDashboardState();
+        setAuthChecked(true);
         return;
       }
 
-      setAccount(null);
+      setUser(session.user);
 
-      if (isValidUserPlan(savedPlan)) {
-        setUserPlan(savedPlan);
-      } else {
-        setUserPlan("free");
-      }
+      await Promise.all([
+        loadWorkshopProfile(session.user),
+        loadSupabaseCases(session.user, false),
+        loadSupabaseUsage(session.user),
+        loadSupabasePremiumLeads(session.user, false),
+      ]);
+
+      setAuthChecked(true);
     } catch (error) {
-      console.error("Lokaler Account konnte nicht geladen werden:", error);
-      setAccount(null);
-      setUserPlan("free");
+      console.error("Dashboard konnte nicht geladen werden:", error);
+      setError(`Dashboard konnte nicht geladen werden: ${getErrorMessage(error)}`);
+      setAuthChecked(true);
+    } finally {
+      setProfileLoading(false);
+      setCaseLoading(false);
+      setUsageLoading(false);
+      setLeadLoading(false);
     }
-  }
-
-  function loadLocalUsageAndLeads() {
-    try {
-      const savedUsage = localStorage.getItem(DIAGNOSIS_USAGE_STORAGE_KEY);
-      const savedLeadList = localStorage.getItem(PREMIUM_LEADS_STORAGE_KEY);
-
-      if (savedUsage) {
-        const parsedUsage = JSON.parse(savedUsage);
-        const normalizedSavedUsage = normalizeDiagnosisUsage({
-          date: parsedUsage.date || getInitialDiagnosisUsage().date,
-          count: Number(parsedUsage.count) || 0,
-        });
-
-        setUsage(normalizedSavedUsage);
-        saveUsageToLocalStorage(normalizedSavedUsage);
-      } else {
-        const initialUsage = getInitialDiagnosisUsage();
-        setUsage(initialUsage);
-        saveUsageToLocalStorage(initialUsage);
-      }
-
-      if (savedLeadList) {
-        const parsedLeads = JSON.parse(savedLeadList);
-
-        if (Array.isArray(parsedLeads)) {
-          setPremiumLeads(parsedLeads);
-        }
-      } else {
-        setPremiumLeads([]);
-      }
-    } catch (error) {
-      console.error("Lokale Dashboard-Daten konnten nicht geladen werden:", error);
-    }
-  }
-
-  function loadLocalCasesIntoState() {
-    const localCases = loadLocalSavedCases();
-
-    setSavedCases(localCases);
-    setCaseStorageSource("local");
   }
 
   async function loadWorkshopProfile(currentUser: User) {
     setProfileLoading(true);
-    setError("");
 
     try {
       const { data, error } = await supabase
@@ -404,56 +589,57 @@ export default function DashboardPage() {
         .maybeSingle();
 
       if (error) {
-        showError(error.message);
-        loadLocalAccountFallback();
-        return;
+        throw new Error(error.message);
       }
 
       if (!data) {
-        setDatabaseProfile(null);
-        loadLocalAccountFallback();
+        const fallbackWorkshopData = getLocalWorkshopData();
+
+        setWorkshopData({
+          ...fallbackWorkshopData,
+          email: currentUser.email || fallbackWorkshopData.email,
+        });
+
         return;
       }
 
-      const profile = data as WorkshopProfile;
+      const profile = data as WorkshopProfileDatabaseRow;
 
-      syncProfileToLocalStorage(profile, currentUser.id);
+      setWorkshopData({
+        name: profile.full_name,
+        workshop: profile.workshop_name,
+        email: profile.email,
+        role: profile.role,
+        plan: profile.plan,
+        updatedAt: profile.updated_at,
+        source: "supabase",
+      });
+
+      syncWorkshopProfileToLocalStorage(profile);
+    } catch (error) {
+      console.error("Werkstattprofil konnte nicht geladen werden:", error);
+      setError(
+        `Werkstattprofil konnte nicht aus Supabase geladen werden: ${getErrorMessage(
+          error
+        )}`
+      );
+
+      const fallbackWorkshopData = getLocalWorkshopData();
+
+      setWorkshopData({
+        ...fallbackWorkshopData,
+        email: currentUser.email || fallbackWorkshopData.email,
+      });
     } finally {
       setProfileLoading(false);
     }
   }
 
-  async function loadSupabaseUsage(currentUser: User) {
-    setUsageLoading(true);
-    setError("");
-
-    try {
-      const remoteUsage = await loadDiagnosisUsageFromSupabase(
-        supabase,
-        currentUser
-      );
-
-      setUsage(remoteUsage);
-      saveUsageToLocalStorage(remoteUsage);
-      setUsageStorageSource("supabase");
-    } catch (error) {
-      console.error("Supabase-Nutzung konnte nicht geladen werden:", error);
-      showError(
-        "Supabase-Nutzung konnte nicht geladen werden. Lokaler Zähler bleibt sichtbar."
-      );
-      setUsageStorageSource("local");
-      loadLocalUsageAndLeads();
-    } finally {
-      setUsageLoading(false);
-    }
-  }
-
   async function loadSupabaseCases(currentUser: User, migrateLocal: boolean) {
     setCaseLoading(true);
-    setError("");
 
     try {
-      const localCases = loadLocalSavedCases();
+      const localCases = loadLocalDiagnosisCases();
 
       if (migrateLocal && localCases.length > 0) {
         await migrateLocalDiagnosisCasesToSupabase(
@@ -468,764 +654,752 @@ export default function DashboardPage() {
         currentUser
       );
 
-      setSavedCases(remoteCases);
-      saveCasesToLocalStorage(remoteCases);
-      setCaseStorageSource("supabase");
+      setDiagnosisCases(remoteCases);
+      saveDiagnosisCasesToLocalStorage(remoteCases);
+      setCaseSource("supabase");
     } catch (error) {
-      console.error("Supabase-Fälle konnten nicht geladen werden:", error);
-      showError(
-        "Supabase-Fälle konnten nicht geladen werden. Lokale Fälle bleiben sichtbar."
+      console.error("Diagnosefälle konnten nicht geladen werden:", error);
+      setError(
+        `Diagnosefälle konnten nicht aus Supabase geladen werden: ${getErrorMessage(
+          error
+        )}`
       );
-      loadLocalCasesIntoState();
+
+      const localCases = loadLocalDiagnosisCases();
+
+      setDiagnosisCases(localCases);
+      setCaseSource("local");
     } finally {
       setCaseLoading(false);
     }
   }
 
-  async function loadDashboardData() {
+  async function loadSupabaseUsage(currentUser: User) {
+    setUsageLoading(true);
+
     try {
-      loadLocalUsageAndLeads();
+      const remoteUsage = await loadDiagnosisUsageFromSupabase(
+        supabase,
+        currentUser
+      );
 
-      const { data: sessionData, error: sessionError } =
-        await supabase.auth.getSession();
-
-      if (sessionError) {
-        showError(sessionError.message);
-      }
-
-      setSession(sessionData.session);
-      setUser(sessionData.session?.user ?? null);
-
-      if (sessionData.session?.user) {
-        await loadWorkshopProfile(sessionData.session.user);
-        await loadSupabaseUsage(sessionData.session.user);
-        await loadSupabaseCases(sessionData.session.user, false);
-      } else {
-        loadLocalAccountFallback();
-        loadLocalCasesIntoState();
-        setUsageStorageSource("local");
-      }
+      setDiagnosisUsage(remoteUsage);
+      saveDiagnosisUsageToLocalStorage(remoteUsage);
+      setUsageSource("supabase");
     } catch (error) {
-      console.error("Dashboard-Daten konnten nicht geladen werden:", error);
-      showError("Dashboard-Daten konnten nicht geladen werden.");
+      console.error("Nutzungszähler konnte nicht geladen werden:", error);
+      setError(
+        `Nutzungszähler konnte nicht aus Supabase geladen werden: ${getErrorMessage(
+          error
+        )}`
+      );
+
+      const localUsage = loadLocalDiagnosisUsage();
+
+      setDiagnosisUsage(localUsage);
+      setUsageSource("local");
+    } finally {
+      setUsageLoading(false);
     }
   }
 
-  function openSavedCase(savedCase: SavedDiagnosisCase) {
-    const currentCase: CurrentDiagnosisCase = {
-      messages: savedCase.messages,
-      engineContext: savedCase.engineContext,
-      faultCodeContext: savedCase.faultCodeContext,
-      qualityCheck: savedCase.qualityCheck,
-      openedCaseId: savedCase.id,
-    };
+  async function loadSupabasePremiumLeads(
+    currentUser: User,
+    migrateLocal: boolean
+  ) {
+    setLeadLoading(true);
 
-    localStorage.setItem(CURRENT_CASE_STORAGE_KEY, JSON.stringify(currentCase));
-    window.location.href = "/#diagnose";
-  }
+    try {
+      const localLeads = loadLocalPremiumLeads();
 
-  async function deleteSavedCase(caseId: string) {
-    if (user && caseStorageSource === "supabase") {
-      setCaseLoading(true);
-
-      try {
-        await deleteDiagnosisCaseFromSupabase(supabase, user, caseId);
-      } catch (error) {
-        console.error("Fall konnte nicht aus Supabase gelöscht werden:", error);
-        showError("Fall konnte nicht aus Supabase gelöscht werden.");
-        setCaseLoading(false);
-        return;
-      } finally {
-        setCaseLoading(false);
-      }
-    }
-
-    const updatedCases = savedCases.filter((savedCase) => {
-      return savedCase.id !== caseId;
-    });
-
-    setSavedCases(updatedCases);
-    saveCasesToLocalStorage(updatedCases);
-
-    const currentCaseRaw = localStorage.getItem(CURRENT_CASE_STORAGE_KEY);
-
-    if (currentCaseRaw) {
-      try {
-        const currentCase = JSON.parse(currentCaseRaw) as CurrentDiagnosisCase;
-
-        if (currentCase.openedCaseId === caseId) {
-          localStorage.removeItem(CURRENT_CASE_STORAGE_KEY);
-        }
-      } catch {
-        localStorage.removeItem(CURRENT_CASE_STORAGE_KEY);
-      }
-    }
-
-    showSuccess(
-      caseStorageSource === "supabase"
-        ? "Diagnosefall wurde aus Supabase gelöscht."
-        : "Diagnosefall wurde lokal gelöscht."
-    );
-  }
-
-  function deletePremiumLead(leadId: string) {
-    const updatedLeads = premiumLeads.filter((lead) => {
-      return lead.id !== leadId;
-    });
-
-    setPremiumLeads(updatedLeads);
-    localStorage.setItem(PREMIUM_LEADS_STORAGE_KEY, JSON.stringify(updatedLeads));
-    showSuccess("Premium-Vormerkung wurde gelöscht.");
-  }
-
-  async function resetDailyUsage() {
-    if (user && usageStorageSource === "supabase") {
-      setUsageLoading(true);
-
-      try {
-        const nextUsage = await resetDiagnosisUsageInSupabase(supabase, user);
-
-        setUsage(nextUsage);
-        saveUsageToLocalStorage(nextUsage);
-        setUsageStorageSource("supabase");
-        showSuccess("Supabase-Tagesnutzung wurde zurückgesetzt.");
-      } catch (error) {
-        console.error("Supabase-Nutzung konnte nicht zurückgesetzt werden:", error);
-        showError("Supabase-Nutzung konnte nicht zurückgesetzt werden.");
-      } finally {
-        setUsageLoading(false);
+      if (migrateLocal && localLeads.length > 0) {
+        await migrateLocalPremiumLeadsToSupabase(
+          supabase,
+          currentUser,
+          localLeads
+        );
       }
 
-      return;
+      const remoteLeads = await loadPremiumLeadsFromSupabase(
+        supabase,
+        currentUser
+      );
+
+      setPremiumLeads(remoteLeads);
+      savePremiumLeadsToLocalStorage(remoteLeads);
+      setLeadSource("supabase");
+    } catch (error) {
+      console.error("Premium-Vormerkungen konnten nicht geladen werden:", error);
+      setError(
+        `Premium-Vormerkungen konnten nicht aus Supabase geladen werden: ${getErrorMessage(
+          error
+        )}`
+      );
+
+      const localLeads = loadLocalPremiumLeads();
+
+      setPremiumLeads(localLeads);
+      setLeadSource("local");
+    } finally {
+      setLeadLoading(false);
     }
-
-    const nextUsage = getInitialDiagnosisUsage();
-
-    setUsage(nextUsage);
-    saveUsageToLocalStorage(nextUsage);
-    setUsageStorageSource("local");
-    showSuccess("Lokale Tagesnutzung wurde zurückgesetzt.");
   }
 
-  function clearCurrentCase() {
-    localStorage.removeItem(CURRENT_CASE_STORAGE_KEY);
-    showSuccess("Aktuell geöffneter Diagnosefall wurde zurückgesetzt.");
-  }
-
-  async function refreshSupabaseProfile() {
+  async function refreshAllSupabaseData() {
     if (!user) {
-      showError("Kein Supabase-User eingeloggt.");
+      setError("Du bist nicht eingeloggt.");
       return;
     }
 
-    await loadWorkshopProfile(user);
-    showSuccess("Werkstattprofil wurde aus Supabase aktualisiert.");
-  }
+    setSuccess("");
+    setError("");
 
-  async function refreshSupabaseCases() {
-    if (!user) {
-      showError("Kein Supabase-User eingeloggt.");
-      return;
-    }
+    await Promise.all([
+      loadWorkshopProfile(user),
+      loadSupabaseCases(user, false),
+      loadSupabaseUsage(user),
+      loadSupabasePremiumLeads(user, false),
+    ]);
 
-    await loadSupabaseCases(user, false);
-    showSuccess("Diagnosefälle wurden aus Supabase aktualisiert.");
-  }
-
-  async function refreshSupabaseUsage() {
-    if (!user) {
-      showError("Kein Supabase-User eingeloggt.");
-      return;
-    }
-
-    await loadSupabaseUsage(user);
-    showSuccess("Nutzungszähler wurde aus Supabase aktualisiert.");
+    setSuccess("Dashboard wurde aus Supabase neu geladen.");
   }
 
   async function migrateLocalCasesNow() {
     if (!user) {
-      showError("Kein Supabase-User eingeloggt.");
+      setError("Zum Migrieren musst du eingeloggt sein.");
       return;
     }
 
+    setSuccess("");
+    setError("");
+
     await loadSupabaseCases(user, true);
-    showSuccess("Lokale Diagnosefälle wurden nach Supabase migriert.");
+    setSuccess("Lokale Diagnosefälle wurden nach Supabase migriert.");
   }
 
-  function exportDashboardSummary() {
-    const activeWorkshop =
-      databaseProfile?.workshop_name || account?.workshop || "nicht eingerichtet";
+  async function migrateLocalPremiumLeadsNow() {
+    if (!user) {
+      setError("Zum Migrieren musst du eingeloggt sein.");
+      return;
+    }
 
-    const activeName =
-      databaseProfile?.full_name || account?.name || "nicht eingerichtet";
+    setSuccess("");
+    setError("");
 
-    const activeEmail =
-      databaseProfile?.email ||
-      account?.email ||
-      user?.email ||
-      "nicht eingerichtet";
+    await loadSupabasePremiumLeads(user, true);
+    setSuccess("Lokale Premium-Vormerkungen wurden nach Supabase migriert.");
+  }
 
-    const activeRole =
-      databaseProfile?.role || account?.role || "nicht eingerichtet";
+  async function resetUsageCounter() {
+    if (!user) {
+      setError("Zum Zurücksetzen musst du eingeloggt sein.");
+      return;
+    }
 
-    const lines = [
-      "DiagnoseHUB Dashboard Export",
-      "============================",
-      "",
-      `Exportiert am: ${new Date().toLocaleString("de-DE")}`,
-      "",
-      "Supabase",
-      "--------",
-      `Login aktiv: ${user ? "ja" : "nein"}`,
-      `User-ID: ${user?.id || "nicht eingeloggt"}`,
-      "",
-      "Werkstattprofil",
-      "---------------",
-      `Quelle: ${
-        databaseProfile ? "Supabase workshop_profiles" : "localStorage Fallback"
-      }`,
-      `Werkstatt: ${activeWorkshop}`,
-      `Name: ${activeName}`,
-      `E-Mail: ${activeEmail}`,
-      `Rolle: ${activeRole}`,
-      "",
-      "Plan",
-      "----",
-      `Aktiver Plan: ${currentPlan.label}`,
-      `Diagnosen heute: ${normalizedUsage.count} / ${currentPlan.dailyLimit}`,
-      `Nutzungsquelle: ${usageStorageSource}`,
-      `Gespeicherte Fälle: ${savedCases.length} / ${currentPlan.savedCaseLimit}`,
-      `Fallquelle: ${caseStorageSource}`,
-      "",
-      "Gespeicherte Fälle",
-      "-------------------",
-      ...sortedCases.map((savedCase) => {
-        return `${formatDateTime(savedCase.updatedAt)} | ${
-          savedCase.title
-        } | ${getFaultCodeText(savedCase)}`;
-      }),
-      "",
-      "Premium-Vormerkungen",
-      "---------------------",
-      ...sortedLeads.map((lead) => {
-        return `${formatDateTime(lead.createdAt)} | ${
-          premiumLeadPlanLabels[lead.plan]
-        } | ${lead.workshop} | ${lead.email}`;
-      }),
-    ];
+    setSuccess("");
+    setError("");
+    setUsageLoading(true);
 
-    const blob = new Blob([lines.join("\n")], {
-      type: "text/plain;charset=utf-8",
+    try {
+      const nextUsage = await resetDiagnosisUsageInSupabase(supabase, user);
+
+      setDiagnosisUsage(nextUsage);
+      saveDiagnosisUsageToLocalStorage(nextUsage);
+      setUsageSource("supabase");
+      setSuccess("Nutzungszähler wurde in Supabase zurückgesetzt.");
+    } catch (error) {
+      setError(
+        `Nutzungszähler konnte nicht zurückgesetzt werden: ${getErrorMessage(
+          error
+        )}`
+      );
+    } finally {
+      setUsageLoading(false);
+    }
+  }
+
+  async function deleteDiagnosisCase(caseId: string) {
+    setSuccess("");
+    setError("");
+
+    try {
+      if (user && caseSource === "supabase") {
+        await deleteDiagnosisCaseFromSupabase(supabase, user, caseId);
+      }
+
+      const updatedCases = diagnosisCases.filter((diagnosisCase) => {
+        return diagnosisCase.id !== caseId;
+      });
+
+      setDiagnosisCases(updatedCases);
+      saveDiagnosisCasesToLocalStorage(updatedCases);
+
+      const currentCaseRaw = localStorage.getItem(CURRENT_CASE_STORAGE_KEY);
+
+      if (currentCaseRaw) {
+        try {
+          const currentCase = JSON.parse(currentCaseRaw) as {
+            openedCaseId?: string | null;
+          };
+
+          if (currentCase.openedCaseId === caseId) {
+            localStorage.removeItem(CURRENT_CASE_STORAGE_KEY);
+          }
+        } catch {
+          localStorage.removeItem(CURRENT_CASE_STORAGE_KEY);
+        }
+      }
+
+      setSuccess("Diagnosefall wurde gelöscht.");
+    } catch (error) {
+      setError(
+        `Diagnosefall konnte nicht gelöscht werden: ${getErrorMessage(error)}`
+      );
+    }
+  }
+
+  async function deletePremiumLead(leadId: string) {
+    setSuccess("");
+    setError("");
+
+    try {
+      if (user && leadSource === "supabase") {
+        await deletePremiumLeadFromSupabase(supabase, user, leadId);
+      }
+
+      const updatedLeads = premiumLeads.filter((lead) => {
+        return lead.id !== leadId;
+      });
+
+      setPremiumLeads(updatedLeads);
+      savePremiumLeadsToLocalStorage(updatedLeads);
+      setSuccess("Premium-Vormerkung wurde gelöscht.");
+    } catch (error) {
+      setError(
+        `Premium-Vormerkung konnte nicht gelöscht werden: ${getErrorMessage(
+          error
+        )}`
+      );
+    }
+  }
+
+  function openDiagnosisCase(
+    savedCase: SavedDiagnosisCase,
+    target: "diagnose" | "protocol"
+  ) {
+    localStorage.setItem(
+      CURRENT_CASE_STORAGE_KEY,
+      JSON.stringify({
+        messages: savedCase.messages,
+        engineContext: savedCase.engineContext,
+        faultCodeContext: savedCase.faultCodeContext,
+        qualityCheck: savedCase.qualityCheck,
+        openedCaseId: savedCase.id,
+      })
+    );
+
+    if (target === "protocol") {
+      window.location.href = "/pruefprotokoll";
+      return;
+    }
+
+    window.location.href = "/#diagnose";
+  }
+
+  function clearCurrentCase() {
+    localStorage.removeItem(CURRENT_CASE_STORAGE_KEY);
+    setSuccess("Aktuell geöffneter Diagnosefall wurde zurückgesetzt.");
+    setError("");
+  }
+
+  function exportDashboardData() {
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      user: user
+        ? {
+            id: user.id,
+            email: user.email,
+          }
+        : null,
+      workshopData,
+      sources: {
+        cases: caseSource,
+        usage: usageSource,
+        premiumLeads: leadSource,
+      },
+      diagnosisUsage,
+      diagnosisCases,
+      premiumLeads,
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
     });
 
-    const url = URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    const date = new Date().toISOString().slice(0, 10);
 
     link.href = url;
-    link.download = `diagnosehub-dashboard-${date}.txt`;
+    link.download = `diagnosehub-dashboard-${new Date()
+      .toISOString()
+      .slice(0, 10)}.json`;
+
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    link.remove();
 
-    showSuccess("Dashboard-Export wurde erstellt.");
+    window.URL.revokeObjectURL(url);
   }
 
-  const profileSourceLabel = databaseProfile
-    ? "Supabase Datenbank"
-    : account
-      ? "Lokaler Fallback"
-      : "Kein Profil";
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        <Header />
 
-  const caseSourceLabel =
-    caseStorageSource === "supabase" ? "Supabase Fälle" : "Lokale Fälle";
+        <main className="mx-auto max-w-7xl px-6 py-16">
+          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-8">
+            <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-400">
+              DiagnoseHUB Dashboard
+            </p>
 
-  const usageSourceLabel =
-    usageStorageSource === "supabase" ? "Supabase Nutzung" : "Lokale Nutzung";
+            <h1 className="mt-4 text-4xl font-black">Dashboard wird geladen...</h1>
 
-  const activeWorkshop =
-    databaseProfile?.workshop_name || account?.workshop || null;
+            <p className="mt-4 leading-8 text-slate-400">
+              Supabase-Session wird geprüft.
+            </p>
+          </div>
+        </main>
 
-  const activeName = databaseProfile?.full_name || account?.name || null;
-  const activeEmail = databaseProfile?.email || account?.email || user?.email;
-  const activeRole = databaseProfile?.role || account?.role || null;
-  const activeUpdatedAt = databaseProfile?.updated_at || account?.updatedAt;
+        <Footer />
+      </div>
+    );
+  }
 
-  const isLoading = profileLoading || caseLoading || usageLoading;
+  if (!user) {
+    return <LoginRequired />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <Header />
 
-      <main className="mx-auto max-w-7xl px-6 py-14">
-        <section className="mb-10">
-          <div className="inline-flex rounded-full border border-green-500/30 bg-green-500/10 px-5 py-2 text-sm font-semibold text-green-300">
-            Supabase Dashboard
+      <main className="mx-auto max-w-7xl px-6 py-10">
+        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-400">
+              DiagnoseHUB
+            </p>
+
+            <h1 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">
+              Dashboard
+            </h1>
+
+            <p className="mt-4 max-w-3xl leading-8 text-slate-400">
+              Übersicht über Werkstattprofil, Diagnosefälle, Nutzungszähler und
+              Premium-Vormerkungen. Dieses Dashboard ist nur mit aktivem
+              Supabase-Login sichtbar.
+            </p>
           </div>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.5fr] lg:items-end">
-            <div>
-              <h1 className="text-5xl font-black tracking-tight md:text-6xl">
-                Werkstatt-Übersicht.
-              </h1>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={refreshAllSupabaseData}
+              disabled={isLoading}
+              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isLoading ? "Lädt..." : "Supabase neu laden"}
+            </button>
 
-              <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-400">
-                Dashboard mit Supabase-Werkstattprofil, Supabase-Fallhistorie
-                und Supabase-Nutzungszähler. Premium-Vormerkungen laufen
-                vorerst noch lokal.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3 lg:justify-end">
-              <button
-                onClick={() => void loadDashboardData()}
-                disabled={isLoading}
-                className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isLoading ? "Lädt..." : "Aktualisieren"}
-              </button>
-
-              <button
-                onClick={exportDashboardSummary}
-                className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-5 py-3 font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
-              >
-                Export TXT
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={exportDashboardData}
+              className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-5 py-3 font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
+            >
+              Export JSON
+            </button>
           </div>
-        </section>
-
-        {success && (
-          <div className="mb-8 rounded-xl border border-green-500/30 bg-green-500/10 px-6 py-4 text-green-300">
-            {success}
-          </div>
-        )}
+        </div>
 
         {error && (
-          <div className="mb-8 rounded-xl border border-red-500/30 bg-red-500/10 px-6 py-4 text-red-300">
+          <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 leading-7 text-red-300">
             {error}
           </div>
         )}
 
-        <section className="mb-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Aktiver Plan"
-            value={currentPlan.label}
-            subtext={currentPlan.description}
+        {success && (
+          <div className="mb-6 rounded-2xl border border-green-500/30 bg-green-500/10 px-5 py-4 leading-7 text-green-300">
+            {success}
+          </div>
+        )}
+
+        <div className="mb-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <DashboardCard
+            title="Account"
+            value="Eingeloggt"
+            description={user.email || "Supabase-Session aktiv"}
           />
 
-          <StatCard
-            label="Diagnosen heute"
-            value={`${normalizedUsage.count}/${currentPlan.dailyLimit}`}
-            subtext={`${remainingDiagnoses} KI-Diagnosen heute noch verfügbar.`}
+          <DashboardCard
+            title="Plan"
+            value={planLabels[workshopData.plan]}
+            description={`Quelle: ${profileSourceLabels[workshopData.source]}`}
           />
 
-          <StatCard
-            label="Fallhistorie"
-            value={`${savedCases.length}/${currentPlan.savedCaseLimit}`}
-            subtext={`${remainingSavedCases} Speicherplätze im aktuellen Plan frei.`}
-          />
+          <DashboardCard
+            title="Diagnosen heute"
+            value={`${normalizedUsage.count}/${currentDailyLimit}`}
+            description={`${remainingDiagnoses} Diagnosen heute noch verfügbar.`}
+          >
+            <SourceBadge source={usageSource} />
+          </DashboardCard>
 
-          <StatCard
-            label="Datenquelle"
-            value={usageSourceLabel}
-            subtext={`${caseSourceLabel} · ${
-              user ? "Supabase-Login erkannt." : "Kein Login aktiv."
-            }`}
-          />
-        </section>
+          <DashboardCard
+            title="Fallhistorie"
+            value={`${diagnosisCases.length}/${currentSavedCaseLimit}`}
+            description={`${remainingSavedCases} Speicherplätze frei.`}
+          >
+            <SourceBadge source={caseSource} />
+          </DashboardCard>
+        </div>
 
-        <section className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
-          <div className="space-y-8">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-              <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-                Supabase Account
-              </p>
+        <div className="space-y-8">
+          <Section
+            title="Werkstattprofil"
+            description="Diese Daten kommen bevorzugt aus Supabase und werden für Header, Dashboard und Prüfprotokoll genutzt."
+            right={
+              <a
+                href="/login"
+                className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
+              >
+                Profil bearbeiten
+              </a>
+            }
+          >
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-sm text-slate-500">Werkstatt</p>
+                <p className="mt-2 font-bold text-white">
+                  {workshopData.workshop}
+                </p>
+              </div>
 
-              {user ? (
-                <div className="mt-3 rounded-2xl border border-green-500/30 bg-green-500/10 p-5">
-                  <p className="font-bold text-green-300">
-                    Supabase-Session aktiv
-                  </p>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-sm text-slate-500">Name</p>
+                <p className="mt-2 font-bold text-white">{workshopData.name}</p>
+              </div>
 
-                  <p className="mt-2 break-all text-sm text-slate-300">
-                    {user.email}
-                  </p>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-sm text-slate-500">E-Mail</p>
+                <p className="mt-2 break-words font-bold text-white">
+                  {workshopData.email}
+                </p>
+              </div>
 
-                  <p className="mt-2 break-all font-mono text-xs text-slate-500">
-                    {user.id}
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5">
-                  <p className="font-bold text-yellow-300">
-                    Nicht eingeloggt
-                  </p>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-sm text-slate-500">Rolle</p>
+                <p className="mt-2 font-bold text-white">{workshopData.role}</p>
+              </div>
 
-                  <p className="mt-2 leading-7 text-slate-300">
-                    Melde dich an, damit das Dashboard dein echtes
-                    Werkstattprofil, deine Fälle und deine Nutzung aus Supabase
-                    laden kann.
-                  </p>
-                </div>
-              )}
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <a
-                  href="/login"
-                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
-                >
-                  Zum Login
-                </a>
-
-                <button
-                  onClick={() => void refreshSupabaseProfile()}
-                  disabled={!user || profileLoading}
-                  className="rounded-xl border border-green-500/40 px-5 py-3 font-semibold text-green-300 transition hover:bg-green-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Profil neu laden
-                </button>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-sm text-slate-500">Zuletzt geändert</p>
+                <p className="mt-2 font-bold text-white">
+                  {formatDateTime(workshopData.updatedAt)}
+                </p>
               </div>
             </div>
+          </Section>
 
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-              <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-                Werkstattprofil
-              </p>
-
-              {activeWorkshop ? (
-                <>
-                  <h2 className="mt-3 text-3xl font-bold">{activeWorkshop}</h2>
-
-                  <div className="mt-6 space-y-3 text-slate-400">
-                    <p>
-                      Quelle:{" "}
-                      <span className="font-semibold text-white">
-                        {profileSourceLabel}
-                      </span>
-                    </p>
-
-                    <p>
-                      Bearbeiter:{" "}
-                      <span className="font-semibold text-white">
-                        {activeName}
-                      </span>
-                    </p>
-
-                    <p>
-                      E-Mail:{" "}
-                      <span className="font-semibold text-white">
-                        {activeEmail}
-                      </span>
-                    </p>
-
-                    <p>
-                      Rolle:{" "}
-                      <span className="font-semibold text-white">
-                        {activeRole}
-                      </span>
-                    </p>
-
-                    {activeUpdatedAt && (
-                      <p>
-                        Aktualisiert:{" "}
-                        <span className="font-semibold text-white">
-                          {formatDateTime(activeUpdatedAt)}
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h2 className="mt-3 text-3xl font-bold">
-                    Kein Werkstattprofil
-                  </h2>
-
-                  <p className="mt-4 leading-7 text-slate-400">
-                    Lege auf der Login-Seite dein Werkstattprofil an. Danach
-                    erscheint es hier direkt aus Supabase.
-                  </p>
-                </>
-              )}
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <a
-                  href="/login"
-                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
-                >
-                  Werkstattprofil bearbeiten
-                </a>
-
-                <a
-                  href="/#diagnose"
-                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
-                >
-                  Zur Diagnose
-                </a>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-              <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-                Nutzung
-              </p>
-
-              <h2 className="mt-3 text-3xl font-bold">
-                {usageSourceLabel}
-              </h2>
-
-              <p className="mt-4 leading-7 text-slate-400">
-                Heute gezählt:{" "}
-                <span className="font-bold text-white">
-                  {normalizedUsage.count}
-                </span>{" "}
-                von{" "}
-                <span className="font-bold text-white">
-                  {currentPlan.dailyLimit}
-                </span>{" "}
-                Diagnosen. Bei aktivem Login kommt dieser Wert aus Supabase.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
+          <Section
+            title="Nutzungszähler"
+            description="Der Tageszähler wird bei Login aus Supabase geladen und dort zurückgesetzt."
+            right={
+              <>
                 <button
-                  onClick={() => void refreshSupabaseUsage()}
-                  disabled={!user || usageLoading}
-                  className="rounded-xl border border-green-500/40 px-5 py-3 font-semibold text-green-300 transition hover:bg-green-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {usageLoading ? "Lädt..." : "Nutzung neu laden"}
-                </button>
-
-                <button
-                  onClick={() => void resetDailyUsage()}
+                  type="button"
+                  onClick={resetUsageCounter}
                   disabled={usageLoading}
-                  className="rounded-xl border border-yellow-500/40 px-5 py-3 font-semibold text-yellow-300 transition hover:bg-yellow-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl border border-red-500/40 bg-red-500/10 px-5 py-3 font-semibold text-red-300 transition hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Tageszähler zurücksetzen
+                  Zähler zurücksetzen
                 </button>
 
                 <button
+                  type="button"
                   onClick={clearCurrentCase}
-                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
+                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
                 >
                   Aktuellen Fall leeren
                 </button>
+              </>
+            }
+          >
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-sm text-slate-500">Quelle</p>
+                <div className="mt-2">
+                  <SourceBadge source={usageSource} />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-sm text-slate-500">Datum</p>
+                <p className="mt-2 font-bold text-white">
+                  {formatDate(normalizedUsage.date)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-sm text-slate-500">Anfragen heute</p>
+                <p className="mt-2 text-3xl font-black text-white">
+                  {normalizedUsage.count}
+                </p>
               </div>
             </div>
+          </Section>
 
-            {latestCase && (
-              <div className="rounded-3xl border border-blue-500/30 bg-blue-500/10 p-6">
-                <p className="text-sm font-semibold uppercase tracking-wide text-blue-300">
-                  Letzter Fall
-                </p>
-
-                <h2 className="mt-3 text-2xl font-bold text-white">
-                  {latestCase.title}
-                </h2>
-
-                <p className="mt-3 text-slate-400">
-                  Aktualisiert: {formatDateTime(latestCase.updatedAt)}
-                </p>
-
-                <p className="mt-2 text-slate-400">
-                  Fehlercode: {getFaultCodeText(latestCase)}
-                </p>
-
+          {latestCase && (
+            <Section
+              title="Letzter Fall"
+              description="Schnellzugriff auf den zuletzt aktualisierten Diagnosefall."
+              right={
                 <button
-                  onClick={() => openSavedCase(latestCase)}
-                  className="mt-6 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
+                  type="button"
+                  onClick={() => openDiagnosisCase(latestCase, "diagnose")}
+                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
                 >
                   Letzten Fall öffnen
                 </button>
-              </div>
-            )}
-          </div>
+              }
+            >
+              <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5">
+                <h3 className="text-xl font-bold text-white">
+                  {latestCase.title || "Unbenannter Diagnosefall"}
+                </h3>
 
-          <div className="space-y-8">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-              <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-                    Gespeicherte Diagnosefälle
-                  </p>
-
-                  <h2 className="mt-2 text-3xl font-bold">
-                    {caseStorageSource === "supabase"
-                      ? "Supabase-Fallhistorie"
-                      : "Lokale Fallhistorie"}
-                  </h2>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={() => void refreshSupabaseCases()}
-                    disabled={!user || caseLoading}
-                    className="rounded-xl border border-green-500/40 px-5 py-3 font-semibold text-green-300 transition hover:bg-green-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {caseLoading ? "Lädt..." : "Supabase neu laden"}
-                  </button>
-
-                  <a
-                    href="/#diagnose"
-                    className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
-                  >
-                    Neuen Fall starten
-                  </a>
+                <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-400">
+                  <span>Aktualisiert: {formatDateTime(latestCase.updatedAt)}</span>
+                  <span>Fehlercode: {getFaultCodeText(latestCase)}</span>
+                  <span>{latestCase.messages.length} Nachrichten</span>
                 </div>
               </div>
+            </Section>
+          )}
 
-              {user && (
-                <div className="mb-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                  <p className="text-sm leading-7 text-slate-400">
-                    Fallquelle:{" "}
-                    <span className="font-bold text-white">
-                      {caseSourceLabel}
-                    </span>
-                    . Lokale Alt-Fälle können bei Bedarf nach Supabase migriert
-                    werden.
-                  </p>
+          <Section
+            title="Diagnosefälle"
+            description="Gespeicherte Fälle. Lokale Alt-Fälle können nach Supabase migriert werden."
+            right={
+              <>
+                <button
+                  type="button"
+                  onClick={() => user && loadSupabaseCases(user, false)}
+                  disabled={caseLoading}
+                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Fälle neu laden
+                </button>
 
-                  <button
-                    onClick={() => void migrateLocalCasesNow()}
-                    disabled={caseLoading}
-                    className="mt-3 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Lokale Fälle nach Supabase migrieren
-                  </button>
-                </div>
-              )}
-
-              {sortedCases.length === 0 ? (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 text-slate-500">
-                  Noch keine Fälle gespeichert.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {sortedCases.map((savedCase) => (
-                    <div
-                      key={savedCase.id}
-                      className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5"
-                    >
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div>
-                          <h3 className="font-bold text-white">
-                            {savedCase.title}
-                          </h3>
-
-                          <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-500">
-                            <span>
-                              Aktualisiert: {formatDateTime(savedCase.updatedAt)}
-                            </span>
-
-                            {savedCase.engineContext?.code && (
-                              <span>
-                                Motorcode: {savedCase.engineContext.code}
-                              </span>
-                            )}
-
-                            <span>Fehlercode: {getFaultCodeText(savedCase)}</span>
-
-                            <span>{savedCase.messages.length} Nachrichten</span>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-3">
-                          <button
-                            onClick={() => openSavedCase(savedCase)}
-                            className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
-                          >
-                            Öffnen
-                          </button>
-
-                          <button
-                            onClick={() => void deleteSavedCase(savedCase.id)}
-                            disabled={caseLoading}
-                            className="rounded-xl border border-red-500/30 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Löschen
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-              <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-                    Premium
-                  </p>
-
-                  <h2 className="mt-2 text-3xl font-bold">Vormerkungen</h2>
-                </div>
+                <button
+                  type="button"
+                  onClick={migrateLocalCasesNow}
+                  disabled={caseLoading}
+                  className="rounded-xl border border-green-500/40 bg-green-500/10 px-5 py-3 font-semibold text-green-300 transition hover:bg-green-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Lokale Fälle migrieren
+                </button>
 
                 <a
-                  href="/premium"
-                  className="rounded-xl border border-yellow-500/40 px-5 py-3 font-semibold text-yellow-300 transition hover:bg-yellow-500 hover:text-slate-950"
+                  href="/#diagnose"
+                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
                 >
-                  Premium-Seite
+                  Neuen Fall starten
                 </a>
-              </div>
+              </>
+            }
+          >
+            <div className="mb-5">
+              <SourceBadge source={caseSource} />
+            </div>
 
-              {sortedLeads.length === 0 ? (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 text-slate-500">
-                  Noch keine Premium-Vormerkungen gespeichert.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {sortedLeads.map((lead) => (
-                    <div
-                      key={lead.id}
-                      className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5"
-                    >
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div>
-                          <div className="flex flex-wrap gap-3">
-                            <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-300">
-                              {premiumLeadPlanLabels[lead.plan]}
+            {sortedCases.length === 0 ? (
+              <EmptyState text="Noch keine gespeicherten Diagnosefälle vorhanden." />
+            ) : (
+              <div className="grid gap-4">
+                {sortedCases.map((diagnosisCase) => (
+                  <div
+                    key={diagnosisCase.id}
+                    className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <h3 className="text-xl font-bold text-white">
+                          {diagnosisCase.title || "Unbenannter Diagnosefall"}
+                        </h3>
+
+                        <p className="mt-2 text-sm text-slate-500">
+                          Aktualisiert: {formatDateTime(diagnosisCase.updatedAt)}
+                        </p>
+
+                        <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-400">
+                          {diagnosisCase.engineContext?.code && (
+                            <span>
+                              Motorcode: {diagnosisCase.engineContext.code}
                             </span>
-
-                            <span className="text-sm text-slate-500">
-                              {formatDateTime(lead.createdAt)}
-                            </span>
-                          </div>
-
-                          <h3 className="mt-4 font-bold text-white">
-                            {lead.workshop}
-                          </h3>
-
-                          <p className="mt-2 text-slate-400">{lead.name}</p>
-
-                          <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-500">
-                            <span>{lead.email}</span>
-                            {lead.phone && <span>{lead.phone}</span>}
-                          </div>
-
-                          {lead.note && (
-                            <p className="mt-4 leading-7 text-slate-400">
-                              {lead.note}
-                            </p>
                           )}
+
+                          <span>Fehlercode: {getFaultCodeText(diagnosisCase)}</span>
+                          <span>{diagnosisCase.messages.length} Nachrichten</span>
                         </div>
 
+                        <p className="mt-3 line-clamp-2 leading-7 text-slate-400">
+                          {diagnosisCase.messages?.[0]?.content ||
+                            "Keine Beschreibung vorhanden."}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3">
                         <button
-                          onClick={() => deletePremiumLead(lead.id)}
-                          className="rounded-xl border border-red-500/30 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/10"
+                          type="button"
+                          onClick={() =>
+                            openDiagnosisCase(diagnosisCase, "diagnose")
+                          }
+                          className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
+                        >
+                          Öffnen
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openDiagnosisCase(diagnosisCase, "protocol")
+                          }
+                          className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                        >
+                          Prüfprotokoll
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => deleteDiagnosisCase(diagnosisCase.id)}
+                          disabled={caseLoading}
+                          className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Löschen
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <Section
+            title={
+              leadSource === "supabase"
+                ? "Supabase-Vormerkungen"
+                : "Lokale Vormerkungen"
+            }
+            description="Premium-Interessenten aus der Premium-Seite. Eingeloggte Nutzer speichern und löschen diese Daten direkt in Supabase."
+            right={
+              <>
+                <button
+                  type="button"
+                  onClick={() => user && loadSupabasePremiumLeads(user, false)}
+                  disabled={leadLoading}
+                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Supabase neu laden
+                </button>
+
+                <button
+                  type="button"
+                  onClick={migrateLocalPremiumLeadsNow}
+                  disabled={leadLoading}
+                  className="rounded-xl border border-green-500/40 bg-green-500/10 px-5 py-3 font-semibold text-green-300 transition hover:bg-green-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Lokale Vormerkungen migrieren
+                </button>
+
+                <a
+                  href="/premium"
+                  className="rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-yellow-400"
+                >
+                  Premium-Seite
+                </a>
+              </>
+            }
+          >
+            <div className="mb-5">
+              <SourceBadge source={leadSource} />
             </div>
-          </div>
-        </section>
+
+            {sortedLeads.length === 0 ? (
+              <EmptyState text="Noch keine Premium-Vormerkungen vorhanden." />
+            ) : (
+              <div className="grid gap-4">
+                {sortedLeads.map((lead) => (
+                  <div
+                    key={lead.id}
+                    className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h3 className="text-xl font-bold text-white">
+                            {lead.workshop}
+                          </h3>
+
+                          <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-300">
+                            {premiumLeadPlanLabels[lead.plan]}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 text-sm text-slate-400 md:grid-cols-2 xl:grid-cols-4">
+                          <p>
+                            <span className="text-slate-500">Name:</span>{" "}
+                            {lead.name}
+                          </p>
+
+                          <p>
+                            <span className="text-slate-500">E-Mail:</span>{" "}
+                            {lead.email}
+                          </p>
+
+                          <p>
+                            <span className="text-slate-500">Telefon:</span>{" "}
+                            {lead.phone || "nicht angegeben"}
+                          </p>
+
+                          <p>
+                            <span className="text-slate-500">Erstellt:</span>{" "}
+                            {formatDateTime(lead.createdAt)}
+                          </p>
+                        </div>
+
+                        {lead.note && (
+                          <p className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 leading-7 text-slate-300">
+                            {lead.note}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => deletePremiumLead(lead.id)}
+                        disabled={leadLoading}
+                        className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Löschen
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+        </div>
       </main>
 
       <Footer />
