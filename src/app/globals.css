@@ -1,8 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #020617;
+  --foreground: #f8fafc;
+}
+
+html.diagnosehub-light {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  color-scheme: light;
+}
+
+html:not(.diagnosehub-light) {
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -12,15 +22,265 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
+  min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* -------------------------------------------------------
+   DiagnoseHUB Light Mode
+   Aktiviert durch: html.diagnosehub-light
+------------------------------------------------------- */
+
+html.diagnosehub-light body {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 28rem),
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.08), transparent 24rem),
+    #f8fafc;
+  color: #0f172a;
+}
+
+/* Dunkle Gradient-Flächen im Hellmodus entschärfen */
+
+html.diagnosehub-light .bg-gradient-to-br,
+html.diagnosehub-light .bg-gradient-to-b,
+html.diagnosehub-light .bg-gradient-to-r,
+html.diagnosehub-light .bg-gradient-to-l,
+html.diagnosehub-light .bg-gradient-to-t {
+  background-image:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, #f1f5f9 52%, #e2e8f0 100%) !important;
+}
+
+/* Grundflächen */
+
+html.diagnosehub-light .bg-slate-950,
+html.diagnosehub-light .bg-slate-950\/90,
+html.diagnosehub-light .bg-slate-950\/80,
+html.diagnosehub-light .bg-slate-950\/70,
+html.diagnosehub-light .bg-slate-950\/60 {
+  background-color: rgba(248, 250, 252, 0.96) !important;
+}
+
+html.diagnosehub-light .bg-slate-900,
+html.diagnosehub-light .bg-slate-900\/95,
+html.diagnosehub-light .bg-slate-900\/90,
+html.diagnosehub-light .bg-slate-900\/80,
+html.diagnosehub-light .bg-slate-900\/70,
+html.diagnosehub-light .bg-slate-900\/60 {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+html.diagnosehub-light .bg-slate-800,
+html.diagnosehub-light .bg-slate-800\/90,
+html.diagnosehub-light .bg-slate-800\/80,
+html.diagnosehub-light .bg-slate-800\/70 {
+  background-color: rgba(241, 245, 249, 0.96) !important;
+}
+
+html.diagnosehub-light .bg-slate-700,
+html.diagnosehub-light .bg-slate-700\/80 {
+  background-color: rgba(226, 232, 240, 0.96) !important;
+}
+
+/* Rahmen */
+
+html.diagnosehub-light .border-slate-900,
+html.diagnosehub-light .border-slate-800 {
+  border-color: #e2e8f0 !important;
+}
+
+html.diagnosehub-light .border-slate-700 {
+  border-color: #cbd5e1 !important;
+}
+
+html.diagnosehub-light .border-slate-600 {
+  border-color: #94a3b8 !important;
+}
+
+/* Texte */
+
+html.diagnosehub-light .text-white {
+  color: #0f172a !important;
+}
+
+html.diagnosehub-light .text-slate-50,
+html.diagnosehub-light .text-slate-100 {
+  color: #0f172a !important;
+}
+
+html.diagnosehub-light .text-slate-200 {
+  color: #1e293b !important;
+}
+
+html.diagnosehub-light .text-slate-300 {
+  color: #334155 !important;
+}
+
+html.diagnosehub-light .text-slate-400 {
+  color: #475569 !important;
+}
+
+html.diagnosehub-light .text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Spezielle große Hero-Texte besser lesbar */
+
+html.diagnosehub-light h1,
+html.diagnosehub-light h2,
+html.diagnosehub-light h3 {
+  color: #0f172a;
+}
+
+html.diagnosehub-light p {
+  color: inherit;
+}
+
+/* Eingaben */
+
+html.diagnosehub-light input,
+html.diagnosehub-light textarea,
+html.diagnosehub-light select {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.diagnosehub-light input::placeholder,
+html.diagnosehub-light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Karten / Schatten */
+
+html.diagnosehub-light .shadow-blue-950\/20,
+html.diagnosehub-light .shadow-blue-950\/30,
+html.diagnosehub-light .shadow-blue-950\/40,
+html.diagnosehub-light .shadow-blue-950\/50 {
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Buttons mit farbigem Hintergrund müssen weiße Schrift behalten */
+
+html.diagnosehub-light .bg-blue-600,
+html.diagnosehub-light .bg-blue-600 *,
+html.diagnosehub-light .bg-blue-500,
+html.diagnosehub-light .bg-blue-500 *,
+html.diagnosehub-light .bg-green-600,
+html.diagnosehub-light .bg-green-600 *,
+html.diagnosehub-light .bg-red-600,
+html.diagnosehub-light .bg-red-600 *,
+html.diagnosehub-light .bg-orange-600,
+html.diagnosehub-light .bg-orange-600 *,
+html.diagnosehub-light .bg-purple-600,
+html.diagnosehub-light .bg-purple-600 * {
+  color: #ffffff !important;
+}
+
+/* Hover-Zustände */
+
+html.diagnosehub-light .hover\:bg-slate-800:hover {
+  background-color: #e2e8f0 !important;
+}
+
+html.diagnosehub-light .hover\:bg-slate-700:hover {
+  background-color: #cbd5e1 !important;
+}
+
+html.diagnosehub-light .hover\:text-white:hover {
+  color: #0f172a !important;
+}
+
+html.diagnosehub-light .hover\:text-blue-300:hover,
+html.diagnosehub-light .hover\:text-blue-400:hover {
+  color: #2563eb !important;
+}
+
+/* Gelbe Premium-Flächen */
+
+html.diagnosehub-light .bg-yellow-500\/10 {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+}
+
+html.diagnosehub-light .border-yellow-500\/30 {
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+html.diagnosehub-light .text-yellow-300,
+html.diagnosehub-light .text-yellow-400 {
+  color: #b45309 !important;
+}
+
+/* Blaue Info-Flächen */
+
+html.diagnosehub-light .bg-blue-500\/10 {
+  background-color: rgba(59, 130, 246, 0.10) !important;
+}
+
+html.diagnosehub-light .border-blue-500\/20,
+html.diagnosehub-light .border-blue-500\/30,
+html.diagnosehub-light .border-blue-500\/40 {
+  border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+html.diagnosehub-light .text-blue-300,
+html.diagnosehub-light .text-blue-400 {
+  color: #2563eb !important;
+}
+
+/* Grüne Erfolgsflächen */
+
+html.diagnosehub-light .bg-green-500\/10 {
+  background-color: rgba(34, 197, 94, 0.10) !important;
+}
+
+html.diagnosehub-light .border-green-500\/30,
+html.diagnosehub-light .border-green-500\/40 {
+  border-color: rgba(34, 197, 94, 0.35) !important;
+}
+
+html.diagnosehub-light .text-green-300,
+html.diagnosehub-light .text-green-400 {
+  color: #15803d !important;
+}
+
+/* Rote Fehlerflächen */
+
+html.diagnosehub-light .bg-red-500\/10 {
+  background-color: rgba(239, 68, 68, 0.10) !important;
+}
+
+html.diagnosehub-light .border-red-500\/30,
+html.diagnosehub-light .border-red-500\/40 {
+  border-color: rgba(239, 68, 68, 0.35) !important;
+}
+
+html.diagnosehub-light .text-red-300,
+html.diagnosehub-light .text-red-400 {
+  color: #b91c1c !important;
+}
+
+/* Ausdruck bleibt sauber weiß */
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  * {
+    box-shadow: none !important;
+  }
 }

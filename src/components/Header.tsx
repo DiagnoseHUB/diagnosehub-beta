@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type UserPlan = "free" | "werkstatt" | "pro";
 
@@ -139,6 +140,8 @@ function Header() {
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
+            <ThemeToggle />
+
             <a
               href="/login"
               className={
@@ -167,23 +170,27 @@ function Header() {
             </a>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((currentValue) => !currentValue)}
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 transition hover:bg-slate-800 hover:text-white md:hidden"
-            aria-label={mobileMenuOpen ? "Menü schließen" : "Menü öffnen"}
-            aria-expanded={mobileMenuOpen}
-          >
-            {mobileMenuOpen ? (
-              <span className="text-2xl leading-none">×</span>
-            ) : (
-              <span className="flex flex-col gap-1.5">
-                <span className="block h-0.5 w-5 rounded-full bg-current" />
-                <span className="block h-0.5 w-5 rounded-full bg-current" />
-                <span className="block h-0.5 w-5 rounded-full bg-current" />
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle />
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((currentValue) => !currentValue)}
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              aria-label={mobileMenuOpen ? "Menü schließen" : "Menü öffnen"}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? (
+                <span className="text-2xl leading-none">×</span>
+              ) : (
+                <span className="flex flex-col gap-1.5">
+                  <span className="block h-0.5 w-5 rounded-full bg-current" />
+                  <span className="block h-0.5 w-5 rounded-full bg-current" />
+                  <span className="block h-0.5 w-5 rounded-full bg-current" />
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         {mobileMenuOpen && (
