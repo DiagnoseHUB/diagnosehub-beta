@@ -26,6 +26,7 @@ type DemoAccount = {
 
 const PREMIUM_LEADS_STORAGE_KEY = "diagnosehub-premium-leads";
 const DEMO_ACCOUNT_STORAGE_KEY = "diagnosehub-demo-account";
+const PREMIUM_LEADS_UPDATED_EVENT = "diagnosehub-premium-leads-updated";
 
 const planOptions: Record<
   PremiumPlan,
@@ -121,6 +122,11 @@ function savePremiumLeadsToLocalStorage(leads: PremiumLead[]) {
 
 function clearLocalPremiumLeads() {
   localStorage.removeItem(PREMIUM_LEADS_STORAGE_KEY);
+}
+
+function notifyPremiumLeadsChanged() {
+  window.dispatchEvent(new Event(PREMIUM_LEADS_UPDATED_EVENT));
+  window.dispatchEvent(new Event("storage"));
 }
 
 function getLocalDemoAccount() {
@@ -270,6 +276,7 @@ export default function PremiumPage() {
 
       setLeads(remoteLeads);
       savePremiumLeadsToLocalStorage(remoteLeads);
+      notifyPremiumLeadsChanged();
 
       if (localLeadsForMigration.length > 0) {
         showSuccess("Lokale Alt-Vormerkungen wurden nach Supabase migriert.");
@@ -357,6 +364,7 @@ export default function PremiumPage() {
 
       setLeads(updatedLeads);
       savePremiumLeadsToLocalStorage(updatedLeads);
+      notifyPremiumLeadsChanged();
       clearForm();
 
       showSuccess("Vormerkung wurde in Supabase gespeichert.");
@@ -388,6 +396,7 @@ export default function PremiumPage() {
 
       setLeads(updatedLeads);
       savePremiumLeadsToLocalStorage(updatedLeads);
+      notifyPremiumLeadsChanged();
 
       showSuccess("Vormerkung wurde aus Supabase gelöscht.");
     } catch (error) {
