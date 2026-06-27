@@ -9,36 +9,21 @@ import type {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/client";
+import { PLAN_CONFIG, type UserPlan } from "@/config/plans";
 import {
-  PLAN_CONFIG,
-  isValidUserPlan,
-  type UserPlan,
-} from "@/config/plans";
+  clearLocalWorkshopProfileState,
+  convertProfileToDemoAccount,
+  deleteWorkshopProfileFromSupabase,
+  loadWorkshopProfileFromSupabase,
+  notifyWorkshopProfileChanged,
+  readLocalDemoAccount,
+  saveWorkshopProfileToSupabase,
+  syncWorkshopProfileToLocalStorage,
+  type DemoAccount,
+  type WorkshopProfileDatabaseRow,
+} from "@/services/workshopProfileSupabase";
 
-
-type DemoAccount = {
-  name: string;
-  workshop: string;
-  email: string;
-  role: string;
-  plan: UserPlan;
-  updatedAt: string;
-  supabaseUserId?: string;
-};
-
-type WorkshopProfile = {
-  id: string;
-  full_name: string;
-  workshop_name: string;
-  email: string;
-  role: string;
-  plan: UserPlan;
-  created_at: string;
-  updated_at: string;
-};
-
-const DEMO_ACCOUNT_STORAGE_KEY = "diagnosehub-demo-account";
-const USER_PLAN_STORAGE_KEY = "diagnosehub-user-plan";
+const DEFAULT_ROLE = "Inhaber / Werkstatt";
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("de-DE", {
@@ -53,32 +38,6 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unbekannter Fehler";
-}
-
-function convertProfileToLocalAccount(
-  profile: WorkshopProfile,
-  userId: string
-): DemoAccount {
-  return {
-    name: profile.full_name,
-    workshop: profile.workshop_name,
-    email: profile.email,
-    role: profile.role,
-    plan: profile.plan,
-    updatedAt: profile.updated_at,
-    supabaseUserId: userId,
-  };
-}
-
-function notifyAccountChanged() {
-  window.dispatchEvent(new Event("storage"));
-  window.dispatchEvent(new Event("diagnosehub-account-updated"));
-}
-
-function clearLocalAccountState() {
-  localStorage.removeItem(DEMO_ACCOUNT_STORAGE_KEY);
-  localStorage.setItem(USER_PLAN_STORAGE_KEY, "free");
-  notifyAccountChanged();
 }
 
 export default function LoginPage() {
@@ -96,11 +55,11 @@ export default function LoginPage() {
 
   const [name, setName] = useState("");
   const [workshop, setWorkshop] = useState("");
-  const [role, setRole] = useState("Inhaber / Werkstatt");
+  const [role, setRole] = useState(DEFAULT_ROLE);
   const [plan, setPlan] = useState<UserPlan>("free");
   const [savedAccount, setSavedAccount] = useState<DemoAccount | null>(null);
   const [databaseProfile, setDatabaseProfile] =
-    useState<WorkshopProfile | null>(null);
+    useState<WorkshopProfileDatabaseRow | null>(null);
 
   const [profileLoading, setProfileLoading] = useState(false);
   const [success, setSuccess] = useState("");
@@ -115,13 +74,11 @@ export default function LoginPage() {
       return "Eingeloggt, aber Werkstattprofil fehlt";
     }
 
-    const account = savedAccount;
-
-    if (!account) {
+    if (!savedAccount) {
       return "Werkstattprofil vorhanden";
     }
 
-    return `${account.workshop} · ${PLAN_CONFIG[account.plan].label}`;
+    return `${savedAccount.workshop} · ${PLAN_CONFIG[savedAccount.plan].label}`;
   }, [databaseProfile, savedAccount, user]);
 
   useEffect(() => {
@@ -167,7 +124,7 @@ export default function LoginPage() {
           setSavedAccount(null);
           setName("");
           setWorkshop("");
-          setRole("Inhaber / Werkstatt");
+          setRole(DEFAULT_ROLE);
           setPlan("free");
         }
       }
@@ -179,34 +136,24 @@ export default function LoginPage() {
   }, [supabase]);
 
   function loadLocalAccount() {
-    try {
-      const savedPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
-      const savedAccountData = localStorage.getItem(DEMO_ACCOUNT_STORAGE_KEY);
+    const localAccount = readLocalDemoAccount();
 
-      if (isValidUserPlan(savedPlan)) {
-        setPlan(savedPlan);
-      }
-
-      if (savedAccountData) {
-        const parsedAccount = JSON.parse(savedAccountData) as DemoAccount;
-
-        setSavedAccount(parsedAccount);
-        setName(parsedAccount.name || "");
-        setWorkshop(parsedAccount.workshop || "");
-        setRole(parsedAccount.role || "Inhaber / Werkstatt");
-
-        if (isValidUserPlan(parsedAccount.plan)) {
-          setPlan(parsedAccount.plan);
-          localStorage.setItem(USER_PLAN_STORAGE_KEY, parsedAccount.plan);
-        }
-      }
-    } catch (error) {
-      console.error("Lokaler Account konnte nicht geladen werden:", error);
+    if (!localAccount) {
+      return;
     }
+
+    setSavedAccount(localAccount);
+    setName(localAccount.name || "");
+    setWorkshop(localAccount.workshop || "");
+    setRole(localAccount.role || DEFAULT_ROLE);
+    setPlan(localAccount.plan || "free");
   }
 
-  function syncProfileToLocalStorage(profile: WorkshopProfile, userId: string) {
-    const localAccount = convertProfileToLocalAccount(profile, userId);
+  function applyProfileToState(
+    profile: WorkshopProfileDatabaseRow,
+    currentUser: User
+  ) {
+    const localAccount = convertProfileToDemoAccount(profile);
 
     setSavedAccount(localAccount);
     setName(localAccount.name);
@@ -215,9 +162,12 @@ export default function LoginPage() {
     setPlan(localAccount.plan);
     setDatabaseProfile(profile);
 
-    localStorage.setItem(DEMO_ACCOUNT_STORAGE_KEY, JSON.stringify(localAccount));
-    localStorage.setItem(USER_PLAN_STORAGE_KEY, localAccount.plan);
-    notifyAccountChanged();
+    syncWorkshopProfileToLocalStorage(profile);
+    notifyWorkshopProfileChanged();
+
+    if (currentUser.email) {
+      setAuthEmail(currentUser.email);
+    }
   }
 
   async function loadWorkshopProfile(currentUser: User) {
@@ -225,26 +175,22 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { data, error } = await supabase
-        .from("workshop_profiles")
-        .select("*")
-        .eq("id", currentUser.id)
-        .maybeSingle();
+      const profile = await loadWorkshopProfileFromSupabase(
+        supabase,
+        currentUser
+      );
 
-      if (error) {
-        setError(error.message);
-        return;
-      }
-
-      if (!data) {
+      if (!profile) {
         setDatabaseProfile(null);
         setSavedAccount(null);
         return;
       }
 
-      const profile = data as WorkshopProfile;
-
-      syncProfileToLocalStorage(profile, currentUser.id);
+      applyProfileToState(profile, currentUser);
+    } catch (error) {
+      setError(
+        `Werkstattprofil konnte nicht geladen werden: ${getErrorMessage(error)}`
+      );
     } finally {
       setProfileLoading(false);
     }
@@ -385,10 +331,11 @@ export default function LoginPage() {
       setSavedAccount(null);
       setName("");
       setWorkshop("");
-      setRole("Inhaber / Werkstatt");
+      setRole(DEFAULT_ROLE);
       setPlan("free");
       setAuthPassword("");
-      clearLocalAccountState();
+      clearLocalWorkshopProfileState();
+      notifyWorkshopProfileChanged();
       setAuthMessage("Du wurdest ausgeloggt.");
     } catch (error) {
       setAuthError(`Logout fehlgeschlagen: ${getErrorMessage(error)}`);
@@ -429,37 +376,23 @@ export default function LoginPage() {
     setProfileLoading(true);
 
     try {
-      const profilePayload = {
-        id: user.id,
-        full_name: cleanName,
-        workshop_name: cleanWorkshop,
+      const profile = await saveWorkshopProfileToSupabase(supabase, user, {
+        fullName: cleanName,
+        workshopName: cleanWorkshop,
         email: authUserEmail,
         role: cleanRole || "Werkstatt",
         plan,
-      };
+      });
 
-      const { data, error } = await supabase
-        .from("workshop_profiles")
-        .upsert(profilePayload, {
-          onConflict: "id",
-        })
-        .select("*")
-        .single();
-
-      if (error) {
-        setError(error.message);
-        return;
-      }
-
-      const profile = data as WorkshopProfile;
-
-      syncProfileToLocalStorage(profile, user.id);
+      applyProfileToState(profile, user);
 
       showSuccess(
         "Werkstattprofil wurde in Supabase gespeichert. Header, Dashboard und Diagnose nutzen diesen Plan."
       );
     } catch (error) {
-      setError(`Werkstattprofil konnte nicht gespeichert werden: ${getErrorMessage(error)}`);
+      setError(
+        `Werkstattprofil konnte nicht gespeichert werden: ${getErrorMessage(error)}`
+      );
     } finally {
       setProfileLoading(false);
     }
@@ -485,28 +418,23 @@ export default function LoginPage() {
     setProfileLoading(true);
 
     try {
-      const { error } = await supabase
-        .from("workshop_profiles")
-        .delete()
-        .eq("id", user.id);
-
-      if (error) {
-        setError(error.message);
-        return;
-      }
+      await deleteWorkshopProfileFromSupabase(supabase, user);
 
       setDatabaseProfile(null);
       setSavedAccount(null);
       setName("");
       setWorkshop("");
-      setRole("Inhaber / Werkstatt");
+      setRole(DEFAULT_ROLE);
       setPlan("free");
 
-      clearLocalAccountState();
+      clearLocalWorkshopProfileState();
+      notifyWorkshopProfileChanged();
 
       showSuccess("Werkstattprofil wurde aus Supabase gelöscht.");
     } catch (error) {
-      setError(`Werkstattprofil konnte nicht gelöscht werden: ${getErrorMessage(error)}`);
+      setError(
+        `Werkstattprofil konnte nicht gelöscht werden: ${getErrorMessage(error)}`
+      );
     } finally {
       setProfileLoading(false);
     }
