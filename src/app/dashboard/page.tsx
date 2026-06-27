@@ -25,49 +25,17 @@ import {
   type PremiumLead,
   type PremiumPlan,
 } from "@/services/premiumLeadsSupabase";
+import { PLAN_CONFIG } from "@/config/plans";
 import {
-  PLAN_CONFIG,
-  isValidUserPlan,
-  type UserPlan,
-} from "@/config/plans";
-
+  defaultWorkshopProfileState,
+  loadWorkshopProfileState,
+  readLocalWorkshopProfileState,
+  type ProfileSource,
+  type WorkshopProfileState,
+} from "@/services/workshopProfileSupabase";
 
 type DataSource = "local" | "supabase";
-type ProfileSource = "localStorage" | "supabase" | "fallback";
-
-type DemoAccount = {
-  name: string;
-  workshop: string;
-  email: string;
-  role: string;
-  plan: UserPlan;
-  updatedAt: string;
-  supabaseUserId?: string;
-};
-
-type WorkshopProfileDatabaseRow = {
-  id: string;
-  full_name: string;
-  workshop_name: string;
-  email: string;
-  role: string;
-  plan: UserPlan;
-  created_at: string;
-  updated_at: string;
-};
-
-type WorkshopData = {
-  name: string;
-  workshop: string;
-  email: string;
-  role: string;
-  plan: UserPlan;
-  updatedAt: string;
-  source: ProfileSource;
-};
-
-const DEMO_ACCOUNT_STORAGE_KEY = "diagnosehub-demo-account";
-const USER_PLAN_STORAGE_KEY = "diagnosehub-user-plan";
+type WorkshopData = WorkshopProfileState;
 const SAVED_CASES_STORAGE_KEY = "diagnosehub-saved-cases";
 const CURRENT_CASE_STORAGE_KEY = "diagnosehub-current-case";
 const DIAGNOSIS_USAGE_STORAGE_KEY = "diagnosehub-diagnosis-usage";
@@ -94,15 +62,7 @@ const profileSourceLabels: Record<ProfileSource, string> = {
   fallback: "Fallback",
 };
 
-const defaultWorkshopData: WorkshopData = {
-  name: "Nicht hinterlegt",
-  workshop: "Nicht hinterlegt",
-  email: "Nicht hinterlegt",
-  role: "Werkstatt",
-  plan: "free",
-  updatedAt: "",
-  source: "fallback",
-};
+const defaultWorkshopData: WorkshopData = defaultWorkshopProfileState;
 
 function formatDateTime(value?: string) {
   if (!value) {
@@ -141,77 +101,8 @@ function getErrorMessage(error: unknown) {
   return "Unbekannter Fehler";
 }
 
-function loadLocalAccount(): DemoAccount | null {
-  try {
-    const savedAccount = localStorage.getItem(DEMO_ACCOUNT_STORAGE_KEY);
-
-    if (!savedAccount) {
-      return null;
-    }
-
-    return JSON.parse(savedAccount) as DemoAccount;
-  } catch (error) {
-    console.error("Lokaler Account konnte nicht geladen werden:", error);
-    return null;
-  }
-}
-
-function getLocalPlan(): UserPlan {
-  try {
-    const savedPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
-
-    if (isValidUserPlan(savedPlan)) {
-      return savedPlan;
-    }
-
-    const localAccount = loadLocalAccount();
-
-    if (localAccount && isValidUserPlan(localAccount.plan)) {
-      return localAccount.plan;
-    }
-  } catch (error) {
-    console.error("Lokaler Plan konnte nicht geladen werden:", error);
-  }
-
-  return "free";
-}
-
 function getLocalWorkshopData(): WorkshopData {
-  const localAccount = loadLocalAccount();
-  const localPlan = getLocalPlan();
-
-  if (!localAccount) {
-    return {
-      ...defaultWorkshopData,
-      plan: localPlan,
-      source: localPlan === "free" ? "fallback" : "localStorage",
-    };
-  }
-
-  return {
-    name: localAccount.name || defaultWorkshopData.name,
-    workshop: localAccount.workshop || defaultWorkshopData.workshop,
-    email: localAccount.email || defaultWorkshopData.email,
-    role: localAccount.role || defaultWorkshopData.role,
-    plan: isValidUserPlan(localAccount.plan) ? localAccount.plan : localPlan,
-    updatedAt: localAccount.updatedAt || "",
-    source: "localStorage",
-  };
-}
-
-function syncWorkshopProfileToLocalStorage(profile: WorkshopProfileDatabaseRow) {
-  const localAccount: DemoAccount = {
-    name: profile.full_name,
-    workshop: profile.workshop_name,
-    email: profile.email,
-    role: profile.role,
-    plan: profile.plan,
-    updatedAt: profile.updated_at,
-    supabaseUserId: profile.id,
-  };
-
-  localStorage.setItem(DEMO_ACCOUNT_STORAGE_KEY, JSON.stringify(localAccount));
-  localStorage.setItem(USER_PLAN_STORAGE_KEY, profile.plan);
+  return readLocalWorkshopProfileState();
 }
 
 function loadLocalDiagnosisCases(): SavedDiagnosisCase[] {
@@ -565,40 +456,9 @@ export default function DashboardPage() {
     setProfileLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from("workshop_profiles")
-        .select("*")
-        .eq("id", currentUser.id)
-        .maybeSingle();
+      const profileState = await loadWorkshopProfileState(supabase, currentUser);
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (!data) {
-        const fallbackWorkshopData = getLocalWorkshopData();
-
-        setWorkshopData({
-          ...fallbackWorkshopData,
-          email: currentUser.email || fallbackWorkshopData.email,
-        });
-
-        return;
-      }
-
-      const profile = data as WorkshopProfileDatabaseRow;
-
-      setWorkshopData({
-        name: profile.full_name,
-        workshop: profile.workshop_name,
-        email: profile.email,
-        role: profile.role,
-        plan: profile.plan,
-        updatedAt: profile.updated_at,
-        source: "supabase",
-      });
-
-      syncWorkshopProfileToLocalStorage(profile);
+      setWorkshopData(profileState);
     } catch (error) {
       console.error("Werkstattprofil konnte nicht geladen werden:", error);
       setError(
