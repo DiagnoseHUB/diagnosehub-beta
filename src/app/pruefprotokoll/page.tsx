@@ -6,35 +6,15 @@ import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/client";
+import { PLAN_CONFIG, type UserPlan } from "@/config/plans";
 import {
-  PLAN_CONFIG,
-  isValidUserPlan,
-  type UserPlan,
-} from "@/config/plans";
+  loadWorkshopProfileState,
+  readLocalWorkshopProfileState,
+  type WorkshopProfileState,
+} from "@/services/workshopProfileSupabase";
 
 
 type PlanSource = "supabase" | "localStorage" | "fallback";
-
-type DemoAccount = {
-  name: string;
-  workshop: string;
-  email: string;
-  role: string;
-  plan: UserPlan;
-  updatedAt: string;
-  supabaseUserId?: string;
-};
-
-type WorkshopProfile = {
-  id: string;
-  full_name: string;
-  workshop_name: string;
-  email: string;
-  role: string;
-  plan: UserPlan;
-  created_at: string;
-  updated_at: string;
-};
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -90,8 +70,6 @@ type InspectionProfile = {
 };
 
 const CURRENT_CASE_STORAGE_KEY = "diagnosehub-current-case";
-const USER_PLAN_STORAGE_KEY = "diagnosehub-user-plan";
-const DEMO_ACCOUNT_STORAGE_KEY = "diagnosehub-demo-account";
 
 const planSourceLabels: Record<PlanSource, string> = {
   supabase: "Supabase Datenbank",
@@ -585,65 +563,15 @@ function detectInspectionProfile(
   return defaultProfile;
 }
 
-function loadLocalPlan(): UserPlan {
-  try {
-    const savedPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
-
-    if (isValidUserPlan(savedPlan)) {
-      return savedPlan;
-    }
-
-    const savedAccount = localStorage.getItem(DEMO_ACCOUNT_STORAGE_KEY);
-
-    if (savedAccount) {
-      const parsedAccount = JSON.parse(savedAccount) as DemoAccount;
-
-      if (isValidUserPlan(parsedAccount.plan)) {
-        return parsedAccount.plan;
-      }
-    }
-  } catch (error) {
-    console.error("Lokaler Plan konnte nicht geladen werden:", error);
-  }
-
-  return "free";
-}
-
-function loadLocalWorkshopData(): WorkshopData {
-  try {
-    const savedAccount = localStorage.getItem(DEMO_ACCOUNT_STORAGE_KEY);
-
-    if (!savedAccount) {
-      return defaultWorkshopData;
-    }
-
-    const parsedAccount = JSON.parse(savedAccount) as DemoAccount;
-
-    return {
-      workshop: parsedAccount.workshop || defaultWorkshopData.workshop,
-      name: parsedAccount.name || defaultWorkshopData.name,
-      email: parsedAccount.email || defaultWorkshopData.email,
-      role: parsedAccount.role || defaultWorkshopData.role,
-    };
-  } catch (error) {
-    console.error("Lokale Werkstattdaten konnten nicht geladen werden:", error);
-    return defaultWorkshopData;
-  }
-}
-
-function syncProfileToLocalStorage(profile: WorkshopProfile) {
-  const localAccount: DemoAccount = {
-    name: profile.full_name,
-    workshop: profile.workshop_name,
-    email: profile.email,
-    role: profile.role,
-    plan: profile.plan,
-    updatedAt: profile.updated_at,
-    supabaseUserId: profile.id,
+function convertProfileStateToWorkshopData(
+  profileState: WorkshopProfileState
+): WorkshopData {
+  return {
+    workshop: profileState.workshop || defaultWorkshopData.workshop,
+    name: profileState.name || defaultWorkshopData.name,
+    email: profileState.email || defaultWorkshopData.email,
+    role: profileState.role || defaultWorkshopData.role,
   };
-
-  localStorage.setItem(DEMO_ACCOUNT_STORAGE_KEY, JSON.stringify(localAccount));
-  localStorage.setItem(USER_PLAN_STORAGE_KEY, profile.plan);
 }
 
 function SectionCard({
@@ -764,59 +692,31 @@ export default function PruefprotokollPage() {
     setError("");
 
     try {
-      const localPlan = loadLocalPlan();
-      const localWorkshopData = loadLocalWorkshopData();
+      const localState = readLocalWorkshopProfileState();
 
-      setUserPlan(localPlan);
-      setWorkshopData(localWorkshopData);
-      setPlanSource(localPlan === "free" ? "fallback" : "localStorage");
+      setUserPlan(localState.plan);
+      setWorkshopData(convertProfileStateToWorkshopData(localState));
+      setPlanSource(localState.source);
 
       const session =
         existingSession ??
         (await supabase.auth.getSession()).data.session ??
         null;
 
-      if (!session?.user) {
-        setLoadingPlan(false);
-        return;
-      }
+      const profileState = await loadWorkshopProfileState(
+        supabase,
+        session?.user ?? null
+      );
 
-      const { data, error } = await supabase
-        .from("workshop_profiles")
-        .select("*")
-        .eq("id", session.user.id)
-        .maybeSingle();
-
-      if (error) {
-        setError(
-          "Supabase-Profil konnte nicht geladen werden. Lokaler Plan wird verwendet."
-        );
-        setLoadingPlan(false);
-        return;
-      }
-
-      if (!data) {
-        setLoadingPlan(false);
-        return;
-      }
-
-      const profile = data as WorkshopProfile;
-
-      setUserPlan(profile.plan);
-      setPlanSource("supabase");
-      setWorkshopData({
-        workshop: profile.workshop_name,
-        name: profile.full_name,
-        email: profile.email,
-        role: profile.role,
-      });
-
-      syncProfileToLocalStorage(profile);
+      setUserPlan(profileState.plan);
+      setWorkshopData(convertProfileStateToWorkshopData(profileState));
+      setPlanSource(profileState.source);
     } catch (error) {
       console.error("Plan konnte nicht geladen werden:", error);
       setError("Plan konnte nicht geladen werden. Fallback auf Free aktiv.");
       setUserPlan("free");
       setPlanSource("fallback");
+      setWorkshopData(defaultWorkshopData);
     } finally {
       setLoadingPlan(false);
     }
