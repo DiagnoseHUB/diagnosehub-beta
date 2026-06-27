@@ -25,8 +25,11 @@ import {
   normalizeDiagnosisUsage,
   type DiagnosisUsage,
 } from "@/services/diagnosisUsageSupabase";
-
-type UserPlan = "free" | "werkstatt" | "pro";
+import {
+  PLAN_CONFIG,
+  isValidUserPlan,
+  type UserPlan,
+} from "@/config/plans";
 
 type CurrentDiagnosisCase = {
   messages: ChatMessage[];
@@ -68,39 +71,6 @@ const SAVED_CASES_STORAGE_KEY = "diagnosehub-saved-cases";
 const USER_PLAN_STORAGE_KEY = "diagnosehub-user-plan";
 const DIAGNOSIS_USAGE_STORAGE_KEY = "diagnosehub-diagnosis-usage";
 
-const planLimits: Record<
-  UserPlan,
-  {
-    label: string;
-    dailyLimit: number;
-    savedCaseLimit: number;
-    badge: string;
-    description: string;
-  }
-> = {
-  free: {
-    label: "Free",
-    dailyLimit: 3,
-    savedCaseLimit: 3,
-    badge: "Kostenlos",
-    description: "Für Tests und einzelne Diagnosefälle.",
-  },
-  werkstatt: {
-    label: "Werkstatt Demo",
-    dailyLimit: 30,
-    savedCaseLimit: 25,
-    badge: "Premium Demo",
-    description: "Vorbereitung für den späteren Werkstatt-Zugang.",
-  },
-  pro: {
-    label: "Werkstatt Pro Demo",
-    dailyLimit: 100,
-    savedCaseLimit: 100,
-    badge: "Pro Demo",
-    description: "Vorbereitung für größere Betriebe und höhere Nutzung.",
-  },
-};
-
 const showLocalPlanSwitcher = process.env.NODE_ENV === "development";
 
 const baseQuickQuestions = [
@@ -109,10 +79,6 @@ const baseQuickQuestions = [
   "Häufigste Ursache eingrenzen",
   "Welche Live-Daten sind wichtig?",
 ];
-
-function isValidUserPlan(value: string | null): value is UserPlan {
-  return value === "free" || value === "werkstatt" || value === "pro";
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -328,10 +294,10 @@ export default function SearchBar() {
     return normalizeDiagnosisUsage(diagnosisUsage);
   }, [diagnosisUsage]);
 
-  const currentPlan = planLimits[userPlan];
+  const currentPlan = PLAN_CONFIG[userPlan];
 
   const remainingDiagnoses = Math.max(
-    currentPlan.dailyLimit - normalizedUsage.count,
+    currentPlan.dailyDiagnosisLimit - normalizedUsage.count,
     0
   );
 
@@ -736,14 +702,14 @@ export default function SearchBar() {
     }
 
     const usageBeforeRequest = normalizeDiagnosisUsage(diagnosisUsage);
-    const limitBeforeRequest = planLimits[userPlan].dailyLimit;
+    const limitBeforeRequest = PLAN_CONFIG[userPlan].dailyDiagnosisLimit;
 
     if (usageBeforeRequest.count >= limitBeforeRequest) {
       setDiagnosisUsage(usageBeforeRequest);
       saveUsageToLocalStorage(usageBeforeRequest);
 
       setError(
-        `Tageslimit erreicht: Im ${planLimits[userPlan].label}-Plan sind aktuell ${limitBeforeRequest} KI-Diagnosen pro Tag vorgesehen.`
+        `Tageslimit erreicht: Im ${PLAN_CONFIG[userPlan].label}-Plan sind aktuell ${limitBeforeRequest} KI-Diagnosen pro Tag vorgesehen.`
       );
 
       return;
@@ -1165,7 +1131,7 @@ ${chatText}
                 <p className="font-bold text-white">{currentPlan.label}</p>
 
                 <p className="text-sm text-slate-500">
-                  {normalizedUsage.count} / {currentPlan.dailyLimit} Diagnosen heute
+                  {normalizedUsage.count} / {currentPlan.dailyDiagnosisLimit} Diagnosen heute
                 </p>
 
                 <p className="text-sm text-slate-500">
@@ -1225,7 +1191,7 @@ ${chatText}
             : "rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 transition hover:bg-slate-800"
         }
       >
-        {planLimits[plan].label}
+        {PLAN_CONFIG[plan].label}
       </button>
     ))}
   </div>
