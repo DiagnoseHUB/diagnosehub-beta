@@ -51,7 +51,7 @@ const planOptions: Record<
     description: "Für Tests und einzelne Diagnosefälle.",
     features: [
       "3 KI-Diagnosen pro Tag",
-      "3 lokal gespeicherte Fälle",
+      "3 gespeicherte Fälle",
       "Standard-Prüfprotokoll",
       "Basis-Fallbericht als TXT",
     ],
@@ -61,8 +61,8 @@ const planOptions: Record<
     badge: "Premium Demo",
     description: "Vorbereitung für den späteren Werkstatt-Zugang.",
     features: [
-      "50 KI-Diagnosen pro Tag",
-      "25 lokal gespeicherte Fälle",
+      "30 KI-Diagnosen pro Tag",
+      "25 gespeicherte Fälle",
       "Individuelle Prüfprotokolle",
       "Erweiterte Fehlercode-Logik",
     ],
@@ -72,8 +72,8 @@ const planOptions: Record<
     badge: "Pro Demo",
     description: "Vorbereitung für größere Betriebe.",
     features: [
-      "150 KI-Diagnosen pro Tag",
-      "100 lokal gespeicherte Fälle",
+      "100 KI-Diagnosen pro Tag",
+      "100 gespeicherte Fälle",
       "Pro-Funktionen vorbereitet",
       "Mehrnutzer-Logik später möglich",
     ],
@@ -91,6 +91,14 @@ function formatDateTime(value: string) {
   });
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unbekannter Fehler";
+}
+
 function convertProfileToLocalAccount(
   profile: WorkshopProfile,
   userId: string
@@ -104,6 +112,17 @@ function convertProfileToLocalAccount(
     updatedAt: profile.updated_at,
     supabaseUserId: userId,
   };
+}
+
+function notifyAccountChanged() {
+  window.dispatchEvent(new Event("storage"));
+  window.dispatchEvent(new Event("diagnosehub-account-updated"));
+}
+
+function clearLocalAccountState() {
+  localStorage.removeItem(DEMO_ACCOUNT_STORAGE_KEY);
+  localStorage.setItem(USER_PLAN_STORAGE_KEY, "free");
+  notifyAccountChanged();
 }
 
 export default function LoginPage() {
@@ -172,7 +191,7 @@ export default function LoginPage() {
       }
     }
 
-    loadSession();
+    void loadSession();
 
     const {
       data: { subscription },
@@ -189,6 +208,11 @@ export default function LoginPage() {
           await loadWorkshopProfile(nextSession.user);
         } else {
           setDatabaseProfile(null);
+          setSavedAccount(null);
+          setName("");
+          setWorkshop("");
+          setRole("Inhaber / Werkstatt");
+          setPlan("free");
         }
       }
     );
@@ -237,6 +261,7 @@ export default function LoginPage() {
 
     localStorage.setItem(DEMO_ACCOUNT_STORAGE_KEY, JSON.stringify(localAccount));
     localStorage.setItem(USER_PLAN_STORAGE_KEY, localAccount.plan);
+    notifyAccountChanged();
   }
 
   async function loadWorkshopProfile(currentUser: User) {
@@ -257,6 +282,7 @@ export default function LoginPage() {
 
       if (!data) {
         setDatabaseProfile(null);
+        setSavedAccount(null);
         return;
       }
 
@@ -322,6 +348,7 @@ export default function LoginPage() {
       if (data.session) {
         setSession(data.session);
         setUser(data.user);
+        setAuthPassword("");
         setAuthMessage("Registrierung erfolgreich. Du bist eingeloggt.");
 
         if (data.user) {
@@ -334,6 +361,8 @@ export default function LoginPage() {
       setAuthMessage(
         "Registrierung erstellt. Prüfe deine E-Mails und bestätige den Account, falls Supabase eine Bestätigung verlangt."
       );
+    } catch (error) {
+      setAuthError(`Registrierung fehlgeschlagen: ${getErrorMessage(error)}`);
     } finally {
       setAuthLoading(false);
     }
@@ -369,11 +398,14 @@ export default function LoginPage() {
 
       setSession(data.session);
       setUser(data.user);
+      setAuthPassword("");
       setAuthMessage("Login erfolgreich.");
 
       if (data.user) {
         await loadWorkshopProfile(data.user);
       }
+    } catch (error) {
+      setAuthError(`Login fehlgeschlagen: ${getErrorMessage(error)}`);
     } finally {
       setAuthLoading(false);
     }
@@ -394,8 +426,16 @@ export default function LoginPage() {
       setSession(null);
       setUser(null);
       setDatabaseProfile(null);
+      setSavedAccount(null);
+      setName("");
+      setWorkshop("");
+      setRole("Inhaber / Werkstatt");
+      setPlan("free");
       setAuthPassword("");
+      clearLocalAccountState();
       setAuthMessage("Du wurdest ausgeloggt.");
+    } catch (error) {
+      setAuthError(`Logout fehlgeschlagen: ${getErrorMessage(error)}`);
     } finally {
       setAuthLoading(false);
     }
@@ -460,8 +500,10 @@ export default function LoginPage() {
       syncProfileToLocalStorage(profile, user.id);
 
       showSuccess(
-        "Werkstattprofil wurde in Supabase gespeichert und lokal synchronisiert."
+        "Werkstattprofil wurde in Supabase gespeichert. Header, Dashboard und Diagnose nutzen diesen Plan."
       );
+    } catch (error) {
+      setError(`Werkstattprofil konnte nicht gespeichert werden: ${getErrorMessage(error)}`);
     } finally {
       setProfileLoading(false);
     }
@@ -504,10 +546,11 @@ export default function LoginPage() {
       setRole("Inhaber / Werkstatt");
       setPlan("free");
 
-      localStorage.removeItem(DEMO_ACCOUNT_STORAGE_KEY);
-      localStorage.setItem(USER_PLAN_STORAGE_KEY, "free");
+      clearLocalAccountState();
 
       showSuccess("Werkstattprofil wurde aus Supabase gelöscht.");
+    } catch (error) {
+      setError(`Werkstattprofil konnte nicht gelöscht werden: ${getErrorMessage(error)}`);
     } finally {
       setProfileLoading(false);
     }
@@ -515,21 +558,6 @@ export default function LoginPage() {
 
   function changePlan(nextPlan: UserPlan) {
     setPlan(nextPlan);
-    localStorage.setItem(USER_PLAN_STORAGE_KEY, nextPlan);
-
-    if (savedAccount) {
-      const updatedAccount: DemoAccount = {
-        ...savedAccount,
-        plan: nextPlan,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setSavedAccount(updatedAccount);
-      localStorage.setItem(
-        DEMO_ACCOUNT_STORAGE_KEY,
-        JSON.stringify(updatedAccount)
-      );
-    }
   }
 
   return (
@@ -548,12 +576,9 @@ export default function LoginPage() {
             </h1>
 
             <p className="mt-6 text-lg leading-8 text-slate-400">
-              Login und Werkstattprofil laufen jetzt über Supabase. Das
-              Werkstattprofil wird in der Tabelle{" "}
-              <span className="font-mono text-slate-300">
-                workshop_profiles
-              </span>{" "}
-              gespeichert.
+              Diese Seite ist die zentrale Verwaltung für Login,
+              Werkstattprofil und Plan. Der gespeicherte Plan wird von
+              Dashboard, Diagnose und Prüfprotokoll verwendet.
             </p>
 
             <div className="mt-8 rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
@@ -587,18 +612,21 @@ export default function LoginPage() {
                           {databaseProfile.workshop_name}
                         </span>
                       </p>
+
                       <p>
                         Bearbeiter:{" "}
                         <span className="font-semibold text-white">
                           {databaseProfile.full_name}
                         </span>
                       </p>
+
                       <p>
                         Plan:{" "}
                         <span className="font-semibold text-white">
                           {planOptions[databaseProfile.plan].label}
                         </span>
                       </p>
+
                       <p>
                         Aktualisiert:{" "}
                         <span className="font-semibold text-white">
@@ -636,13 +664,14 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="mt-8 rounded-3xl border border-yellow-500/20 bg-yellow-500/10 p-6">
-              <p className="font-bold text-yellow-300">Aktueller Stand</p>
+            <div className="mt-8 rounded-3xl border border-blue-500/20 bg-blue-500/10 p-6">
+              <p className="font-bold text-blue-300">Aktueller Stand</p>
 
               <p className="mt-3 leading-7 text-slate-300">
-                Login und Werkstattprofil sind jetzt echt. Fallhistorie,
-                Nutzungszähler und Premium-Vormerkungen liegen noch lokal. Die
-                verschieben wir danach schrittweise ebenfalls in Supabase.
+                Werkstattprofil, Diagnosefälle, Nutzungszähler und
+                Premium-Vormerkungen sind für eingeloggte Nutzer an Supabase
+                angebunden. Lokale Daten bleiben nur als Fallback und für
+                Migration erhalten.
               </p>
             </div>
           </div>
@@ -661,6 +690,7 @@ export default function LoginPage() {
                 <>
                   <div className="mt-6 flex rounded-2xl border border-slate-800 bg-slate-950 p-1">
                     <button
+                      type="button"
                       onClick={() => {
                         setAuthMode("login");
                         resetMessages();
@@ -675,6 +705,7 @@ export default function LoginPage() {
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => {
                         setAuthMode("register");
                         resetMessages();
@@ -694,6 +725,7 @@ export default function LoginPage() {
                       <label className="mb-2 block text-sm font-semibold text-slate-300">
                         E-Mail
                       </label>
+
                       <input
                         value={authEmail}
                         onChange={(event) => setAuthEmail(event.target.value)}
@@ -707,6 +739,7 @@ export default function LoginPage() {
                       <label className="mb-2 block text-sm font-semibold text-slate-300">
                         Passwort
                       </label>
+
                       <input
                         value={authPassword}
                         onChange={(event) =>
@@ -725,6 +758,7 @@ export default function LoginPage() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={authMode === "login" ? handleLogin : handleRegister}
                     disabled={authLoading}
                     className="mt-6 w-full rounded-2xl bg-blue-600 px-6 py-4 font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
@@ -749,6 +783,7 @@ export default function LoginPage() {
                   </p>
 
                   <button
+                    type="button"
                     onClick={handleLogout}
                     disabled={authLoading}
                     className="mt-5 rounded-xl border border-red-500/30 px-5 py-3 font-semibold text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
@@ -781,11 +816,12 @@ export default function LoginPage() {
               </h2>
 
               <p className="mt-3 leading-7 text-slate-400">
-                Diese Daten werden jetzt in{" "}
+                Diese Daten werden in{" "}
                 <span className="font-mono text-slate-300">
                   workshop_profiles
                 </span>{" "}
-                gespeichert und zusätzlich lokal synchronisiert.
+                gespeichert. Der Plan wird danach serverseitig für Limits
+                verwendet.
               </p>
 
               <div className="mt-8 grid gap-4">
@@ -793,6 +829,7 @@ export default function LoginPage() {
                   <label className="mb-2 block text-sm font-semibold text-slate-300">
                     Name
                   </label>
+
                   <input
                     value={name}
                     onChange={(event) => setName(event.target.value)}
@@ -806,6 +843,7 @@ export default function LoginPage() {
                   <label className="mb-2 block text-sm font-semibold text-slate-300">
                     Werkstatt
                   </label>
+
                   <input
                     value={workshop}
                     onChange={(event) => setWorkshop(event.target.value)}
@@ -819,6 +857,7 @@ export default function LoginPage() {
                   <label className="mb-2 block text-sm font-semibold text-slate-300">
                     Login-E-Mail
                   </label>
+
                   <input
                     value={user?.email || authEmail}
                     disabled
@@ -830,6 +869,7 @@ export default function LoginPage() {
                   <label className="mb-2 block text-sm font-semibold text-slate-300">
                     Rolle
                   </label>
+
                   <input
                     value={role}
                     onChange={(event) => setRole(event.target.value)}
@@ -848,6 +888,7 @@ export default function LoginPage() {
                     (planKey) => (
                       <button
                         key={planKey}
+                        type="button"
                         onClick={() => changePlan(planKey)}
                         disabled={!user || profileLoading}
                         className={
@@ -903,6 +944,7 @@ export default function LoginPage() {
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <button
+                  type="button"
                   onClick={saveAccount}
                   disabled={!user || profileLoading}
                   className="rounded-2xl bg-blue-600 px-6 py-4 font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
@@ -913,6 +955,7 @@ export default function LoginPage() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={deleteDatabaseProfile}
                   disabled={!user || profileLoading || !databaseProfile}
                   className="rounded-2xl border border-red-500/30 px-6 py-4 font-bold text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
