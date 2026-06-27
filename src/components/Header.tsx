@@ -5,38 +5,18 @@ import { useEffect, useMemo, useState } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
+import { PLAN_CONFIG, type UserPlan } from "@/config/plans";
 import {
-  PLAN_CONFIG,
-  isValidUserPlan,
-  type UserPlan,
-} from "@/config/plans";
-
+  clearLocalWorkshopProfileState,
+  convertProfileToDemoAccount,
+  loadWorkshopProfileFromSupabase,
+  readLocalDemoAccount,
+  readLocalPlan,
+  syncWorkshopProfileToLocalStorage,
+  type DemoAccount,
+} from "@/services/workshopProfileSupabase";
 
 type AccountSource = "none" | "localStorage" | "supabase";
-
-type DemoAccount = {
-  name: string;
-  workshop: string;
-  email: string;
-  role: string;
-  plan: UserPlan;
-  updatedAt: string;
-  supabaseUserId?: string;
-};
-
-type WorkshopProfileDatabaseRow = {
-  id: string;
-  full_name: string;
-  workshop_name: string;
-  email: string;
-  role: string;
-  plan: UserPlan;
-  created_at: string;
-  updated_at: string;
-};
-
-const DEMO_ACCOUNT_STORAGE_KEY = "diagnosehub-demo-account";
-const USER_PLAN_STORAGE_KEY = "diagnosehub-user-plan";
 
 const navigationLinks = [
   { label: "Diagnose", href: "/#diagnose" },
@@ -57,75 +37,6 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unbekannter Fehler";
-}
-
-function readLocalAccount(): DemoAccount | null {
-  try {
-    const savedAccount = localStorage.getItem(DEMO_ACCOUNT_STORAGE_KEY);
-
-    if (!savedAccount) {
-      return null;
-    }
-
-    return JSON.parse(savedAccount) as DemoAccount;
-  } catch (error) {
-    console.error("Lokaler Account konnte nicht gelesen werden:", error);
-    return null;
-  }
-}
-
-function readLocalPlan(): UserPlan {
-  try {
-    const savedPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
-
-    if (isValidUserPlan(savedPlan)) {
-      return savedPlan;
-    }
-
-    const savedAccount = readLocalAccount();
-
-    if (savedAccount && isValidUserPlan(savedAccount.plan)) {
-      return savedAccount.plan;
-    }
-  } catch (error) {
-    console.error("Lokaler Plan konnte nicht gelesen werden:", error);
-  }
-
-  return "free";
-}
-
-function syncProfileToLocalStorage(profile: WorkshopProfileDatabaseRow) {
-  const localAccount: DemoAccount = {
-    name: profile.full_name,
-    workshop: profile.workshop_name,
-    email: profile.email,
-    role: profile.role,
-    plan: profile.plan,
-    updatedAt: profile.updated_at,
-    supabaseUserId: profile.id,
-  };
-
-  localStorage.setItem(DEMO_ACCOUNT_STORAGE_KEY, JSON.stringify(localAccount));
-  localStorage.setItem(USER_PLAN_STORAGE_KEY, profile.plan);
-}
-
-function clearLocalAccountState() {
-  localStorage.removeItem(DEMO_ACCOUNT_STORAGE_KEY);
-  localStorage.setItem(USER_PLAN_STORAGE_KEY, "free");
-}
-
-function convertProfileToDemoAccount(
-  profile: WorkshopProfileDatabaseRow
-): DemoAccount {
-  return {
-    name: profile.full_name,
-    workshop: profile.workshop_name,
-    email: profile.email,
-    role: profile.role,
-    plan: profile.plan,
-    updatedAt: profile.updated_at,
-    supabaseUserId: profile.id,
-  };
 }
 
 function Header() {
@@ -149,7 +60,7 @@ function Header() {
   }
 
   function applyLocalFallback() {
-    const localAccount = readLocalAccount();
+    const localAccount = readLocalDemoAccount();
     const localPlan = readLocalPlan();
 
     setDemoAccount(localAccount);
@@ -160,6 +71,34 @@ function Header() {
     } else {
       setAccountSource("none");
     }
+  }
+
+  function applySupabaseFallback(session: Session) {
+    const localAccount = readLocalDemoAccount();
+    const localPlan = readLocalPlan();
+
+    if (localAccount) {
+      setDemoAccount({
+        ...localAccount,
+        email: session.user.email || localAccount.email,
+        supabaseUserId: session.user.id,
+      });
+      setUserPlan(localAccount.plan || localPlan);
+      setAccountSource("localStorage");
+      return;
+    }
+
+    setDemoAccount({
+      name: "Supabase Nutzer",
+      workshop: "Profil noch nicht gespeichert",
+      email: session.user.email || "nicht hinterlegt",
+      role: "Werkstatt",
+      plan: localPlan,
+      updatedAt: new Date().toISOString(),
+      supabaseUserId: session.user.id,
+    });
+    setUserPlan(localPlan);
+    setAccountSource("localStorage");
   }
 
   async function loadAccountState(existingSession?: Session | null) {
@@ -178,82 +117,22 @@ function Header() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("workshop_profiles")
-        .select("*")
-        .eq("id", session.user.id)
-        .maybeSingle();
+      const profile = await loadWorkshopProfileFromSupabase(
+        supabase,
+        session.user
+      );
 
-      if (error) {
-        console.error(
-          "Header-Profil konnte nicht aus Supabase geladen werden:",
-          error.message
-        );
-
-        const localPlan = readLocalPlan();
-        const localAccount = readLocalAccount();
-
-        if (localAccount) {
-          setDemoAccount({
-            ...localAccount,
-            email: session.user.email || localAccount.email,
-            supabaseUserId: session.user.id,
-          });
-          setUserPlan(localAccount.plan || localPlan);
-          setAccountSource("localStorage");
-        } else {
-          setDemoAccount({
-            name: "Supabase Nutzer",
-            workshop: "Profil unvollständig",
-            email: session.user.email || "nicht hinterlegt",
-            role: "Werkstatt",
-            plan: localPlan,
-            updatedAt: new Date().toISOString(),
-            supabaseUserId: session.user.id,
-          });
-          setUserPlan(localPlan);
-          setAccountSource("localStorage");
-        }
-
+      if (!profile) {
+        applySupabaseFallback(session);
         return;
       }
 
-      if (!data) {
-        const localPlan = readLocalPlan();
-        const localAccount = readLocalAccount();
-
-        if (localAccount) {
-          setDemoAccount({
-            ...localAccount,
-            email: session.user.email || localAccount.email,
-            supabaseUserId: session.user.id,
-          });
-          setUserPlan(localAccount.plan || localPlan);
-          setAccountSource("localStorage");
-          return;
-        }
-
-        setDemoAccount({
-          name: "Supabase Nutzer",
-          workshop: "Profil noch nicht gespeichert",
-          email: session.user.email || "nicht hinterlegt",
-          role: "Werkstatt",
-          plan: localPlan,
-          updatedAt: new Date().toISOString(),
-          supabaseUserId: session.user.id,
-        });
-        setUserPlan(localPlan);
-        setAccountSource("localStorage");
-        return;
-      }
-
-      const profile = data as WorkshopProfileDatabaseRow;
       const nextAccount = convertProfileToDemoAccount(profile);
 
       setDemoAccount(nextAccount);
-      setUserPlan(profile.plan);
+      setUserPlan(nextAccount.plan);
       setAccountSource("supabase");
-      syncProfileToLocalStorage(profile);
+      syncWorkshopProfileToLocalStorage(profile);
     } catch (error) {
       console.error("Header-Accountstatus konnte nicht geladen werden:", error);
       console.error(getErrorMessage(error));
@@ -268,14 +147,14 @@ function Header() {
 
     try {
       await supabase.auth.signOut();
-      clearLocalAccountState();
+      clearLocalWorkshopProfileState();
       applyLoggedOutState();
       closeMobileMenu();
 
       window.location.href = "/login";
     } catch (error) {
       console.error("Logout fehlgeschlagen:", error);
-      clearLocalAccountState();
+      clearLocalWorkshopProfileState();
       applyLoggedOutState();
       closeMobileMenu();
 
@@ -296,21 +175,22 @@ function Header() {
       }
     );
 
-    function handleStorageChange() {
+    function handleAccountChange() {
       void loadAccountState();
     }
 
-    function handleFocus() {
-      void loadAccountState();
-    }
-
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("focus", handleFocus);
+    window.addEventListener("storage", handleAccountChange);
+    window.addEventListener("focus", handleAccountChange);
+    window.addEventListener("diagnosehub-account-updated", handleAccountChange);
 
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleAccountChange);
+      window.removeEventListener("focus", handleAccountChange);
+      window.removeEventListener(
+        "diagnosehub-account-updated",
+        handleAccountChange
+      );
     };
   }, [supabase]);
 
