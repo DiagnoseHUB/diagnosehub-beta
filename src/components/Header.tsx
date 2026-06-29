@@ -21,6 +21,7 @@ type AccountSource = "none" | "localStorage" | "supabase";
 const navigationLinks = [
   { label: "Diagnose", href: "/#diagnose" },
   { label: "Dashboard", href: "/dashboard" },
+  { label: "Anleitungen", href: "/anleitungen" },
   { label: "Ablauf", href: "/#workflow" },
   { label: "Funktionen", href: "/#features" },
 ];
