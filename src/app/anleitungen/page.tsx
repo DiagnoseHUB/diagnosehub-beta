@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import InstructionCard from "../../components/InstructionCard";
@@ -17,6 +24,12 @@ type GenerateInstructionResponse = {
   error?: string;
   jobId?: string;
   status?: string;
+  saveWarning?: string;
+};
+
+type SavedInstructionsResponse = {
+  guides?: InstructionGuide[];
+  error?: string;
 };
 
 export default function InstructionsPage() {
@@ -48,7 +61,7 @@ function wait(milliseconds: number) {
 async function pollGeneratedInstruction(
   jobId: string,
   query: string
-): Promise<InstructionGuide> {
+): Promise<GenerateInstructionResponse> {
   const maxAttempts = 120;
   const pollingIntervalMs = 5000;
 
@@ -91,7 +104,7 @@ async function pollGeneratedInstruction(
     }
 
     if (data.guide) {
-      return data.guide;
+      return data;
     }
 
     if (
@@ -114,29 +127,54 @@ function InstructionsPageContent() {
   const searchParams = useSearchParams();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeSearchTerm, setActiveSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<
     InstructionCategory | typeof allCategoryLabel
   >(allCategoryLabel);
+
+  const [savedInstructions, setSavedInstructions] = useState<
+    InstructionGuide[]
+  >([]);
+  const [savedInstructionsLoading, setSavedInstructionsLoading] =
+    useState(true);
+  const [savedInstructionsError, setSavedInstructionsError] = useState("");
 
   const [generatedInstruction, setGeneratedInstruction] =
     useState<InstructionGuide | null>(null);
   const [generatingInstruction, setGeneratingInstruction] = useState(false);
   const [generationError, setGenerationError] = useState("");
+  const [saveWarning, setSaveWarning] = useState("");
 
   const autoGenerationStartedRef = useRef(false);
 
+  const allInstructions = useMemo(() => {
+    const uniqueInstructions = new Map<string, InstructionGuide>();
+
+    for (const instruction of savedInstructions) {
+      uniqueInstructions.set(instruction.slug, instruction);
+    }
+
+    for (const instruction of instructions) {
+      if (!uniqueInstructions.has(instruction.slug)) {
+        uniqueInstructions.set(instruction.slug, instruction);
+      }
+    }
+
+    return Array.from(uniqueInstructions.values());
+  }, [savedInstructions]);
+
   const categories = useMemo(() => {
     const uniqueCategories = Array.from(
-      new Set(instructions.map((instruction) => instruction.category))
+      new Set(allInstructions.map((instruction) => instruction.category))
     );
 
     return [allCategoryLabel, ...uniqueCategories];
-  }, []);
+  }, [allInstructions]);
 
   const filteredInstructions = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const normalizedSearch = activeSearchTerm.trim().toLowerCase();
 
-    return instructions.filter((instruction) => {
+    return allInstructions.filter((instruction) => {
       const matchesCategory =
         selectedCategory === allCategoryLabel ||
         instruction.category === selectedCategory;
@@ -159,9 +197,55 @@ function InstructionsPageContent() {
 
       return matchesCategory && matchesSearch;
     });
-  }, [searchTerm, selectedCategory]);
+  }, [activeSearchTerm, selectedCategory, allInstructions]);
 
   const canGenerateInstruction = searchTerm.trim().length >= 3;
+
+  useEffect(() => {
+    let ignoreResult = false;
+
+    async function loadSavedInstructions() {
+      setSavedInstructionsLoading(true);
+      setSavedInstructionsError("");
+
+      try {
+        const response = await fetch("/api/anleitungen/saved", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const data = (await response.json()) as SavedInstructionsResponse;
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Gespeicherte Anleitungen konnten nicht geladen werden."
+          );
+        }
+
+        if (!ignoreResult) {
+          setSavedInstructions(Array.isArray(data.guides) ? data.guides : []);
+        }
+      } catch (error) {
+        if (!ignoreResult) {
+          setSavedInstructionsError(
+            error instanceof Error
+              ? error.message
+              : "Gespeicherte Anleitungen konnten nicht geladen werden."
+          );
+        }
+      } finally {
+        if (!ignoreResult) {
+          setSavedInstructionsLoading(false);
+        }
+      }
+    }
+
+    void loadSavedInstructions();
+
+    return () => {
+      ignoreResult = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!searchParams) {
@@ -176,6 +260,7 @@ function InstructionsPageContent() {
     }
 
     setSearchTerm(queryFromDiagnosis);
+    setActiveSearchTerm(queryFromDiagnosis);
     setSelectedCategory(allCategoryLabel);
 
     if (shouldAutoGenerate && !autoGenerationStartedRef.current) {
@@ -183,6 +268,23 @@ function InstructionsPageContent() {
       void handleGenerateInstruction(queryFromDiagnosis, "diagnosis");
     }
   }, [searchParams]);
+
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setActiveSearchTerm(searchTerm.trim());
+    resetGeneratedInstruction();
+  }
+
+  function addSavedInstructionToState(instruction: InstructionGuide) {
+    setSavedInstructions((currentInstructions) => {
+      const withoutDuplicate = currentInstructions.filter(
+        (savedInstruction) => savedInstruction.slug !== instruction.slug
+      );
+
+      return [instruction, ...withoutDuplicate];
+    });
+  }
 
   async function handleGenerateInstruction(
     queryOverride?: string,
@@ -197,6 +299,7 @@ function InstructionsPageContent() {
 
     setGeneratingInstruction(true);
     setGenerationError("");
+    setSaveWarning("");
     setGeneratedInstruction(null);
 
     try {
@@ -239,13 +342,24 @@ function InstructionsPageContent() {
       }
 
       if (data.guide) {
+        addSavedInstructionToState(data.guide);
         setGeneratedInstruction(data.guide);
+        setActiveSearchTerm(query);
+        setSaveWarning(data.saveWarning || "");
         return;
       }
 
       if (data.jobId) {
-        const guide = await pollGeneratedInstruction(data.jobId, query);
-        setGeneratedInstruction(guide);
+        const pollResult = await pollGeneratedInstruction(data.jobId, query);
+
+        if (!pollResult.guide) {
+          throw new Error("Die API hat keine fertige Anleitung geliefert.");
+        }
+
+        addSavedInstructionToState(pollResult.guide);
+        setGeneratedInstruction(pollResult.guide);
+        setActiveSearchTerm(query);
+        setSaveWarning(pollResult.saveWarning || "");
         return;
       }
 
@@ -266,6 +380,7 @@ function InstructionsPageContent() {
   function resetGeneratedInstruction() {
     setGeneratedInstruction(null);
     setGenerationError("");
+    setSaveWarning("");
   }
 
   return (
@@ -288,7 +403,10 @@ function InstructionsPageContent() {
         </div>
 
         <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-lg transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="grid gap-4 lg:grid-cols-[1fr_auto_auto] lg:items-end"
+          >
             <div>
               <label
                 htmlFor="instruction-search"
@@ -337,13 +455,34 @@ function InstructionsPageContent() {
                 ))}
               </select>
             </div>
-          </div>
+
+            <button
+              type="submit"
+              className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 shadow-sm transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:hover:bg-slate-800"
+            >
+              Suche starten
+            </button>
+          </form>
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-slate-700 dark:text-slate-300">
-              {filteredInstructions.length} gespeicherte Anleitung
-              {filteredInstructions.length === 1 ? "" : "en"} gefunden
-            </p>
+            <div>
+              <p className="text-sm text-slate-700 dark:text-slate-300">
+                {filteredInstructions.length} gespeicherte Anleitung
+                {filteredInstructions.length === 1 ? "" : "en"} gefunden
+              </p>
+
+              {savedInstructionsLoading && (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Gespeicherte Supabase-Anleitungen werden geladen...
+                </p>
+              )}
+
+              {savedInstructionsError && (
+                <p className="mt-1 text-xs font-semibold text-red-700 dark:text-red-300">
+                  {savedInstructionsError}
+                </p>
+              )}
+            </div>
 
             <button
               type="button"
@@ -351,11 +490,39 @@ function InstructionsPageContent() {
               onClick={() => void handleGenerateInstruction()}
               className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-none"
             >
-              {generatingInstruction
-                ? "KI-Anleitung wird erstellt..."
-                : "KI-Anleitung erstellen"}
+              {generatingInstruction ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  Werkstatt-Anleitung wird erstellt...
+                </span>
+              ) : (
+                "KI-Anleitung erstellen"
+              )}
             </button>
           </div>
+
+          {generatingInstruction && (
+            <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
+              <div className="flex gap-3">
+                <div className="mt-1 h-3 w-3 shrink-0 animate-pulse rounded-full bg-blue-600 dark:bg-blue-400" />
+
+                <div>
+                  <p className="font-black">
+                    Werkstatt-Anleitung wird erstellt
+                  </p>
+
+                  <p className="mt-1">
+                    DiagnoseHUB erstellt gerade einen strukturierten Ablauf. Bei
+                    komplexen Arbeiten kann das einige Minuten dauern.
+                  </p>
+
+                  <p className="mt-2 font-semibold">
+                    Bitte nicht mehrfach starten oder die Seite neu laden.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {!canGenerateInstruction && (
             <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
@@ -371,8 +538,8 @@ function InstructionsPageContent() {
 
               <p className="mt-2 text-sm leading-6 text-yellow-950 dark:text-yellow-100">
                 Du kannst für diesen Suchbegriff direkt eine KI-Anleitung
-                erstellen. Die Anleitung wird zunächst nur angezeigt und noch
-                nicht dauerhaft gespeichert.
+                erstellen. Die Anleitung wird nach Erstellung automatisch in
+                Supabase gespeichert.
               </p>
             </div>
           )}
@@ -380,6 +547,12 @@ function InstructionsPageContent() {
           {generationError && (
             <div className="mt-5 rounded-2xl border border-red-300 bg-red-50 p-4 text-sm font-bold text-red-950 dark:border-red-700/70 dark:bg-red-950/40 dark:text-red-100">
               {generationError}
+            </div>
+          )}
+
+          {saveWarning && (
+            <div className="mt-5 rounded-2xl border border-yellow-300 bg-yellow-50 p-4 text-sm font-semibold text-yellow-950 dark:border-yellow-700/70 dark:bg-yellow-950/40 dark:text-yellow-100">
+              {saveWarning}
             </div>
           )}
         </div>
@@ -460,11 +633,10 @@ function GeneratedInstructionPanel({
         </span>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-yellow-300 bg-yellow-50 p-4 text-sm leading-6 text-yellow-950 dark:border-yellow-700/60 dark:bg-yellow-950/40 dark:text-yellow-100">
-        <strong>Hinweis:</strong> Diese Anleitung wurde automatisch erstellt und
-        ist noch nicht dauerhaft gespeichert. Herstellerdaten,
-        Sicherheitsvorgaben und fahrzeugspezifische Werte müssen zusätzlich
-        geprüft werden.
+      <div className="mb-6 rounded-2xl border border-green-300 bg-green-50 p-4 text-sm leading-6 text-green-950 dark:border-green-700/60 dark:bg-green-950/40 dark:text-green-100">
+        <strong>Gespeichert:</strong> Diese Anleitung wird automatisch in
+        Supabase gesichert. Herstellerdaten, Sicherheitsvorgaben und
+        fahrzeugspezifische Werte müssen zusätzlich geprüft werden.
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">

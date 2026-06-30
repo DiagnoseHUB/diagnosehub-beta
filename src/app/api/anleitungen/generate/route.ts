@@ -1,5 +1,6 @@
 ﻿import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { saveInstructionGuideToDatabase } from "@/lib/supabase/instructionGuideStorage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -767,6 +768,18 @@ function parseGeneratedGuideFromResponseText(outputText: string, query: string) 
   }
 }
 
+async function saveGeneratedGuide(
+  guide: Guide,
+  query: string,
+  sourceType: "ai" | "diagnosis" | "manual" = "ai"
+) {
+  return saveInstructionGuideToDatabase(
+    guide,
+    query || guide.title || "KI-Anleitung",
+    sourceType
+  );
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -828,10 +841,25 @@ export async function GET(request: Request) {
       query || "KI-Anleitung"
     );
 
+    let savedGuide = guide;
+    let saveWarning: string | undefined;
+
+    try {
+      savedGuide = await saveGeneratedGuide(guide, query || guide.title, "ai");
+    } catch (saveError) {
+      console.error("KI-Anleitung konnte nicht gespeichert werden:", saveError);
+
+      saveWarning =
+        saveError instanceof Error
+          ? saveError.message
+          : "KI-Anleitung wurde erstellt, konnte aber nicht gespeichert werden.";
+    }
+
     return NextResponse.json({
       jobId,
       status: "completed",
-      guide,
+      guide: savedGuide,
+      saveWarning,
     });
   } catch (error) {
     console.error("KI-Anleitungs-Job konnte nicht gelesen werden:", error);
