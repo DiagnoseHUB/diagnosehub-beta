@@ -19,12 +19,28 @@ import type {
 
 const allCategoryLabel = "Alle";
 
+type SimilarInstructionMatch = {
+  score: number;
+  matchedTerms: string[];
+  guide: {
+    id: string;
+    slug: string;
+    title: string;
+    subtitle: string;
+    category: InstructionCategory;
+  };
+};
+
 type GenerateInstructionResponse = {
   guide?: InstructionGuide;
   error?: string;
   jobId?: string;
   status?: string;
   saveWarning?: string;
+  reusedExisting?: boolean;
+  matchScore?: number;
+  matchedTerms?: string[];
+  similarMatches?: SimilarInstructionMatch[];
 };
 
 type SavedInstructionsResponse = {
@@ -144,6 +160,11 @@ function InstructionsPageContent() {
   const [generatingInstruction, setGeneratingInstruction] = useState(false);
   const [generationError, setGenerationError] = useState("");
   const [saveWarning, setSaveWarning] = useState("");
+  const [reusedExistingInstruction, setReusedExistingInstruction] =
+    useState(false);
+  const [instructionMatchScore, setInstructionMatchScore] = useState<
+    number | null
+  >(null);
 
   const autoGenerationStartedRef = useRef(false);
 
@@ -218,7 +239,8 @@ function InstructionsPageContent() {
 
         if (!response.ok) {
           throw new Error(
-            data.error || "Gespeicherte Anleitungen konnten nicht geladen werden."
+            data.error ||
+              "Gespeicherte Anleitungen konnten nicht geladen werden."
           );
         }
 
@@ -301,6 +323,8 @@ function InstructionsPageContent() {
     setGenerationError("");
     setSaveWarning("");
     setGeneratedInstruction(null);
+    setReusedExistingInstruction(false);
+    setInstructionMatchScore(null);
 
     try {
       const response = await fetch("/api/anleitungen/generate", {
@@ -337,7 +361,7 @@ function InstructionsPageContent() {
 
       if (!response.ok) {
         throw new Error(
-          data.error || "Die KI-Anleitung konnte nicht gestartet werden."
+          data.error || "Die Anleitung konnte nicht geprüft oder erstellt werden."
         );
       }
 
@@ -346,6 +370,10 @@ function InstructionsPageContent() {
         setGeneratedInstruction(data.guide);
         setActiveSearchTerm(query);
         setSaveWarning(data.saveWarning || "");
+        setReusedExistingInstruction(Boolean(data.reusedExisting));
+        setInstructionMatchScore(
+          typeof data.matchScore === "number" ? data.matchScore : null
+        );
         return;
       }
 
@@ -360,6 +388,12 @@ function InstructionsPageContent() {
         setGeneratedInstruction(pollResult.guide);
         setActiveSearchTerm(query);
         setSaveWarning(pollResult.saveWarning || "");
+        setReusedExistingInstruction(Boolean(pollResult.reusedExisting));
+        setInstructionMatchScore(
+          typeof pollResult.matchScore === "number"
+            ? pollResult.matchScore
+            : null
+        );
         return;
       }
 
@@ -370,7 +404,7 @@ function InstructionsPageContent() {
       setGenerationError(
         error instanceof Error
           ? error.message
-          : "Unbekannter Fehler bei der KI-Anleitung."
+          : "Unbekannter Fehler beim Prüfen oder Erstellen der Anleitung."
       );
     } finally {
       setGeneratingInstruction(false);
@@ -381,6 +415,8 @@ function InstructionsPageContent() {
     setGeneratedInstruction(null);
     setGenerationError("");
     setSaveWarning("");
+    setReusedExistingInstruction(false);
+    setInstructionMatchScore(null);
   }
 
   return (
@@ -423,7 +459,7 @@ function InstructionsPageContent() {
                   setSearchTerm(event.target.value);
                   resetGeneratedInstruction();
                 }}
-                placeholder="z. B. Volvo XC60 Klima sporadisch ohne Fehlercode..."
+                placeholder="z. B. Golf VII GTI Ölservice..."
                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none ring-blue-500 transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </div>
@@ -493,10 +529,10 @@ function InstructionsPageContent() {
               {generatingInstruction ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                  Werkstatt-Anleitung wird erstellt...
+                  Anleitung wird gesucht / erstellt...
                 </span>
               ) : (
-                "KI-Anleitung erstellen"
+                "Anleitung suchen / mit KI erstellen"
               )}
             </button>
           </div>
@@ -508,12 +544,13 @@ function InstructionsPageContent() {
 
                 <div>
                   <p className="font-black">
-                    Werkstatt-Anleitung wird erstellt
+                    Anleitung wird gesucht oder erstellt
                   </p>
 
                   <p className="mt-1">
-                    DiagnoseHUB erstellt gerade einen strukturierten Ablauf. Bei
-                    komplexen Arbeiten kann das einige Minuten dauern.
+                    DiagnoseHUB prüft zuerst gespeicherte Supabase-Anleitungen.
+                    Nur wenn keine passende Anleitung gefunden wird, startet die
+                    KI-Erstellung.
                   </p>
 
                   <p className="mt-2 font-semibold">
@@ -526,20 +563,22 @@ function InstructionsPageContent() {
 
           {!canGenerateInstruction && (
             <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-              Gib mindestens 3 Zeichen ein, um eine KI-Anleitung zu erstellen.
+              Gib mindestens 3 Zeichen ein, um eine Anleitung zu suchen oder per
+              KI zu erstellen.
             </p>
           )}
 
           {filteredInstructions.length === 0 && canGenerateInstruction && (
             <div className="mt-5 rounded-2xl border border-yellow-300 bg-yellow-50 p-4 dark:border-yellow-700/60 dark:bg-yellow-950/40">
               <p className="text-sm font-black text-yellow-950 dark:text-yellow-100">
-                Keine gespeicherte Anleitung gefunden.
+                Keine exakt passende gespeicherte Anleitung gefunden.
               </p>
 
               <p className="mt-2 text-sm leading-6 text-yellow-950 dark:text-yellow-100">
-                Du kannst für diesen Suchbegriff direkt eine KI-Anleitung
-                erstellen. Die Anleitung wird nach Erstellung automatisch in
-                Supabase gespeichert.
+                Über den blauen Button sucht DiagnoseHUB zusätzlich nach
+                ähnlichen gespeicherten Anleitungen. Falls nichts Passendes
+                gefunden wird, wird automatisch eine neue KI-Anleitung erstellt
+                und in Supabase gespeichert.
               </p>
             </div>
           )}
@@ -558,7 +597,11 @@ function InstructionsPageContent() {
         </div>
 
         {generatedInstruction && (
-          <GeneratedInstructionPanel instruction={generatedInstruction} />
+          <GeneratedInstructionPanel
+            instruction={generatedInstruction}
+            reusedExisting={reusedExistingInstruction}
+            matchScore={instructionMatchScore}
+          />
         )}
 
         {filteredInstructions.length > 0 ? (
@@ -577,7 +620,8 @@ function InstructionsPageContent() {
             </h2>
             <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
               Suche nach Bauteil, Symptom, Fahrzeugmodell oder Fehlerbereich —
-              oder erstelle direkt eine KI-Anleitung.
+              oder prüfe per blauem Button, ob eine ähnliche Anleitung existiert
+              oder neu erstellt werden muss.
             </p>
           </div>
         ) : null}
@@ -588,17 +632,23 @@ function InstructionsPageContent() {
 
 type GeneratedInstructionPanelProps = {
   instruction: InstructionGuide;
+  reusedExisting: boolean;
+  matchScore: number | null;
 };
 
 function GeneratedInstructionPanel({
   instruction,
+  reusedExisting,
+  matchScore,
 }: GeneratedInstructionPanelProps) {
   return (
     <article className="mb-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl transition-colors dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-black uppercase tracking-[0.25em] text-blue-700 dark:text-blue-400">
-            KI-generierte Anleitung
+            {reusedExisting
+              ? "Gespeicherte Anleitung gefunden"
+              : "KI-generierte Anleitung"}
           </p>
 
           <h2 className="mt-3 text-3xl font-black text-slate-950 dark:text-slate-100">
@@ -631,12 +681,28 @@ function GeneratedInstructionPanel({
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
           {instruction.estimatedTime}
         </span>
+
+        {reusedExisting && typeof matchScore === "number" && (
+          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800 dark:bg-green-950 dark:text-green-200">
+            Treffer: {matchScore} %
+          </span>
+        )}
       </div>
 
       <div className="mb-6 rounded-2xl border border-green-300 bg-green-50 p-4 text-sm leading-6 text-green-950 dark:border-green-700/60 dark:bg-green-950/40 dark:text-green-100">
-        <strong>Gespeichert:</strong> Diese Anleitung wird automatisch in
-        Supabase gesichert. Herstellerdaten, Sicherheitsvorgaben und
-        fahrzeugspezifische Werte müssen zusätzlich geprüft werden.
+        {reusedExisting ? (
+          <>
+            <strong>Vorhandene Anleitung verwendet:</strong> DiagnoseHUB hat
+            eine passende gespeicherte Anleitung gefunden. Es wurde keine neue
+            KI-Anleitung erstellt.
+          </>
+        ) : (
+          <>
+            <strong>Gespeichert:</strong> Diese Anleitung wird automatisch in
+            Supabase gesichert. Herstellerdaten, Sicherheitsvorgaben und
+            fahrzeugspezifische Werte müssen zusätzlich geprüft werden.
+          </>
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -734,17 +800,23 @@ function GeneratedBox({ title, items }: GeneratedBoxProps) {
         {title}
       </h3>
 
-      <ul className="mt-4 space-y-3">
-        {items.map((item) => (
-          <li
-            key={item}
-            className="flex gap-3 text-sm leading-6 text-slate-700 dark:text-slate-300"
-          >
-            <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-600 dark:bg-blue-400" />
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
+      {items.length > 0 ? (
+        <ul className="mt-4 space-y-3">
+          {items.map((item) => (
+            <li
+              key={item}
+              className="flex gap-3 text-sm leading-6 text-slate-700 dark:text-slate-300"
+            >
+              <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-600 dark:bg-blue-400" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+          Keine Angaben vorhanden.
+        </p>
+      )}
     </section>
   );
 }

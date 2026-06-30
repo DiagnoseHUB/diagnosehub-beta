@@ -1,6 +1,9 @@
 ﻿import OpenAI from "openai";
 import { NextResponse } from "next/server";
-import { saveInstructionGuideToDatabase } from "@/lib/supabase/instructionGuideStorage";
+import {
+  findSimilarSavedInstructionGuides,
+  saveInstructionGuideToDatabase,
+} from "@/lib/supabase/instructionGuideStorage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -780,6 +783,41 @@ async function saveGeneratedGuide(
   );
 }
 
+async function findReusableInstructionGuide(
+  query: string,
+  source: "search" | "diagnosis"
+) {
+  const similarGuides = await findSimilarSavedInstructionGuides(query, {
+    limit: 300,
+    minScore: source === "diagnosis" ? 72 : 64,
+  });
+
+  const bestExistingGuide = similarGuides[0];
+
+  if (!bestExistingGuide) {
+    return null;
+  }
+
+  return {
+    status: "completed",
+    reusedExisting: true,
+    matchScore: bestExistingGuide.score,
+    matchedTerms: bestExistingGuide.matchedTerms,
+    guide: bestExistingGuide.guide,
+    similarMatches: similarGuides.slice(0, 5).map((match) => ({
+      score: match.score,
+      matchedTerms: match.matchedTerms,
+      guide: {
+        id: match.guide.id,
+        slug: match.guide.slug,
+        title: match.guide.title,
+        subtitle: match.guide.subtitle,
+        category: match.guide.category,
+      },
+    })),
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -878,16 +916,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        {
-          error:
-            "OPENAI_API_KEY fehlt. Bitte in Vercel oder .env.local eintragen und Server neu starten.",
-        },
-        { status: 500 }
-      );
-    }
-
     const body = (await request.json()) as GenerateInstructionRequestBody;
 
     const query = sanitizeText(body.query, 700);
@@ -900,6 +928,26 @@ export async function POST(request: Request) {
           error: "Suchbegriff oder Diagnoseinhalt fehlt.",
         },
         { status: 400 }
+      );
+    }
+
+    const duplicateSearchText = query || diagnosisText;
+    const reusableInstructionGuide = await findReusableInstructionGuide(
+      duplicateSearchText,
+      source
+    );
+
+    if (reusableInstructionGuide) {
+      return NextResponse.json(reusableInstructionGuide);
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        {
+          error:
+            "OPENAI_API_KEY fehlt. Bitte in Vercel oder .env.local eintragen und Server neu starten.",
+        },
+        { status: 500 }
       );
     }
 

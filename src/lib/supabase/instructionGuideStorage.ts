@@ -26,6 +26,12 @@ type InstructionGuideDatabaseRow = {
   updated_at: string;
 };
 
+type SimilarInstructionGuideMatch = {
+  guide: InstructionGuide;
+  score: number;
+  matchedTerms: string[];
+};
+
 function mapDatabaseRowToInstructionGuide(
   row: InstructionGuideDatabaseRow
 ): InstructionGuide {
@@ -143,4 +149,271 @@ export async function saveInstructionGuideToDatabase(
   }
 
   return mapDatabaseRowToInstructionGuide(data as InstructionGuideDatabaseRow);
+}
+
+const stopWords = new Set([
+  "anleitung",
+  "wechseln",
+  "wechsel",
+  "tauschen",
+  "ersetzen",
+  "reparieren",
+  "machen",
+  "durchfuehren",
+  "durchführen",
+  "am",
+  "an",
+  "bei",
+  "mit",
+  "fuer",
+  "für",
+  "der",
+  "die",
+  "das",
+  "ein",
+  "eine",
+  "einer",
+  "und",
+  "oder",
+  "von",
+  "zum",
+  "zur",
+  "im",
+  "in",
+  "auf",
+  "defekt",
+  "problem",
+  "fehler",
+  "auto",
+  "fahrzeug",
+  "kfz",
+  "schritt",
+  "schritte",
+]);
+
+const synonymMap: Record<string, string> = {
+  oel: "oel",
+  öl: "oel",
+
+  motoroel: "oelwechsel",
+  motoröl: "oelwechsel",
+  oelwechsel: "oelwechsel",
+  ölwechsel: "oelwechsel",
+  oelservice: "oelwechsel",
+  ölservice: "oelwechsel",
+  motorservice: "oelwechsel",
+  serviceoel: "oelwechsel",
+
+  oelfilter: "oelfilter",
+  ölfilter: "oelfilter",
+
+  radwechsel: "reifenwechsel",
+  raederwechsel: "reifenwechsel",
+  räderwechsel: "reifenwechsel",
+  reifenwechsel: "reifenwechsel",
+  sommerreifen: "reifenwechsel",
+  winterreifen: "reifenwechsel",
+  rad: "reifen",
+  raeder: "reifen",
+  räder: "reifen",
+
+  steuertrieb: "steuerkette",
+  kettenwechsel: "steuerkette",
+  steuerkettenwechsel: "steuerkette",
+  kette: "steuerkette",
+  steuerkette: "steuerkette",
+
+  riemenwechsel: "zahnriemen",
+  zahnriemenwechsel: "zahnriemen",
+  zahnriemen: "zahnriemen",
+
+  bremse: "bremse",
+  bremsen: "bremse",
+  bremsbelag: "bremse",
+  bremsbelaege: "bremse",
+  bremsbeläge: "bremse",
+  bremsscheibe: "bremse",
+  bremsscheiben: "bremse",
+
+  klima: "klimaanlage",
+  klimaanlage: "klimaanlage",
+  kaeltemittel: "klimaanlage",
+  kältemittel: "klimaanlage",
+  kompressor: "klimaanlage",
+
+  turbo: "turbolader",
+  turbolader: "turbolader",
+  ladedruck: "turbolader",
+
+  vii: "7",
+  vi: "6",
+  v: "5",
+
+  volkswagen: "vw",
+  cupra: "seat",
+};
+
+const workTypeTokens = new Set([
+  "oelwechsel",
+  "oelfilter",
+  "reifenwechsel",
+  "steuerkette",
+  "zahnriemen",
+  "bremse",
+  "klimaanlage",
+  "turbolader",
+]);
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .replaceAll("ä", "ae")
+    .replaceAll("ö", "oe")
+    .replaceAll("ü", "ue")
+    .replaceAll("ß", "ss")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeSearchToken(token: string) {
+  return synonymMap[token] || token;
+}
+
+function tokenizeSearchText(value: string) {
+  const normalized = normalizeSearchText(value);
+
+  return normalized
+    .split(" ")
+    .map(normalizeSearchToken)
+    .filter((token) => token.length >= 2)
+    .filter((token) => !stopWords.has(token));
+}
+
+function buildGuideSearchText(guide: InstructionGuide) {
+  return [
+    guide.title,
+    guide.subtitle,
+    guide.category,
+    guide.difficulty,
+    guide.estimatedTime,
+    guide.vehicleApplicability,
+    ...(guide.tags || []),
+    ...(guide.symptoms || []),
+    ...(guide.tools || []),
+    ...(guide.initialChecks || []),
+    ...(guide.commonCauses || []),
+    ...(guide.nextActions || []),
+    guide.proHint || "",
+  ].join(" ");
+}
+
+function hasCompatibleWorkType(queryTokens: string[], guideTokens: string[]) {
+  const queryWorkTypes = queryTokens.filter((token) =>
+    workTypeTokens.has(token)
+  );
+
+  if (queryWorkTypes.length === 0) {
+    return true;
+  }
+
+  const guideTokenSet = new Set(guideTokens);
+
+  return queryWorkTypes.some((token) => guideTokenSet.has(token));
+}
+
+function scoreInstructionGuideMatch(
+  query: string,
+  guide: InstructionGuide
+): SimilarInstructionGuideMatch {
+  const queryTokens = Array.from(new Set(tokenizeSearchText(query)));
+  const guideTokens = Array.from(
+    new Set(tokenizeSearchText(buildGuideSearchText(guide)))
+  );
+  const titleTokens = Array.from(new Set(tokenizeSearchText(guide.title)));
+
+  if (queryTokens.length === 0) {
+    return {
+      guide,
+      score: 0,
+      matchedTerms: [],
+    };
+  }
+
+  if (!hasCompatibleWorkType(queryTokens, guideTokens)) {
+    return {
+      guide,
+      score: 0,
+      matchedTerms: [],
+    };
+  }
+
+  const guideTokenSet = new Set(guideTokens);
+  const titleTokenSet = new Set(titleTokens);
+
+  const matchedTerms = queryTokens.filter((token) => guideTokenSet.has(token));
+  const matchedTitleTerms = queryTokens.filter((token) =>
+    titleTokenSet.has(token)
+  );
+
+  const queryNormalized = normalizeSearchText(query);
+  const titleNormalized = normalizeSearchText(guide.title);
+  const guideNormalized = normalizeSearchText(buildGuideSearchText(guide));
+
+  const generalOverlapScore =
+    (matchedTerms.length / queryTokens.length) * 62;
+
+  const titleOverlapScore =
+    (matchedTitleTerms.length / queryTokens.length) * 28;
+
+  const phraseScore =
+    titleNormalized.includes(queryNormalized) ||
+    queryNormalized.includes(titleNormalized)
+      ? 20
+      : guideNormalized.includes(queryNormalized)
+        ? 10
+        : 0;
+
+  const workTypeBonus = matchedTerms.some((token) => workTypeTokens.has(token))
+    ? 8
+    : 0;
+
+  const score = Math.min(
+    100,
+    Math.round(
+      generalOverlapScore + titleOverlapScore + phraseScore + workTypeBonus
+    )
+  );
+
+  return {
+    guide,
+    score,
+    matchedTerms,
+  };
+}
+
+export async function findSimilarSavedInstructionGuides(
+  query: string,
+  options?: {
+    limit?: number;
+    minScore?: number;
+  }
+) {
+  const limit = options?.limit ?? 300;
+  const minScore = options?.minScore ?? 64;
+
+  const cleanedQuery = query.trim();
+
+  if (!cleanedQuery) {
+    return [];
+  }
+
+  const guides = await loadSavedInstructionGuides(limit);
+
+  const matches = guides
+    .map((guide) => scoreInstructionGuideMatch(cleanedQuery, guide))
+    .filter((match) => match.score >= minScore)
+    .sort((a, b) => b.score - a.score);
+
+  return matches;
 }
