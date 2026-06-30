@@ -15,6 +15,8 @@ const allCategoryLabel = "Alle";
 type GenerateInstructionResponse = {
   guide?: InstructionGuide;
   error?: string;
+  jobId?: string;
+  status?: string;
 };
 
 export default function InstructionsPage() {
@@ -36,6 +38,75 @@ export default function InstructionsPage() {
         <InstructionsPageContent />
       </Suspense>
     </div>
+  );
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function pollGeneratedInstruction(
+  jobId: string,
+  query: string
+): Promise<InstructionGuide> {
+  const maxAttempts = 120;
+  const pollingIntervalMs = 5000;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const response = await fetch(
+      `/api/anleitungen/generate?jobId=${encodeURIComponent(
+        jobId
+      )}&query=${encodeURIComponent(query)}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
+
+    const responseText = await response.text();
+
+    if (!responseText) {
+      throw new Error(
+        `Die API hat beim Abrufen leer geantwortet. Status: ${response.status}`
+      );
+    }
+
+    let data: GenerateInstructionResponse;
+
+    try {
+      data = JSON.parse(responseText) as GenerateInstructionResponse;
+    } catch {
+      throw new Error(
+        `Die API hat beim Abrufen keine gültige JSON-Antwort geliefert. Status: ${
+          response.status
+        }. Antwort: ${responseText.slice(0, 300)}`
+      );
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+          `KI-Job konnte nicht gelesen werden. Status: ${response.status}`
+      );
+    }
+
+    if (data.guide) {
+      return data.guide;
+    }
+
+    if (
+      data.status &&
+      data.status !== "queued" &&
+      data.status !== "in_progress"
+    ) {
+      throw new Error(`KI-Job wurde beendet mit Status: ${data.status}`);
+    }
+
+    await wait(pollingIntervalMs);
+  }
+
+  throw new Error(
+    "Die KI-Anleitung dauert länger als 10 Minuten. Bitte die Anfrage etwas kürzer formulieren oder später erneut versuchen."
   );
 }
 
@@ -161,13 +232,26 @@ function InstructionsPageContent() {
         );
       }
 
-      if (!response.ok || !data.guide) {
+      if (!response.ok) {
         throw new Error(
-          data.error || "Die KI-Anleitung konnte nicht erstellt werden."
+          data.error || "Die KI-Anleitung konnte nicht gestartet werden."
         );
       }
 
-      setGeneratedInstruction(data.guide);
+      if (data.guide) {
+        setGeneratedInstruction(data.guide);
+        return;
+      }
+
+      if (data.jobId) {
+        const guide = await pollGeneratedInstruction(data.jobId, query);
+        setGeneratedInstruction(guide);
+        return;
+      }
+
+      throw new Error(
+        "Die API hat weder eine Anleitung noch eine Job-ID geliefert."
+      );
     } catch (error) {
       setGenerationError(
         error instanceof Error

@@ -1,7 +1,3 @@
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const maxDuration = 60;
-
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import {
@@ -25,6 +21,10 @@ import {
   isValidUserPlan,
   type UserPlan,
 } from "@/config/plans";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -91,6 +91,14 @@ function getTodayKeyGermany() {
   }).format(new Date());
 }
 
+function sanitizeText(value: unknown, maxLength: number) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().slice(0, maxLength);
+}
+
 function formatHistory(messages: ChatMessage[]) {
   return messages
     .map((message) => {
@@ -105,30 +113,38 @@ function normalizeMessages(value: unknown): ChatMessage[] {
     return [];
   }
 
-  return value.flatMap((entry): ChatMessage[] => {
-    if (!entry || typeof entry !== "object") {
+  return value
+    .flatMap((entry): ChatMessage[] => {
+      if (!entry || typeof entry !== "object") {
+        return [];
+      }
+
+      const candidate = entry as {
+        role?: unknown;
+        content?: unknown;
+      };
+
+      if (
+        (candidate.role === "user" || candidate.role === "assistant") &&
+        typeof candidate.content === "string"
+      ) {
+        const content = sanitizeText(candidate.content, 1600);
+
+        if (!content) {
+          return [];
+        }
+
+        return [
+          {
+            role: candidate.role,
+            content,
+          },
+        ];
+      }
+
       return [];
-    }
-
-    const candidate = entry as {
-      role?: unknown;
-      content?: unknown;
-    };
-
-    if (
-      (candidate.role === "user" || candidate.role === "assistant") &&
-      typeof candidate.content === "string"
-    ) {
-      return [
-        {
-          role: candidate.role,
-          content: candidate.content,
-        },
-      ];
-    }
-
-    return [];
-  });
+    })
+    .slice(-8);
 }
 
 function createAuthenticatedSupabaseClient(accessToken: string) {
@@ -421,6 +437,49 @@ function hasTechnicalConflict(engineType: EngineType, answer: string) {
   return false;
 }
 
+function getDiagnosisModel() {
+  return (
+    process.env.OPENAI_DIAGNOSIS_MODEL ||
+    process.env.OPENAI_MODEL ||
+    "gpt-5.5"
+  );
+}
+
+function modelSupportsReasoning(model: string) {
+  return (
+    model.startsWith("gpt-5") ||
+    model.startsWith("o1") ||
+    model.startsWith("o3") ||
+    model.startsWith("o4")
+  );
+}
+
+function getDiagnosisReasoningEffort(): "minimal" | "low" | "medium" | "high" {
+  const effort =
+    process.env.OPENAI_DIAGNOSIS_REASONING_EFFORT ||
+    process.env.OPENAI_REASONING_EFFORT;
+
+  if (effort === "minimal") return "minimal";
+  if (effort === "medium") return "medium";
+  if (effort === "high") return "high";
+
+  return "low";
+}
+
+function getDiagnosisMaxOutputTokens() {
+  const value = Number(process.env.OPENAI_DIAGNOSIS_MAX_OUTPUT_TOKENS || 2500);
+
+  if (Number.isNaN(value)) {
+    return 2500;
+  }
+
+  return Math.min(Math.max(value, 800), 5000);
+}
+
+function shouldAutoRetryDiagnosis() {
+  return process.env.DIAGNOSIS_AUTO_RETRY === "true";
+}
+
 function buildSystemPrompt(
   engineContext: EngineContext,
   faultCodeContext: FaultCodeContext,
@@ -523,9 +582,20 @@ async function createDiagnosisAnswer(
   input: string,
   retryWarning?: string
 ) {
+  const model = getDiagnosisModel();
+  const reasoningEffort = getDiagnosisReasoningEffort();
+  const maxOutputTokens = getDiagnosisMaxOutputTokens();
+
   const response = await client.responses.create({
-    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-    temperature: 0.1,
+    model,
+    ...(modelSupportsReasoning(model)
+      ? {
+          reasoning: {
+            effort: reasoningEffort,
+          },
+        }
+      : {}),
+    max_output_tokens: maxOutputTokens,
     input: [
       {
         role: "system",
@@ -546,22 +616,38 @@ ${input}
         `,
       },
     ],
-  });
+  } as any);
 
-  return response.output_text;
+  const answer = response.output_text?.trim();
+
+  if (!answer) {
+    throw new Error("Die KI hat keine auslesbare Diagnose-Antwort geliefert.");
+  }
+
+  return answer;
 }
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        {
+          error:
+            "OPENAI_API_KEY fehlt. Bitte in .env.local oder Vercel eintragen.",
+        },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
 
-    const input = body.input;
+    const input = sanitizeText(body.input, 2500);
     const messages = normalizeMessages(body.messages);
     const accessToken =
       typeof body.accessToken === "string" ? body.accessToken : "";
     const useServerUsageTracking = body.useServerUsageTracking === true;
 
-    if (!input || typeof input !== "string") {
+    if (!input) {
       return NextResponse.json(
         { error: "Keine gültige Diagnose-Eingabe erhalten." },
         { status: 400 }
@@ -602,21 +688,26 @@ export async function POST(request: Request) {
     let qualityCheck = "Antwort ohne technischen Konflikt erstellt.";
 
     if (hasTechnicalConflict(engineContext.engineType, result)) {
-      qualityCheck =
-        "Technischer Konflikt erkannt. Antwort wurde automatisch neu generiert.";
+      if (shouldAutoRetryDiagnosis()) {
+        qualityCheck =
+          "Technischer Konflikt erkannt. Antwort wurde automatisch neu generiert.";
 
-      result = await createDiagnosisAnswer(
-        engineContext,
-        faultCodeContext,
-        messages,
-        input,
-        `
+        result = await createDiagnosisAnswer(
+          engineContext,
+          faultCodeContext,
+          messages,
+          input,
+          `
 ACHTUNG: Die vorherige Antwort enthielt ein Bauteil, das zum erkannten Motortyp nicht passt.
 Erzeuge die Antwort neu und beachte den Motortyp zwingend.
 Bei Diesel keine Zündkerzen, Zündspulen, Zündfunken oder Zündanlage als Ursache oder Prüfpunkt nennen.
 Bei Benziner keine Glühkerzen oder Glühsteuergerät als Ursache oder Prüfpunkt nennen.
-        `
-      );
+          `
+        );
+      } else {
+        qualityCheck =
+          "Technischer Konflikt erkannt. Automatische Neugenerierung ist deaktiviert, um Kosten zu sparen.";
+      }
     }
 
     let countAfter: number | null = null;
@@ -642,6 +733,14 @@ Bei Benziner keine Glühkerzen oder Glühsteuergerät als Ursache oder Prüfpunk
       engineContext,
       faultCodeContext,
       qualityCheck,
+      diagnosisConfig: {
+        model: getDiagnosisModel(),
+        reasoningEffort: modelSupportsReasoning(getDiagnosisModel())
+          ? getDiagnosisReasoningEffort()
+          : "not_used",
+        maxOutputTokens: getDiagnosisMaxOutputTokens(),
+        autoRetry: shouldAutoRetryDiagnosis(),
+      },
       usageLimit: buildUsageLimitPayload(
         usageControl,
         countAfter,
