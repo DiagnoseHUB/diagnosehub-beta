@@ -1,6 +1,11 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
+export const metadata = {
+  title: "Impressum | DiagnoseHUB",
+  description: "Impressum und Anbieterkennzeichnung von DiagnoseHUB.",
+};
+
 export default function ImpressumPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -19,24 +24,15 @@ export default function ImpressumPage() {
           <div className="mt-8 space-y-8 leading-8 text-slate-300">
             <section>
               <h2 className="text-2xl font-bold text-white">
-                Angaben zum Anbieter
+                Angaben gemäß § 5 DDG
               </h2>
 
-              <div className="mt-4 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 text-yellow-100">
-                <p className="font-bold">Vor Livegang ausfüllen</p>
-                <p className="mt-2">
-                  Diese Seite ist ein technischer Beta-Platzhalter. Ersetze die
-                  Platzhalter vor Veröffentlichung durch deine echten
-                  Anbieterangaben.
-                </p>
-              </div>
-
               <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-                <p className="font-semibold text-white">
-                  &lt;Vollständiger Name / Firmenname&gt;
-                </p>
-                <p>&lt;Straße und Hausnummer&gt;</p>
-                <p>&lt;PLZ und Ort&gt;</p>
+                <p className="font-semibold text-white">DiagnoseHUB</p>
+                <p>Lukas Lettenmeier</p>
+                <p>Einzelunternehmen</p>
+                <p>Ringstraße 18</p>
+                <p>86733 Alerheim</p>
                 <p>Deutschland</p>
               </div>
             </section>
@@ -47,27 +43,39 @@ export default function ImpressumPage() {
               <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
                 <p>
                   E-Mail:{" "}
-                  <span className="font-semibold text-white">
-                    &lt;deine-email@domain.de&gt;
-                  </span>
-                </p>
-                <p>
-                  Telefon:{" "}
-                  <span className="font-semibold text-white">
-                    &lt;optional / falls gewünscht&gt;
-                  </span>
+                  <a
+                    href="mailto:info@diagnosehub.de"
+                    className="font-semibold text-blue-300 transition hover:text-blue-200"
+                  >
+                    info@diagnosehub.de
+                  </a>
                 </p>
               </div>
             </section>
 
             <section>
               <h2 className="text-2xl font-bold text-white">
-                Verantwortlich für den Inhalt
+                Umsatzsteuer
               </h2>
 
               <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-                <p>&lt;Vollständiger Name&gt;</p>
-                <p>&lt;Anschrift wie oben&gt;</p>
+                <p>
+                  Kleinunternehmer gemäß § 19 UStG. Eine Umsatzsteuer-ID ist
+                  derzeit nicht vorhanden.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-bold text-white">
+                Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV
+              </h2>
+
+              <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+                <p>Lukas Lettenmeier</p>
+                <p>Ringstraße 18</p>
+                <p>86733 Alerheim</p>
+                <p>Deutschland</p>
               </div>
             </section>
 
@@ -79,13 +87,16 @@ export default function ImpressumPage() {
               <p className="mt-4">
                 DiagnoseHUB befindet sich aktuell in einer technischen
                 Beta-Phase. Die Plattform dient der digitalen Unterstützung bei
-                Kfz-Diagnose, Dokumentation und späteren Lernfunktionen.
+                Kfz-Diagnose, Dokumentation und Lernfunktionen.
               </p>
 
               <p className="mt-4">
                 Die bereitgestellten Inhalte ersetzen keine eigene fachliche
-                Prüfung am Fahrzeug und keine Herstellerinformationen,
-                Reparaturanleitungen oder gesetzlichen Prüfvorgaben.
+                Prüfung am Fahrzeug, keine Herstellerinformationen, keine
+                Reparaturanleitungen des Herstellers und keine gesetzlichen
+                Prüfvorgaben. Die Verantwortung für Diagnose, Messung,
+                Reparaturentscheidung und Arbeitssicherheit bleibt beim
+                ausführenden Fachbetrieb.
               </p>
             </section>
 
@@ -95,9 +106,9 @@ export default function ImpressumPage() {
               </h2>
 
               <p className="mt-4">
-                Die Inhalte dieser Seite wurden mit größter Sorgfalt erstellt.
-                Für Richtigkeit, Vollständigkeit und Aktualität der Inhalte kann
-                jedoch keine Gewähr übernommen werden.
+                Die Inhalte dieser Website werden mit größtmöglicher Sorgfalt
+                erstellt. Für Richtigkeit, Vollständigkeit und Aktualität der
+                Inhalte kann jedoch keine Gewähr übernommen werden.
               </p>
             </section>
 
@@ -107,10 +118,10 @@ export default function ImpressumPage() {
               </h2>
 
               <p className="mt-4">
-                Diese Website kann Links zu externen Webseiten enthalten. Auf
-                deren Inhalte besteht kein Einfluss. Für fremde Inhalte ist
-                stets der jeweilige Anbieter oder Betreiber der verlinkten
-                Seiten verantwortlich.
+                Diese Website kann Links zu externen Webseiten Dritter
+                enthalten. Auf deren Inhalte besteht kein Einfluss. Für die
+                Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter
+                oder Betreiber verantwortlich.
               </p>
             </section>
 
@@ -120,7 +131,10 @@ export default function ImpressumPage() {
               <p className="mt-4">
                 Die durch den Seitenbetreiber erstellten Inhalte und Werke auf
                 dieser Website unterliegen dem deutschen Urheberrecht. Beiträge
-                Dritter werden als solche gekennzeichnet.
+                Dritter werden als solche gekennzeichnet. Eine Vervielfältigung,
+                Bearbeitung, Verbreitung oder sonstige Verwertung außerhalb der
+                Grenzen des Urheberrechts bedarf der vorherigen schriftlichen
+                Zustimmung des jeweiligen Rechteinhabers.
               </p>
             </section>
           </div>
