@@ -1,98 +1,284 @@
-import { NextResponse } from "next/server";
-import { getSiteUrl, getStripeClient, getStripeProPriceId } from "@/lib/supabase/stripe";
-import { loadAuthenticatedUserFromRequest } from "@/lib/supabase/auth";
-import { loadSubscriptionForUser } from "@/lib/supabase/subscriptionStorage";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  createClient as createSupabaseClient,
+  type SupabaseClient,
+  type User,
+} from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
-  try {
-    const { user } = await loadAuthenticatedUserFromRequest(request);
+type StripeCheckoutResponse = {
+  id?: string;
+  url?: string;
+  error?: {
+    message?: string;
+  };
+};
 
-    if (!user.email) {
-      return NextResponse.json(
-        {
-          error:
-            "Für Stripe Checkout muss im Supabase-Account eine E-Mail-Adresse hinterlegt sein.",
-        },
-        { status: 400 }
-      );
+function getBaseUrl(request: NextRequest) {
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (envUrl) {
+    return envUrl.replace(/\/$/, "");
+  }
+
+  return request.nextUrl.origin;
+}
+
+function getRequiredEnv(name: string) {
+  const value = process.env[name]?.trim();
+
+  if (!value) {
+    throw new Error(`${name} fehlt. Bitte in .env.local eintragen und Server neu starten.`);
+  }
+
+  return value;
+}
+
+function createAuthenticatedSupabaseClient(accessToken: string): SupabaseClient {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+
+  if (!supabaseUrl) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL fehlt in .env.local.");
+  }
+
+  if (!supabaseKey) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY oder NEXT_PUBLIC_SUPABASE_ANON_KEY fehlt in .env.local."
+    );
+  }
+
+  return createSupabaseClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+}
+
+async function loadUserFromAuthorizationHeader(
+  request: NextRequest
+): Promise<User | null> {
+  const authorizationHeader = request.headers.get("authorization") || "";
+
+  if (!authorizationHeader.toLowerCase().startsWith("bearer ")) {
+    return null;
+  }
+
+  const accessToken = authorizationHeader.slice("bearer ".length).trim();
+
+  if (!accessToken) {
+    return null;
+  }
+
+  const supabase = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await supabase.auth.getUser(accessToken);
+
+  if (error) {
+    throw new Error(`Supabase-Session ungültig: ${error.message}`);
+  }
+
+  return data.user ?? null;
+}
+
+async function createStripeCheckoutSession({
+  request,
+  user,
+}: {
+  request: NextRequest;
+  user: User | null;
+}) {
+  const stripeSecretKey = getRequiredEnv("STRIPE_SECRET_KEY");
+  const proPriceId = getRequiredEnv("STRIPE_PRO_PRICE_ID");
+  const baseUrl = getBaseUrl(request);
+
+  const body = new URLSearchParams();
+
+  body.set("mode", "subscription");
+  body.set("line_items[0][price]", proPriceId);
+  body.set("line_items[0][quantity]", "1");
+
+  body.set(
+    "success_url",
+    `${baseUrl}/zahlung/erfolg?session_id={CHECKOUT_SESSION_ID}`
+  );
+  body.set("cancel_url", `${baseUrl}/preise`);
+
+  body.set("allow_promotion_codes", "true");
+  body.set("billing_address_collection", "required");
+  body.set("locale", "de");
+  body.set("automatic_tax[enabled]", "false");
+
+  body.set("metadata[plan]", "pro");
+  body.set("metadata[source]", "diagnosehub_checkout");
+
+  body.set("subscription_data[metadata][plan]", "pro");
+  body.set("subscription_data[metadata][source]", "diagnosehub_checkout");
+
+  if (user) {
+    body.set("client_reference_id", user.id);
+    body.set("metadata[supabase_user_id]", user.id);
+    body.set("subscription_data[metadata][supabase_user_id]", user.id);
+
+    if (user.email) {
+      body.set("customer_email", user.email);
+      body.set("metadata[user_email]", user.email);
+      body.set("subscription_data[metadata][user_email]", user.email);
     }
+  } else {
+    body.set("metadata[checkout_mode]", "legacy_without_user");
+    body.set("subscription_data[metadata][checkout_mode]", "legacy_without_user");
+  }
 
-    const stripe = getStripeClient();
-    const siteUrl = getSiteUrl();
-    const priceId = getStripeProPriceId();
+  const stripeResponse = await fetch(
+    "https://api.stripe.com/v1/checkout/sessions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${stripeSecretKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+    }
+  );
 
-    const existingSubscription = await loadSubscriptionForUser(user.id);
+  const stripeText = await stripeResponse.text();
 
-    const checkoutSessionParams = {
-      mode: "subscription" as const,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: `${siteUrl}/dashboard?checkout=success`,
-      cancel_url: `${siteUrl}/dashboard?checkout=cancelled`,
-      client_reference_id: user.id,
-      metadata: {
-        user_id: user.id,
-        plan: "pro",
-        source: "diagnosehub_checkout",
-      },
-      subscription_data: {
-        metadata: {
-          user_id: user.id,
-          plan: "pro",
-          source: "diagnosehub_checkout",
-        },
-      },
-      automatic_tax: {
-        enabled: false,
-      },
-      allow_promotion_codes: false,
-      custom_text: {
-        submit: {
-          message:
-            "Endpreis 49 € pro Monat. Keine Umsatzsteuerberechnung gemäß § 19 UStG.",
-        },
-      },
+  let stripeData: StripeCheckoutResponse = {};
+
+  try {
+    stripeData = JSON.parse(stripeText) as StripeCheckoutResponse;
+  } catch {
+    throw new Error(
+      "Stripe hat keine gültige JSON-Antwort geliefert: " +
+        stripeText.slice(0, 300)
+    );
+  }
+
+  if (!stripeResponse.ok) {
+    throw new Error(
+      stripeData.error?.message ||
+        `Stripe-Checkout konnte nicht erstellt werden. Status: ${stripeResponse.status}`
+    );
+  }
+
+  if (!stripeData.url) {
+    throw new Error("Stripe hat keine Checkout-URL zurückgegeben.");
+  }
+
+  return stripeData;
+}
+
+async function readPlanFromRequest(request: NextRequest) {
+  const planFromSearch = request.nextUrl.searchParams.get("plan");
+
+  if (planFromSearch) {
+    return planFromSearch;
+  }
+
+  try {
+    const body = (await request.json()) as {
+      plan?: unknown;
     };
 
-    const session = await stripe.checkout.sessions.create({
-      ...checkoutSessionParams,
-      ...(existingSubscription?.stripe_customer_id
-        ? {
-            customer: existingSubscription.stripe_customer_id,
-          }
-        : {
-            customer_email: user.email,
-          }),
-    });
+    if (typeof body.plan === "string") {
+      return body.plan;
+    }
+  } catch {
+    return null;
+  }
 
-    if (!session.url) {
-      return NextResponse.json(
-        {
-          error: "Stripe Checkout URL konnte nicht erstellt werden.",
-        },
-        { status: 500 }
-      );
+  return null;
+}
+
+function validatePlan(plan: string | null) {
+  if (plan !== "pro") {
+    return NextResponse.json(
+      { error: "Ungültiger Tarif. Aktuell ist nur Pro über Stripe aktiv." },
+      { status: 400 }
+    );
+  }
+
+  return null;
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const plan = request.nextUrl.searchParams.get("plan");
+    const planError = validatePlan(plan);
+
+    if (planError) {
+      return planError;
     }
 
-    return NextResponse.json({
-      url: session.url,
+    const stripeSession = await createStripeCheckoutSession({
+      request,
+      user: null,
     });
+
+    return NextResponse.redirect(stripeSession.url as string, 303);
   } catch (error) {
-    console.error("Stripe Checkout konnte nicht erstellt werden:", error);
+    console.error("Stripe Checkout Fehler:", error);
 
     return NextResponse.json(
       {
         error:
           error instanceof Error
             ? error.message
-            : "Stripe Checkout konnte nicht erstellt werden.",
+            : "Interner Fehler beim Stripe-Checkout.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const plan = await readPlanFromRequest(request);
+    const planError = validatePlan(plan);
+
+    if (planError) {
+      return planError;
+    }
+
+    const user = await loadUserFromAuthorizationHeader(request);
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          error:
+            "Du musst eingeloggt sein, damit der Pro-Zugang deinem Account zugeordnet werden kann.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const stripeSession = await createStripeCheckoutSession({
+      request,
+      user,
+    });
+
+    return NextResponse.json({
+      url: stripeSession.url,
+    });
+  } catch (error) {
+    console.error("Stripe Checkout Fehler:", error);
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Interner Fehler beim Stripe-Checkout.",
       },
       { status: 500 }
     );

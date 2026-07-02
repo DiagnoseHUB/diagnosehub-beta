@@ -5,156 +5,129 @@ import { useEffect, useState } from "react";
 type ThemeMode = "light" | "dark";
 
 const THEME_STORAGE_KEY = "diagnosehub-theme";
+const THEME_CHANGE_EVENT = "diagnosehub-theme-changed";
 
-const legacyThemeStorageKeys = [
-  "theme",
-  "diagnosehub-color-theme",
-  "diagnosehub-theme-mode",
-];
+function getSystemTheme(): ThemeMode {
+  if (typeof window === "undefined") {
+    return "dark";
+  }
 
-function isThemeMode(value: unknown): value is ThemeMode {
-  return value === "light" || value === "dark";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
-function readStoredTheme(): ThemeMode | null {
-  try {
-    const currentTheme = localStorage.getItem(THEME_STORAGE_KEY);
-
-    if (isThemeMode(currentTheme)) {
-      return currentTheme;
-    }
-
-    for (const key of legacyThemeStorageKeys) {
-      const legacyTheme = localStorage.getItem(key);
-
-      if (isThemeMode(legacyTheme)) {
-        localStorage.setItem(THEME_STORAGE_KEY, legacyTheme);
-        return legacyTheme;
-      }
-    }
-  } catch {
+function getStoredTheme(): ThemeMode | null {
+  if (typeof window === "undefined") {
     return null;
+  }
+
+  const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+
+  if (storedTheme === "light" || storedTheme === "dark") {
+    return storedTheme;
   }
 
   return null;
 }
 
-function getSystemTheme(): ThemeMode {
-  if (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-  ) {
-    return "dark";
+function applyTheme(theme: ThemeMode) {
+  if (typeof document === "undefined") {
+    return;
   }
 
-  return "light";
-}
-
-function getInitialTheme(): ThemeMode {
-  return readStoredTheme() || getSystemTheme();
-}
-
-function applyTheme(theme: ThemeMode) {
   const root = document.documentElement;
 
   root.classList.toggle("dark", theme === "dark");
-  root.classList.remove("diagnosehub-light");
+  root.classList.toggle("diagnosehub-light", theme === "light");
   root.dataset.theme = theme;
   root.style.colorScheme = theme;
 }
 
-function saveTheme(theme: ThemeMode) {
-  localStorage.setItem(THEME_STORAGE_KEY, theme);
-
-  for (const key of legacyThemeStorageKeys) {
-    localStorage.removeItem(key);
-  }
-}
-
-function dispatchThemeEvent(theme: ThemeMode) {
+function dispatchThemeChanged(theme: ThemeMode) {
   window.dispatchEvent(
-    new CustomEvent("diagnosehub-theme-updated", {
-      detail: {
-        theme,
-      },
+    new CustomEvent(THEME_CHANGE_EVENT, {
+      detail: theme,
     })
   );
 }
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemeMode>("dark");
   const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>("dark");
 
   useEffect(() => {
-    const initialTheme = getInitialTheme();
+    const initialTheme = getStoredTheme() ?? getSystemTheme();
 
-    applyTheme(initialTheme);
     setTheme(initialTheme);
+    applyTheme(initialTheme);
     setMounted(true);
 
+    function handleThemeChanged(event: Event) {
+      const customEvent = event as CustomEvent<ThemeMode>;
+      const nextTheme = customEvent.detail;
+
+      if (nextTheme === "light" || nextTheme === "dark") {
+        setTheme(nextTheme);
+        applyTheme(nextTheme);
+      }
+    }
+
     function handleStorageChange(event: StorageEvent) {
-      if (
-        event.key &&
-        event.key !== THEME_STORAGE_KEY &&
-        !legacyThemeStorageKeys.includes(event.key)
-      ) {
+      if (event.key !== THEME_STORAGE_KEY) {
         return;
       }
 
-      const nextTheme = getInitialTheme();
+      const nextTheme = getStoredTheme() ?? getSystemTheme();
 
-      applyTheme(nextTheme);
       setTheme(nextTheme);
+      applyTheme(nextTheme);
     }
 
-    function handleThemeUpdated(event: Event) {
-      const customEvent = event as CustomEvent<{ theme?: unknown }>;
-      const nextTheme = customEvent.detail?.theme;
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
-      if (!isThemeMode(nextTheme)) {
-        return;
-      }
-
-      applyTheme(nextTheme);
-      setTheme(nextTheme);
-    }
-
-    const systemThemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-    function handleSystemThemeChange() {
-      const storedTheme = readStoredTheme();
+    function handleSystemThemeChange(event: MediaQueryListEvent) {
+      const storedTheme = getStoredTheme();
 
       if (storedTheme) {
         return;
       }
 
-      const nextTheme = getSystemTheme();
+      const nextTheme: ThemeMode = event.matches ? "dark" : "light";
 
-      applyTheme(nextTheme);
       setTheme(nextTheme);
+      applyTheme(nextTheme);
+      dispatchThemeChanged(nextTheme);
     }
 
+    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChanged);
     window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("diagnosehub-theme-updated", handleThemeUpdated);
-    systemThemeQuery.addEventListener("change", handleSystemThemeChange);
+    mediaQuery.addEventListener("change", handleSystemThemeChange);
 
     return () => {
+      window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChanged);
       window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener(
-        "diagnosehub-theme-updated",
-        handleThemeUpdated
-      );
-      systemThemeQuery.removeEventListener("change", handleSystemThemeChange);
+      mediaQuery.removeEventListener("change", handleSystemThemeChange);
     };
   }, []);
 
   function toggleTheme() {
     const nextTheme: ThemeMode = theme === "dark" ? "light" : "dark";
 
-    saveTheme(nextTheme);
-    applyTheme(nextTheme);
     setTheme(nextTheme);
-    dispatchThemeEvent(nextTheme);
+    localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    applyTheme(nextTheme);
+    dispatchThemeChanged(nextTheme);
+  }
+
+  if (!mounted) {
+    return (
+      <button
+        type="button"
+        aria-label="Design wird geladen"
+        className="h-11 w-11 rounded-xl border border-slate-300 bg-white text-slate-700 transition dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+      />
+    );
   }
 
   const isDark = theme === "dark";
@@ -163,14 +136,12 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label={isDark ? "Hellmodus aktivieren" : "Dunkelmodus aktivieren"}
-      aria-pressed={isDark}
-      className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+      aria-label={isDark ? "Helles Design aktivieren" : "Dunkles Design aktivieren"}
+      title={isDark ? "Helles Design aktivieren" : "Dunkles Design aktivieren"}
+      className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
     >
-      <span className="text-base">{mounted && isDark ? "☀️" : "🌙"}</span>
-
-      <span className="hidden sm:inline">
-        {mounted ? (isDark ? "Hell" : "Dunkel") : "Theme"}
+      <span aria-hidden="true" className="text-lg leading-none">
+        {isDark ? "☀️" : "🌙"}
       </span>
     </button>
   );

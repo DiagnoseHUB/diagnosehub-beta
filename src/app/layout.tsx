@@ -17,20 +17,7 @@ const themeScript = `
 (function () {
   try {
     var storageKey = "diagnosehub-theme";
-    var legacyKeys = ["theme", "diagnosehub-color-theme", "diagnosehub-theme-mode"];
     var theme = localStorage.getItem(storageKey);
-
-    if (theme !== "light" && theme !== "dark") {
-      for (var i = 0; i < legacyKeys.length; i++) {
-        var legacyTheme = localStorage.getItem(legacyKeys[i]);
-
-        if (legacyTheme === "light" || legacyTheme === "dark") {
-          theme = legacyTheme;
-          localStorage.setItem(storageKey, theme);
-          break;
-        }
-      }
-    }
 
     if (theme !== "light" && theme !== "dark") {
       theme = window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -38,15 +25,19 @@ const themeScript = `
         : "light";
     }
 
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.classList.remove("diagnosehub-light");
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
+    var root = document.documentElement;
+
+    root.classList.toggle("dark", theme === "dark");
+    root.classList.toggle("diagnosehub-light", theme === "light");
+    root.dataset.theme = theme;
+    root.style.colorScheme = theme;
   } catch (error) {
-    document.documentElement.classList.add("dark");
-    document.documentElement.classList.remove("diagnosehub-light");
-    document.documentElement.dataset.theme = "dark";
-    document.documentElement.style.colorScheme = "dark";
+    var fallbackRoot = document.documentElement;
+
+    fallbackRoot.classList.add("dark");
+    fallbackRoot.classList.remove("diagnosehub-light");
+    fallbackRoot.dataset.theme = "dark";
+    fallbackRoot.style.colorScheme = "dark";
   }
 })();
 `;

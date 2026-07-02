@@ -19,12 +19,9 @@ import {
 type AccountSource = "none" | "localStorage" | "supabase";
 
 const navigationLinks = [
-  { label: "Diagnose", href: "/#diagnose" },
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Anleitungen", href: "/anleitungen" },
+  { label: "KI-Diagnose", href: "/#diagnose" },
   { label: "Lernen", href: "/lernen" },
-  { label: "Ablauf", href: "/#workflow" },
-  { label: "Funktionen", href: "/#features" },
+  { label: "Preise", href: "/preise" },
 ];
 
 const accountSourceLabels: Record<AccountSource, string> = {
@@ -236,13 +233,6 @@ function Header() {
                 {link.label}
               </a>
             ))}
-
-            <a
-              href="/billing"
-              className="rounded-full border border-yellow-400 bg-yellow-50 px-4 py-2 text-yellow-700 transition hover:bg-yellow-500 hover:text-slate-950 dark:border-yellow-500/30 dark:bg-yellow-500/10 dark:text-yellow-300 dark:hover:bg-yellow-500 dark:hover:text-slate-950"
-            >
-              Pro aktivieren
-            </a>
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
@@ -295,10 +285,10 @@ function Header() {
             )}
 
             <a
-              href="/#diagnose"
+              href="/preise"
               className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-500 dark:shadow-blue-950/40"
             >
-              Diagnose starten
+              Pro
             </a>
           </div>
 
@@ -378,9 +368,9 @@ function Header() {
               ))}
 
               <a
-                href="/billing"
+                href="/preise"
                 onClick={closeMobileMenu}
-                className="rounded-2xl border border-yellow-400 bg-yellow-50 px-5 py-4 font-semibold text-yellow-700 transition hover:bg-yellow-500 hover:text-slate-950 dark:border-yellow-500/30 dark:bg-yellow-500/10 dark:text-yellow-300 dark:hover:bg-yellow-500 dark:hover:text-slate-950"
+                className="rounded-2xl bg-blue-600 px-5 py-4 text-center font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-500 dark:shadow-blue-950/40"
               >
                 Pro aktivieren
               </a>
@@ -403,14 +393,6 @@ function Header() {
                   {logoutLoading ? "Logout..." : "Logout"}
                 </button>
               )}
-
-              <a
-                href="/#diagnose"
-                onClick={closeMobileMenu}
-                className="rounded-2xl bg-blue-600 px-5 py-4 text-center font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-500 dark:shadow-blue-950/40"
-              >
-                Diagnose starten
-              </a>
             </nav>
           </div>
         )}

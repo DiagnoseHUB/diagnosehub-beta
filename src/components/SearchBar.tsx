@@ -26,11 +26,7 @@ import {
   normalizeDiagnosisUsage,
   type DiagnosisUsage,
 } from "@/services/diagnosisUsageSupabase";
-import {
-  PLAN_CONFIG,
-  isValidUserPlan,
-  type UserPlan,
-} from "@/config/plans";
+import { PLAN_CONFIG, isValidUserPlan, type UserPlan } from "@/config/plans";
 
 type CurrentDiagnosisCase = {
   messages: ChatMessage[];
@@ -76,6 +72,7 @@ const DIAGNOSIS_USAGE_STORAGE_KEY = "diagnosehub-diagnosis-usage";
 const showLocalPlanSwitcher = process.env.NODE_ENV === "development";
 
 const baseQuickQuestions = [
+  "Kurze Ausbauanleitung erstellen",
   "Welche Messwerte prüfen?",
   "Was prüfe ich als erstes?",
   "Häufigste Ursache eingrenzen",
@@ -92,7 +89,7 @@ function getErrorMessage(error: unknown) {
 
 function buildDynamicQuickQuestions(
   engineContext: EngineContext | null,
-  faultCodeContext: FaultCodeContext | null
+  faultCodeContext: FaultCodeContext | null,
 ) {
   const questions: string[] = [...baseQuickQuestions];
 
@@ -102,7 +99,7 @@ function buildDynamicQuickQuestions(
       "Injektor-Rücklaufmenge prüfen?",
       "Ladedruck Soll/Ist prüfen?",
       "DPF-Differenzdruck prüfen?",
-      "AGR Soll/Ist prüfen?"
+      "AGR Soll/Ist prüfen?",
     );
   }
 
@@ -112,7 +109,7 @@ function buildDynamicQuickQuestions(
       "Zündaussetzer je Zylinder prüfen?",
       "Falschluft prüfen?",
       "Kraftstoffdruck prüfen?",
-      "Ladedruck Soll/Ist prüfen?"
+      "Ladedruck Soll/Ist prüfen?",
     );
   }
 
@@ -122,7 +119,7 @@ function buildDynamicQuickQuestions(
     questions.unshift(
       `Was bedeutet ${firstFaultCode.code}?`,
       `Prüfplan für ${firstFaultCode.code}`,
-      `Messwerte zu ${firstFaultCode.code}`
+      `Messwerte zu ${firstFaultCode.code}`,
     );
 
     const system = firstFaultCode.system.toLowerCase();
@@ -132,7 +129,7 @@ function buildDynamicQuickQuestions(
         "Ladeluftstrecke abdrücken?",
         "VTG/Wastegate prüfen?",
         "Ladedrucksensor plausibel?",
-        "Unterdrucksystem prüfen?"
+        "Unterdrucksystem prüfen?",
       );
     }
 
@@ -141,7 +138,7 @@ function buildDynamicQuickQuestions(
         "Raildruck beim Starten?",
         "Niederdruckversorgung prüfen?",
         "Mengenregelventil prüfen?",
-        "Kraftstofffilter prüfen?"
+        "Kraftstofffilter prüfen?",
       );
     }
 
@@ -150,7 +147,7 @@ function buildDynamicQuickQuestions(
         "AGR Stellgliedtest?",
         "LMM Reaktion bei AGR prüfen?",
         "AGR Strecke verkokt?",
-        "AGR Soll/Ist vergleichen?"
+        "AGR Soll/Ist vergleichen?",
       );
     }
 
@@ -159,7 +156,7 @@ function buildDynamicQuickQuestions(
         "DPF Differenzdruck Sollwert?",
         "Rußmasse und Aschemasse prüfen?",
         "Regeneration möglich?",
-        "Differenzdrucksensor prüfen?"
+        "Differenzdrucksensor prüfen?",
       );
     }
 
@@ -168,7 +165,7 @@ function buildDynamicQuickQuestions(
         "Short Term Fuel Trim?",
         "Long Term Fuel Trim?",
         "Ansaugsystem abnebeln?",
-        "Lambdasonde plausibel?"
+        "Lambdasonde plausibel?",
       );
     }
 
@@ -177,12 +174,214 @@ function buildDynamicQuickQuestions(
         "Aussetzerzähler prüfen?",
         "Zylinder eingrenzen?",
         "Kompression prüfen?",
-        "Injektor/Zündung quer prüfen?"
+        "Injektor/Zündung quer prüfen?",
       );
     }
   }
 
   return Array.from(new Set(questions)).slice(0, 12);
+}
+
+type AssistantSection = {
+  title: string;
+  lines: string[];
+};
+
+function cleanMarkdownMarkers(value: string) {
+  return value.replaceAll("**", "").trim();
+}
+
+function parseAssistantSections(content: string): AssistantSection[] {
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const sections: AssistantSection[] = [];
+  let currentSection: AssistantSection | null = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const headingMatch = line.match(/^#{1,3}\s+(.+)$/);
+
+    if (headingMatch) {
+      if (currentSection) {
+        sections.push(currentSection);
+      }
+
+      currentSection = {
+        title: cleanMarkdownMarkers(headingMatch[1]),
+        lines: [],
+      };
+
+      continue;
+    }
+
+    if (!currentSection) {
+      currentSection = {
+        title: "Antwort",
+        lines: [],
+      };
+    }
+
+    currentSection.lines.push(line);
+  }
+
+  if (currentSection) {
+    sections.push(currentSection);
+  }
+
+  return sections
+    .map((section) => ({
+      ...section,
+      lines: section.lines.filter((line) => line.trim() !== ""),
+    }))
+    .filter((section) => section.title || section.lines.length > 0);
+}
+
+function getAssistantSectionClasses(title: string) {
+  const normalizedTitle = title.toLowerCase();
+
+  if (
+    normalizedTitle.includes("kritisch") ||
+    normalizedTitle.includes("achtung") ||
+    normalizedTitle.includes("hinweis")
+  ) {
+    return {
+      wrapper: "rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4",
+      title: "text-yellow-200",
+      badge: "bg-yellow-500/20 text-yellow-200",
+      dot: "bg-yellow-300",
+    };
+  }
+
+  if (
+    normalizedTitle.includes("sofort") ||
+    normalizedTitle.includes("prüfen") ||
+    normalizedTitle.includes("diagnose")
+  ) {
+    return {
+      wrapper: "rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4",
+      title: "text-blue-100",
+      badge: "bg-blue-500/20 text-blue-200",
+      dot: "bg-blue-300",
+    };
+  }
+
+  if (
+    normalizedTitle.includes("nächste") ||
+    normalizedTitle.includes("schritt") ||
+    normalizedTitle.includes("arbeit") ||
+    normalizedTitle.includes("zugang") ||
+    normalizedTitle.includes("werkzeug")
+  ) {
+    return {
+      wrapper: "rounded-2xl border border-green-500/30 bg-green-500/10 p-4",
+      title: "text-green-100",
+      badge: "bg-green-500/20 text-green-200",
+      dot: "bg-green-300",
+    };
+  }
+
+  return {
+    wrapper: "rounded-2xl border border-slate-800 bg-slate-950/70 p-4",
+    title: "text-slate-100",
+    badge: "bg-slate-800 text-slate-300",
+    dot: "bg-slate-500",
+  };
+}
+
+function renderAssistantLine(
+  line: string,
+  lineIndex: number,
+  dotClassName: string,
+) {
+  const trimmedLine = cleanMarkdownMarkers(line);
+
+  if (!trimmedLine || trimmedLine === "---") {
+    return null;
+  }
+
+  const bulletMatch = trimmedLine.match(/^[-•]\s+(.+)$/);
+  const numberMatch = trimmedLine.match(/^(\d+)[.)]\s+(.+)$/);
+
+  if (bulletMatch) {
+    return (
+      <div
+        key={`${trimmedLine}-${lineIndex}`}
+        className="flex gap-3 text-sm leading-6 text-slate-300"
+      >
+        <span
+          className={`mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full ${dotClassName}`}
+        />
+        <span>{bulletMatch[1]}</span>
+      </div>
+    );
+  }
+
+  if (numberMatch) {
+    return (
+      <div
+        key={`${trimmedLine}-${lineIndex}`}
+        className="flex gap-3 text-sm leading-6 text-slate-300"
+      >
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-black text-slate-300">
+          {numberMatch[1]}
+        </span>
+        <span>{numberMatch[2]}</span>
+      </div>
+    );
+  }
+
+  return (
+    <p
+      key={`${trimmedLine}-${lineIndex}`}
+      className="text-sm leading-7 text-slate-300"
+    >
+      {trimmedLine}
+    </p>
+  );
+}
+
+function AssistantAnswer({ content }: { content: string }) {
+  const sections = parseAssistantSections(content);
+
+  if (sections.length === 0) {
+    return (
+      <div className="whitespace-pre-wrap text-sm leading-7 text-slate-300">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {sections.map((section, sectionIndex) => {
+        const classes = getAssistantSectionClasses(section.title);
+
+        return (
+          <section
+            key={`${section.title}-${sectionIndex}`}
+            className={classes.wrapper}
+          >
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-black uppercase tracking-wide ${classes.badge}`}
+              >
+                {sectionIndex + 1}
+              </span>
+
+              <h3 className={`text-base font-black ${classes.title}`}>
+                {section.title}
+              </h3>
+            </div>
+
+            <div className="space-y-2">
+              {section.lines.map((line, lineIndex) =>
+                renderAssistantLine(line, lineIndex, classes.dot),
+              )}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
 }
 
 function getCaseTitle(messages: ChatMessage[]) {
@@ -255,21 +454,22 @@ export default function SearchBar() {
   const [search, setSearch] = useState("");
   const [causingPart, setCausingPart] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [engineContext, setEngineContext] = useState<EngineContext | null>(null);
+  const [engineContext, setEngineContext] = useState<EngineContext | null>(
+    null,
+  );
   const [faultCodeContext, setFaultCodeContext] =
     useState<FaultCodeContext | null>(null);
   const [qualityCheck, setQualityCheck] = useState("");
   const [savedCases, setSavedCases] = useState<SavedDiagnosisCase[]>([]);
   const [userPlan, setUserPlan] = useState<UserPlan>("free");
   const [diagnosisUsage, setDiagnosisUsage] = useState<DiagnosisUsage>(
-    getInitialDiagnosisUsage()
+    getInitialDiagnosisUsage(),
   );
   const [copySuccess, setCopySuccess] = useState(false);
-  const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [openedCaseId, setOpenedCaseId] = useState<string | null>(null);
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -303,10 +503,11 @@ export default function SearchBar() {
 
   const remainingDiagnoses = Math.max(monthlyLimit - normalizedUsage.count, 0);
 
-  const remainingSavedCases = Math.max(
-    currentPlan.savedCaseLimit - savedCases.length,
-    0
-  );
+  const savingDisabledForPlan = currentPlan.savedCaseLimit <= 0;
+
+  const remainingSavedCases = savingDisabledForPlan
+    ? 0
+    : Math.max(currentPlan.savedCaseLimit - savedCases.length, 0);
 
   const diagnosisLimitReached = remainingDiagnoses <= 0;
 
@@ -315,7 +516,8 @@ export default function SearchBar() {
     savedCases.some((savedCase) => savedCase.id === openedCaseId);
 
   const savedCaseLimitReached =
-    savedCases.length >= currentPlan.savedCaseLimit && !openedCaseStillExists;
+    savingDisabledForPlan ||
+    (savedCases.length >= currentPlan.savedCaseLimit && !openedCaseStillExists);
 
   useEffect(() => {
     if (!shouldAutoScrollRef.current) {
@@ -366,7 +568,7 @@ export default function SearchBar() {
           loadLocalSavedCasesIntoState();
           loadLocalPlanAndUsage();
         }
-      }
+      },
     );
 
     return () => {
@@ -435,7 +637,9 @@ export default function SearchBar() {
       }
     } catch (error) {
       console.error("SearchBar konnte nicht initialisiert werden:", error);
-      setError("DiagnoseHUB konnte gespeicherte Daten nicht vollständig laden.");
+      setError(
+        "DiagnoseHUB konnte gespeicherte Daten nicht vollständig laden.",
+      );
     } finally {
       hasLoadedCaseRef.current = true;
     }
@@ -458,7 +662,10 @@ export default function SearchBar() {
       setCausingPart(parsedCase.causingPart || "");
       setOpenedCaseId(parsedCase.openedCaseId || null);
     } catch (error) {
-      console.error("Aktueller Diagnosefall konnte nicht geladen werden:", error);
+      console.error(
+        "Aktueller Diagnosefall konnte nicht geladen werden:",
+        error,
+      );
     }
   }
 
@@ -472,7 +679,7 @@ export default function SearchBar() {
     try {
       const savedUserPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
       const savedDiagnosisUsage = localStorage.getItem(
-        DIAGNOSIS_USAGE_STORAGE_KEY
+        DIAGNOSIS_USAGE_STORAGE_KEY,
       );
 
       if (isValidUserPlan(savedUserPlan)) {
@@ -514,7 +721,7 @@ export default function SearchBar() {
     } catch (error) {
       console.error("Supabase-Plan konnte nicht geladen werden:", error);
       setError(
-        "Supabase-Plan konnte nicht geladen werden. Lokaler Plan bleibt aktiv."
+        "Supabase-Plan konnte nicht geladen werden. Lokaler Plan bleibt aktiv.",
       );
       loadLocalPlanAndUsage();
     }
@@ -527,7 +734,7 @@ export default function SearchBar() {
     try {
       const remoteUsage = await loadDiagnosisUsageFromSupabase(
         supabase,
-        activeUser
+        activeUser,
       );
 
       setDiagnosisUsage(remoteUsage);
@@ -542,7 +749,7 @@ export default function SearchBar() {
       console.error("Supabase-Nutzung konnte nicht geladen werden:", error);
       setUsageStorageSource("local");
       setError(
-        "Supabase-Nutzungszähler konnte nicht geladen werden. Lokaler Zähler bleibt aktiv."
+        "Supabase-Nutzungszähler konnte nicht geladen werden. Lokaler Zähler bleibt aktiv.",
       );
     } finally {
       setUsageSyncLoading(false);
@@ -551,7 +758,7 @@ export default function SearchBar() {
 
   async function loadCasesForAuthenticatedUser(
     activeUser: User,
-    localCasesForMigration: SavedDiagnosisCase[]
+    localCasesForMigration: SavedDiagnosisCase[],
   ) {
     setCaseSyncLoading(true);
     setError("");
@@ -561,13 +768,13 @@ export default function SearchBar() {
         await migrateLocalDiagnosisCasesToSupabase(
           supabase,
           activeUser,
-          localCasesForMigration
+          localCasesForMigration,
         );
       }
 
       const remoteCases = await loadDiagnosisCasesFromSupabase(
         supabase,
-        activeUser
+        activeUser,
       );
 
       setSavedCases(remoteCases);
@@ -584,10 +791,13 @@ export default function SearchBar() {
         setCaseSyncMessage("");
       }, 3000);
     } catch (error) {
-      console.error("Supabase-Fallhistorie konnte nicht geladen werden:", error);
+      console.error(
+        "Supabase-Fallhistorie konnte nicht geladen werden:",
+        error,
+      );
       setCaseStorageSource("local");
       setError(
-        "Supabase-Fallhistorie konnte nicht geladen werden. Lokale Fälle bleiben verfügbar."
+        "Supabase-Fallhistorie konnte nicht geladen werden. Lokale Fälle bleiben verfügbar.",
       );
       loadLocalSavedCasesIntoState();
     } finally {
@@ -626,7 +836,7 @@ export default function SearchBar() {
   function changeUserPlan(nextPlan: UserPlan) {
     if (user) {
       setError(
-        "Bei aktivem Supabase-Login wird der Plan über Login/Profil gespeichert. Die Schnellumschaltung ist nur für lokale Tests ohne Login aktiv."
+        "Bei aktivem Supabase-Login wird der Plan über Login/Profil gespeichert. Die Schnellumschaltung ist nur für lokale Tests ohne Login aktiv.",
       );
       return;
     }
@@ -635,7 +845,6 @@ export default function SearchBar() {
     localStorage.setItem(USER_PLAN_STORAGE_KEY, nextPlan);
     setError("");
     setCopySuccess(false);
-    setDownloadSuccess(false);
     setSaveSuccess(false);
   }
 
@@ -663,7 +872,7 @@ export default function SearchBar() {
       setUsageSyncMessage(usageLimit.warning);
     } else {
       setUsageSyncMessage(
-        `Serverlimit aktiv: ${nextCount} / ${usageLimit.maxDailyDiagnoses} KI-Anfragen diesen Monat.`
+        `Serverlimit aktiv: ${nextCount} / ${usageLimit.maxDailyDiagnoses} KI-Anfragen diesen Monat.`,
       );
     }
 
@@ -700,24 +909,65 @@ export default function SearchBar() {
     return data.session?.access_token || "";
   }
 
-  function buildDiagnosisInputWithCausingPart(currentInput: string) {
-    const cleanCausingPart = causingPart.trim();
+  function isInstructionRequest(value: string) {
+    const text = value.toLowerCase();
 
-    if (!cleanCausingPart) {
-      return currentInput;
+    return [
+      "anleitung",
+      "ausbau",
+      "ausbauen",
+      "ausbauen?",
+      "einbau",
+      "einbauen",
+      "tauschen",
+      "wechseln",
+      "ersetzen",
+      "demontieren",
+      "montieren",
+      "reparaturanleitung",
+      "schritt für schritt",
+      "druckbar",
+    ].some((term) => text.includes(term));
+  }
+
+  function buildUnifiedDiagnosisInput(currentInput: string) {
+    const cleanInput = currentInput.trim();
+
+    if (!isInstructionRequest(cleanInput)) {
+      return cleanInput;
     }
 
-    return `${currentInput}
+    return `Erstelle direkt im aktuellen Diagnosefall eine kompakte Werkstatt-Anleitung.
 
-Schadensverursachendes Teil laut Werkstatt/Nutzer:
-${cleanCausingPart}`;
+Aktuelle Eingabe:
+${cleanInput}
+
+Regeln für diese Antwort:
+- Keine neue allgemeine Diagnose, sondern eine konkrete Anleitung aus der Eingabe und dem bisherigen Verlauf erstellen.
+- Kompakt bleiben, aber arbeitstechnisch brauchbar.
+- Nicht schreiben "Zugang schaffen", sondern konkrete typische Demontage nennen.
+- Konkrete Verkleidungen, Abdeckungen, Stecker, Halter, Befestigungen und Richtung/Lage nennen, wenn sinnvoll.
+- Linksgewinde nennen, wenn möglich oder typisch.
+- Schrauben, Exzenter, Einstellpunkte oder Markierungen nennen, die nicht gelöst oder nicht verstellt werden dürfen.
+- Keine erfundenen Drehmomente, Füllmengen oder Herstellersollwerte.
+- Daten sichern nur nennen, wenn Steuergerät/Codierung/Programmierung/Anlernung betroffen ist.
+- Batterie abklemmen nur nennen, wenn technisch notwendig.
+
+Antwortformat exakt:
+# Werkzeug
+# Zugang
+# Arbeitsschritte
+# Kritische Punkte
+# Abschlussprüfung`;
   }
 
   async function sendDiagnosis(questionOverride?: string) {
     const currentInput = (questionOverride ?? search).trim();
 
     if (currentInput === "") {
-      alert("Bitte gib zuerst ein Fahrzeug, einen Fehlercode oder ein Symptom ein.");
+      alert(
+        "Bitte gib zuerst ein Fahrzeug, einen Fehlercode oder ein Symptom ein.",
+      );
       return;
     }
 
@@ -733,13 +983,13 @@ ${cleanCausingPart}`;
       saveUsageToLocalStorage(usageBeforeRequest);
 
       setError(
-        `Monatslimit erreicht: Im ${PLAN_CONFIG[userPlan].label}-Plan sind aktuell ${limitBeforeRequest} KI-Anfragen pro Monat vorgesehen. Folgefragen zählen mit.`
+        `Monatslimit erreicht: Im ${PLAN_CONFIG[userPlan].label}-Plan sind aktuell ${limitBeforeRequest} KI-Anfragen pro Monat vorgesehen. Folgefragen zählen mit.`,
       );
 
       return;
     }
 
-    const diagnosisInput = buildDiagnosisInputWithCausingPart(currentInput);
+    const diagnosisInput = buildUnifiedDiagnosisInput(currentInput);
 
     const userMessage: ChatMessage = {
       role: "user",
@@ -756,7 +1006,6 @@ ${cleanCausingPart}`;
     setError("");
     setQualityCheck("");
     setCopySuccess(false);
-    setDownloadSuccess(false);
     setSaveSuccess(false);
     setCopiedMessageIndex(null);
 
@@ -784,11 +1033,15 @@ ${cleanCausingPart}`;
           applyServerUsageLimit(data.usageLimit);
         }
 
-        throw new Error(data.error || "Unbekannter Fehler bei der KI-Diagnose.");
+        throw new Error(
+          data.error || "Unbekannter Fehler bei der KI-Diagnose.",
+        );
       }
 
       if (!data.result || !data.engineContext) {
-        throw new Error("Die API hat keine vollständige Diagnose zurückgegeben.");
+        throw new Error(
+          "Die API hat keine vollständige Diagnose zurückgegeben.",
+        );
       }
 
       const assistantMessage: ChatMessage = {
@@ -823,7 +1076,6 @@ ${cleanCausingPart}`;
     setFaultCodeContext(null);
     setQualityCheck("");
     setCopySuccess(false);
-    setDownloadSuccess(false);
     setSaveSuccess(false);
     setCopiedMessageIndex(null);
     setOpenedCaseId(null);
@@ -837,13 +1089,22 @@ ${cleanCausingPart}`;
       return;
     }
 
-    if (savedCaseLimitReached) {
+    if (savingDisabledForPlan) {
       setError(
-        `Falllimit erreicht: Im ${currentPlan.label}-Plan können aktuell ${currentPlan.savedCaseLimit} Fälle gespeichert werden.`
+        `Speichern ist im ${currentPlan.label}-Plan nicht enthalten. Für gespeicherte Fälle brauchst du Pro.`,
       );
       setSaveSuccess(false);
       setCopySuccess(false);
-      setDownloadSuccess(false);
+      setCopiedMessageIndex(null);
+      return;
+    }
+
+    if (savedCaseLimitReached) {
+      setError(
+        `Falllimit erreicht: Im ${currentPlan.label}-Plan können aktuell ${currentPlan.savedCaseLimit} Fälle gespeichert werden.`,
+      );
+      setSaveSuccess(false);
+      setCopySuccess(false);
       setCopiedMessageIndex(null);
       return;
     }
@@ -851,7 +1112,7 @@ ${cleanCausingPart}`;
     const now = new Date().toISOString();
 
     const existingCase = savedCases.find(
-      (savedCase) => savedCase.id === openedCaseId
+      (savedCase) => savedCase.id === openedCaseId,
     );
 
     const caseToSave: SavedDiagnosisCase = {
@@ -874,14 +1135,17 @@ ${cleanCausingPart}`;
         persistedCase = await saveDiagnosisCaseToSupabase(
           supabase,
           user,
-          caseToSave
+          caseToSave,
         );
         setCaseStorageSource("supabase");
         setCaseSyncMessage("Fall wurde in Supabase gespeichert.");
       } catch (error) {
-        console.error("Fall konnte nicht in Supabase gespeichert werden:", error);
+        console.error(
+          "Fall konnte nicht in Supabase gespeichert werden:",
+          error,
+        );
         setError(
-          "Fall konnte nicht in Supabase gespeichert werden. Speichern wurde abgebrochen."
+          "Fall konnte nicht in Supabase gespeichert werden. Speichern wurde abgebrochen.",
         );
         setCaseSyncLoading(false);
         return;
@@ -901,7 +1165,6 @@ ${cleanCausingPart}`;
 
     setSaveSuccess(true);
     setCopySuccess(false);
-    setDownloadSuccess(false);
     setCopiedMessageIndex(null);
     setError("");
 
@@ -922,7 +1185,6 @@ ${cleanCausingPart}`;
     setSearch("");
     setError("");
     setCopySuccess(false);
-    setDownloadSuccess(false);
     setSaveSuccess(false);
     setCopiedMessageIndex(null);
 
@@ -942,7 +1204,7 @@ ${cleanCausingPart}`;
       } catch (error) {
         console.error("Fall konnte nicht aus Supabase gelöscht werden:", error);
         setError(
-          "Fall konnte nicht aus Supabase gelöscht werden. Löschen wurde abgebrochen."
+          "Fall konnte nicht aus Supabase gelöscht werden. Löschen wurde abgebrochen.",
         );
         setCaseSyncLoading(false);
         return;
@@ -952,7 +1214,7 @@ ${cleanCausingPart}`;
     }
 
     const updatedSavedCases = savedCases.filter(
-      (savedCase) => savedCase.id !== caseId
+      (savedCase) => savedCase.id !== caseId,
     );
 
     setSavedCases(updatedSavedCases);
@@ -1013,7 +1275,7 @@ ${faultCode.suggestedChecks.map((check) => `- ${check}`).join("\n")}`;
 
     const causingPartText = causingPart.trim()
       ? `Schadensverursachendes Teil:\n${causingPart.trim()}`
-      : "Schadensverursachendes Teil:\nnicht angegeben";
+      : "Schadensverursachendes Teil:\nüber Eingabe/Fallverlauf";
 
     const chatText = messages
       .map((message) => {
@@ -1052,7 +1314,6 @@ ${chatText}
     try {
       await navigator.clipboard.writeText(buildCaseReport());
       setCopySuccess(true);
-      setDownloadSuccess(false);
       setSaveSuccess(false);
       setCopiedMessageIndex(null);
       setError("");
@@ -1062,7 +1323,9 @@ ${chatText}
       }, 2500);
     } catch (error) {
       console.error(error);
-      setError("Fallbericht konnte nicht in die Zwischenablage kopiert werden.");
+      setError(
+        "Fallbericht konnte nicht in die Zwischenablage kopiert werden.",
+      );
     }
   }
 
@@ -1071,7 +1334,6 @@ ${chatText}
       await navigator.clipboard.writeText(content);
       setCopiedMessageIndex(index);
       setCopySuccess(false);
-      setDownloadSuccess(false);
       setSaveSuccess(false);
       setError("");
 
@@ -1084,83 +1346,13 @@ ${chatText}
     }
   }
 
-  function downloadCaseReport() {
-    if (messages.length === 0) {
-      return;
-    }
-
-    try {
-      const report = buildCaseReport();
-      const blob = new Blob([report], {
-        type: "text/plain;charset=utf-8",
-      });
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      const date = new Date().toISOString().slice(0, 10);
-      const motorCode = engineContext?.code ?? "fall";
-      const firstFaultCode = faultCodeContext?.foundCodes[0]?.code;
-      const fileName = firstFaultCode
-        ? `diagnosehub-${motorCode}-${firstFaultCode}-${date}.txt`
-        : `diagnosehub-${motorCode}-${date}.txt`;
-
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      setDownloadSuccess(true);
-      setCopySuccess(false);
-      setSaveSuccess(false);
-      setCopiedMessageIndex(null);
-      setError("");
-
-      window.setTimeout(() => {
-        setDownloadSuccess(false);
-      }, 2500);
-    } catch (error) {
-      console.error(error);
-      setError("Fallbericht konnte nicht heruntergeladen werden.");
-    }
-  }
-
-  function openRepairInstruction() {
-    const cleanCausingPart = causingPart.trim();
-
-    if (!cleanCausingPart) {
-      setError(
-        "Bitte zuerst das schadensverursachende Teil eintragen, z. B. Turbolader, AGR-Ventil oder Klimakompressor."
-      );
-      return;
-    }
-
-    const firstUserMessage =
-      messages.find((message) => message.role === "user")?.content || search;
-
-    const query = [
-      firstUserMessage.trim(),
-      `Anleitung zum Austausch von: ${cleanCausingPart}`,
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
-    window.location.href = `/anleitungen?ki=${encodeURIComponent(
-      query
-    )}&auto=1`;
-  }
-
   const caseStorageLabel =
     caseStorageSource === "supabase"
       ? "Supabase-Fallhistorie"
       : "Lokale Fallhistorie";
 
   const usageStorageLabel =
-    usageStorageSource === "supabase"
-      ? "Supabase-Nutzung"
-      : "Lokale Nutzung";
+    usageStorageSource === "supabase" ? "Supabase-Nutzung" : "Lokale Nutzung";
 
   return (
     <div className="w-full">
@@ -1171,43 +1363,29 @@ ${chatText}
           onKeyDown={handleKeyDown}
           placeholder={
             messages.length === 0
-              ? "Beschreibe den Fehlerfall, z. B. VW Passat CBAB P0299 Leistungsverlust..."
-              : "Folgefrage stellen, z. B. Ladedruck Sollwert?"
+              ? "Diagnose oder Anleitung eingeben, z. B. VW Passat P0299 Leistungsverlust oder Qashqai Gebläsemotor ausbauen..."
+              : "Folgefrage, Messwertfrage oder Anleitung eingeben, z. B. Ladedruck Sollwert? oder Ausbauanleitung AGR-Ventil..."
           }
           rows={4}
           className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 p-5 text-white outline-none placeholder:text-slate-500 focus:border-blue-500"
         />
 
-        <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-          <label
-            htmlFor="causing-part"
-            className="text-sm font-black uppercase tracking-wide text-blue-300"
-          >
-            Schadensverursachendes Teil / Bauteil
-          </label>
-
-          <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto]">
-            <input
-              id="causing-part"
-              value={causingPart}
-              onChange={(event) => setCausingPart(event.target.value)}
-              placeholder="z. B. Turbolader, AGR-Ventil, Injektor, Radlager, Klimakompressor..."
-              className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-blue-500"
-            />
-
-            <button
-              type="button"
-              onClick={openRepairInstruction}
-              className="rounded-2xl border border-blue-500/40 bg-blue-500/10 px-5 py-3 text-sm font-black text-blue-300 transition hover:bg-blue-500 hover:text-white"
-            >
-              Anleitung zum Austausch öffnen
-            </button>
-          </div>
-
-          <p className="mt-2 text-xs leading-5 text-slate-500">
-            Dieses Feld wird bei der Diagnose berücksichtigt und später für
-            passende Anleitungen sowie Lerninhalte verwendet.
-          </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
+          <span className="rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1.5">
+            Ein Feld für alles
+          </span>
+          <span className="rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1.5">
+            Diagnose
+          </span>
+          <span className="rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1.5">
+            Anleitung
+          </span>
+          <span className="rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1.5">
+            Folgefrage
+          </span>
+          <span className="rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1.5">
+            Messwerte
+          </span>
         </div>
 
         <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
@@ -1226,8 +1404,9 @@ ${chatText}
                 </p>
 
                 <p className="text-sm text-slate-500">
-                  {savedCases.length} / {currentPlan.savedCaseLimit} Fälle
-                  gespeichert
+                  {savingDisabledForPlan
+                    ? "Speichern erst ab Pro"
+                    : `${savedCases.length} / ${currentPlan.savedCaseLimit} Fälle gespeichert`}
                 </p>
 
                 <span
@@ -1256,11 +1435,19 @@ ${chatText}
                 <span className="font-bold text-slate-300">
                   {remainingDiagnoses}
                 </span>{" "}
-                KI-Anfragen und{" "}
-                <span className="font-bold text-slate-300">
-                  {remainingSavedCases}
-                </span>{" "}
-                neue Speicherplätze.
+                KI-Anfragen. {savingDisabledForPlan ? (
+                  <span className="font-bold text-yellow-300">
+                    Speichern ist erst ab Pro enthalten.
+                  </span>
+                ) : (
+                  <>
+                    Noch freie Speicherplätze:{" "}
+                    <span className="font-bold text-slate-300">
+                      {remainingSavedCases}
+                    </span>
+                    .
+                  </>
+                )}
               </p>
 
               <p className="mt-2 text-sm text-slate-500">
@@ -1350,12 +1537,14 @@ ${chatText}
             className="rounded-xl bg-blue-600 px-6 py-3 font-bold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading
-              ? "Diagnose läuft..."
+              ? "DiagnoseHUB arbeitet..."
               : diagnosisLimitReached
                 ? "Monatslimit erreicht"
-                : messages.length === 0
-                  ? "Diagnose starten"
-                  : "Folgefrage senden"}
+                : search.trim() && isInstructionRequest(search)
+                  ? "Anleitung erstellen"
+                  : messages.length === 0
+                    ? "Diagnose starten"
+                    : "Senden"}
           </button>
 
           <button
@@ -1372,7 +1561,7 @@ ${chatText}
             disabled={messages.length === 0 || savedCaseLimitReached}
             className="rounded-xl border border-green-500/40 px-5 py-3 font-bold text-green-300 transition hover:bg-green-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Fall speichern
+            {savingDisabledForPlan ? "Speichern ab Pro" : "Fall speichern"}
           </button>
 
           <button
@@ -1383,21 +1572,11 @@ ${chatText}
           >
             Bericht kopieren
           </button>
-
-          <button
-            type="button"
-            onClick={downloadCaseReport}
-            disabled={messages.length === 0}
-            className="rounded-xl border border-slate-700 px-5 py-3 font-bold text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            TXT herunterladen
-          </button>
         </div>
 
-        {(copySuccess || downloadSuccess || saveSuccess) && (
+        {(copySuccess || saveSuccess) && (
           <div className="mt-4 rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-sm font-semibold text-green-300">
             {copySuccess && "Fallbericht wurde kopiert."}
-            {downloadSuccess && "Fallbericht wurde heruntergeladen."}
             {saveSuccess && "Fall wurde gespeichert."}
           </div>
         )}
@@ -1439,7 +1618,9 @@ ${chatText}
                 {message.role === "assistant" && (
                   <button
                     type="button"
-                    onClick={() => void copySingleMessage(message.content, index)}
+                    onClick={() =>
+                      void copySingleMessage(message.content, index)
+                    }
                     className="rounded-xl border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-300 transition hover:bg-slate-800"
                   >
                     {copiedMessageIndex === index
@@ -1449,9 +1630,13 @@ ${chatText}
                 )}
               </div>
 
-              <div className="whitespace-pre-wrap leading-8">
-                {message.content}
-              </div>
+              {message.role === "assistant" ? (
+                <AssistantAnswer content={message.content} />
+              ) : (
+                <div className="whitespace-pre-wrap leading-8">
+                  {message.content}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1489,102 +1674,167 @@ ${chatText}
           systems={[
             engineContext?.engineType ?? "",
             ...(faultCodeContext?.foundCodes.map(
-              (faultCode) => faultCode.system
+              (faultCode) => faultCode.system,
             ) ?? []),
           ].filter(Boolean)}
           userPlan={userPlan}
         />
       )}
 
-      {engineContext && (
-        <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-6">
-          <p className="text-sm font-black uppercase tracking-wide text-blue-300">
-            Erkannter Motorkontext
-          </p>
+      {(engineContext ||
+        (faultCodeContext && faultCodeContext.foundCodes.length > 0) ||
+        qualityCheck) && (
+        <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/70 p-5">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-wide text-blue-300">
+                Technische Zusatzinfos
+              </p>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl bg-slate-950 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                Motortyp
-              </p>
-              <p className="mt-1 font-bold text-white">
-                {engineContext.engineType}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-950 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                Motor
-              </p>
-              <p className="mt-1 font-bold text-white">{engineContext.label}</p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-950 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                Motorcode
-              </p>
-              <p className="mt-1 font-bold text-white">
-                {engineContext.code ?? "nicht erkannt"}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-950 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                Erkennung
-              </p>
-              <p className="mt-1 font-bold text-white">
-                {engineContext.source}
+              <p className="mt-1 text-sm text-slate-500">
+                Motorkontext, Fehlercodes und Qualitätsprüfung bei Bedarf
+                öffnen.
               </p>
             </div>
           </div>
 
-          {engineContext.notes && (
-            <p className="mt-4 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm leading-6 text-yellow-100">
-              {engineContext.notes}
-            </p>
-          )}
-        </div>
-      )}
+          <div className="mt-4 space-y-3">
+            {engineContext && (
+              <details className="group rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-slate-100">
+                      Erkannter Motorkontext
+                    </p>
 
-      {faultCodeContext && faultCodeContext.foundCodes.length > 0 && (
-        <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-6">
-          <p className="text-sm font-black uppercase tracking-wide text-blue-300">
-            Erkannte Fehlercodes
-          </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {engineContext.engineType} ·{" "}
+                      {engineContext.code ?? "Motorcode nicht erkannt"}
+                    </p>
+                  </div>
 
-          <div className="mt-4 grid gap-4">
-            {faultCodeContext.foundCodes.map((faultCode) => (
-              <div
-                key={faultCode.code}
-                className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
-              >
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="rounded-full bg-blue-600 px-3 py-1 text-sm font-black text-white">
-                    {faultCode.code}
+                  <span className="rounded-xl border border-slate-700 px-3 py-1 text-xs font-bold text-slate-400 transition group-open:bg-slate-800 group-open:text-slate-200">
+                    Öffnen
                   </span>
+                </summary>
 
-                  <h3 className="text-lg font-black text-white">
-                    {faultCode.title}
-                  </h3>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl bg-slate-900/80 p-4">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Motortyp
+                    </p>
+                    <p className="mt-1 font-bold text-white">
+                      {engineContext.engineType}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-900/80 p-4">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Motor
+                    </p>
+                    <p className="mt-1 font-bold text-white">
+                      {engineContext.label}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-900/80 p-4">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Motorcode
+                    </p>
+                    <p className="mt-1 font-bold text-white">
+                      {engineContext.code ?? "nicht erkannt"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-900/80 p-4">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Erkennung
+                    </p>
+                    <p className="mt-1 font-bold text-white">
+                      {engineContext.source}
+                    </p>
+                  </div>
                 </div>
 
-                <p className="mt-2 text-sm font-semibold text-slate-400">
-                  {faultCode.system}
-                </p>
+                {engineContext.notes && (
+                  <p className="mt-4 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm leading-6 text-yellow-100">
+                    {engineContext.notes}
+                  </p>
+                )}
+              </details>
+            )}
 
-                <p className="mt-3 leading-7 text-slate-300">
-                  {faultCode.description}
+            {faultCodeContext && faultCodeContext.foundCodes.length > 0 && (
+              <details className="group rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-slate-100">
+                      Erkannte Fehlercodes
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      {faultCodeContext.foundCodes.length} erkannte Codes
+                    </p>
+                  </div>
+
+                  <span className="rounded-xl border border-slate-700 px-3 py-1 text-xs font-bold text-slate-400 transition group-open:bg-slate-800 group-open:text-slate-200">
+                    Öffnen
+                  </span>
+                </summary>
+
+                <div className="mt-4 grid gap-4">
+                  {faultCodeContext.foundCodes.map((faultCode) => (
+                    <div
+                      key={faultCode.code}
+                      className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"
+                    >
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="rounded-full bg-blue-600 px-3 py-1 text-sm font-black text-white">
+                          {faultCode.code}
+                        </span>
+
+                        <h3 className="text-lg font-black text-white">
+                          {faultCode.title}
+                        </h3>
+                      </div>
+
+                      <p className="mt-2 text-sm font-semibold text-slate-400">
+                        {faultCode.system}
+                      </p>
+
+                      <p className="mt-3 leading-7 text-slate-300">
+                        {faultCode.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+
+            {qualityCheck && (
+              <details className="group rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-slate-100">
+                      Qualitätsprüfung
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Technische Plausibilitätskontrolle der Antwort
+                    </p>
+                  </div>
+
+                  <span className="rounded-xl border border-slate-700 px-3 py-1 text-xs font-bold text-slate-400 transition group-open:bg-slate-800 group-open:text-slate-200">
+                    Öffnen
+                  </span>
+                </summary>
+
+                <p className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-sm leading-6 text-slate-300">
+                  {qualityCheck}
                 </p>
-              </div>
-            ))}
+              </details>
+            )}
           </div>
-        </div>
-      )}
-
-      {qualityCheck && (
-        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-sm text-slate-400">
-          <span className="font-bold text-slate-300">Qualitätsprüfung:</span>{" "}
-          {qualityCheck}
         </div>
       )}
 
@@ -1602,7 +1852,9 @@ ${chatText}
             </div>
 
             <p className="text-sm text-slate-500">
-              {savedCases.length} / {currentPlan.savedCaseLimit}
+              {savingDisabledForPlan
+                ? "Speichern erst ab Pro"
+                : `${savedCases.length} / ${currentPlan.savedCaseLimit}`}
             </p>
           </div>
 
