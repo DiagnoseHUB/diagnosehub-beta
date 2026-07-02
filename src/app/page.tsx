@@ -48,7 +48,7 @@ const betaHighlights = [
   "Werkstattprofil",
   "Planlimits",
   "Fallhistorie",
-  "Premium-Vormerkung",
+  "Pro-Zugang",
   "Prüfprotokoll",
 ];
 
@@ -114,10 +114,10 @@ export default function HomePage() {
                 </a>
 
                 <a
-                  href="/premium"
-                  className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-6 py-3 font-semibold text-yellow-300 transition hover:bg-yellow-500 hover:text-slate-950"
+                  href="/preise"
+                  className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-6 py-3 font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
                 >
-                  Premium vormerken
+                  Pro aktivieren
                 </a>
               </div>
 
