@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import TechnicalSchemaImage from "@/components/TechnicalSchemaImage";
+import { createClient } from "@/lib/supabase/client";
 
 const EXAMPLES = [
   "AGR-Ventil",
@@ -31,6 +32,7 @@ async function readJsonSafely(response: Response) {
 }
 
 export default function LearningKnowledgeSearch() {
+  const supabase = useMemo(() => createClient(), []);
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState("");
   const [lastQuery, setLastQuery] = useState("");
@@ -53,10 +55,20 @@ export default function LearningKnowledgeSearch() {
     setLastQuery(cleanedQuery);
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        window.location.href = "/login";
+        return;
+      }
+
       const response = await fetch("/api/lernen/wissen", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           query: cleanedQuery,

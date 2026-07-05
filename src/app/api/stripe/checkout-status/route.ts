@@ -4,11 +4,14 @@ import {
   type SupabaseClient,
   type User,
 } from "@supabase/supabase-js";
+import {
+  checkoutPlanToUserPlan,
+  isValidCheckoutPlan,
+  type CheckoutPlan,
+  type UserPlan,
+} from "@/config/plans";
 
 export const runtime = "nodejs";
-
-type UserPlan = "free" | "pro";
-type CheckoutPlan = "pro" | "service_reminder";
 
 type StripeObject = Record<string, unknown>;
 
@@ -292,7 +295,13 @@ function getSessionSupabaseUserId(session: StripeCheckoutSession) {
 }
 
 function getCheckoutPlan(session: StripeCheckoutSession): CheckoutPlan {
-  return session.metadata?.plan === "service_reminder" ? "service_reminder" : "pro";
+  const plan = session.metadata?.plan;
+
+  if (plan === "pro") {
+    return "unlimited";
+  }
+
+  return isValidCheckoutPlan(plan) ? plan : "unlimited";
 }
 
 async function retrieveStripeCheckoutSession(sessionId: string) {
@@ -465,9 +474,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const userPlan = checkoutPlanToUserPlan(checkoutPlan);
+
+    if (!userPlan) {
+      throw new Error("Dieser Checkout-Tarif kann keinem Account-Plan zugeordnet werden.");
+    }
+
     await updateWorkshopProfile({
       supabaseUserId: user.id,
-      plan: "pro",
+      plan: userPlan,
       email: user.email || session.customer_email || null,
       stripeCustomerId: getCustomerId(session),
       stripeSubscriptionId: getSubscriptionId(session),
@@ -478,7 +493,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      plan: "pro",
+      plan: userPlan,
       subscriptionStatus,
     });
   } catch (error) {

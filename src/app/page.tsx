@@ -48,7 +48,7 @@ const betaHighlights = [
   "Werkstattprofil",
   "Planlimits",
   "Fallhistorie",
-  "Pro-Zugang",
+  "Tarifmodelle",
   "Prüfprotokoll",
 ];
 
@@ -117,7 +117,7 @@ export default function HomePage() {
                   href="/preise"
                   className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-6 py-3 font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
                 >
-                  Pro aktivieren
+                  Tarife ansehen
                 </a>
               </div>
 
@@ -142,7 +142,7 @@ export default function HomePage() {
                 VW Passat B8 · P0299
               </h2>
 
-              <p className="mt-4 leading-8 text-slate-400">
+              <p className="mt-4 leading-8 text-slate-300">
                 Leistungsverlust, Ladedruck zu niedrig, sporadischer Notlauf.
                 DiagnoseHUB strukturiert daraus mögliche Ursachen und eine
                 sinnvolle Prüfreihenfolge.
@@ -184,7 +184,7 @@ export default function HomePage() {
               Fehlerfall analysieren
             </h2>
 
-            <p className="mt-4 max-w-3xl leading-8 text-slate-400">
+            <p className="mt-4 max-w-3xl leading-8 text-slate-300">
               Gib Fahrzeugdaten, Fehlercodes, Symptome oder Live-Daten ein.
               Folgefragen bleiben im selben Diagnoseverlauf.
             </p>
@@ -207,7 +207,7 @@ export default function HomePage() {
                 Vom Fehlerbild zum Prüfplan
               </h2>
 
-              <p className="mt-4 max-w-3xl leading-8 text-slate-400">
+              <p className="mt-4 max-w-3xl leading-8 text-slate-300">
                 Die Plattform ist für reale Werkstattfälle gebaut: erst
                 eingrenzen, dann prüfen, dann dokumentieren.
               </p>
@@ -223,7 +223,7 @@ export default function HomePage() {
                     {step.title}
                   </h3>
 
-                  <p className="mt-4 leading-7 text-slate-400">
+                  <p className="mt-4 leading-7 text-slate-300">
                     {step.description}
                   </p>
                 </div>
@@ -242,7 +242,7 @@ export default function HomePage() {
               Für den Werkstattalltag gebaut
             </h2>
 
-            <p className="mt-4 max-w-3xl leading-8 text-slate-400">
+            <p className="mt-4 max-w-3xl leading-8 text-slate-300">
               DiagnoseHUB kombiniert KI-Antworten mit Werkstattlogik,
               Fallhistorie, Planlimits und druckbarer Dokumentation.
             </p>
@@ -258,7 +258,7 @@ export default function HomePage() {
                   {feature.title}
                 </h3>
 
-                <p className="mt-4 leading-7 text-slate-400">
+                <p className="mt-4 leading-7 text-slate-300">
                   {feature.description}
                 </p>
               </div>
@@ -288,7 +288,7 @@ export default function HomePage() {
                     {group.title}
                   </h3>
 
-                  <p className="mt-4 leading-7 text-slate-400">
+                  <p className="mt-4 leading-7 text-slate-300">
                     {group.description}
                   </p>
                 </div>

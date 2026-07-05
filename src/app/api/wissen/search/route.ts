@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireComponentKnowledgeAccess } from "@/lib/planAccess";
 
 export const runtime = "nodejs";
 
@@ -51,6 +52,12 @@ function cleanQuery(value: unknown): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const access = await requireComponentKnowledgeAccess(request);
+
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: 403 });
+    }
+
     const body = await request.json();
     const query = cleanQuery(body.query);
 

@@ -27,7 +27,13 @@ import {
   normalizeDiagnosisUsage,
   type DiagnosisUsage,
 } from "@/services/diagnosisUsageSupabase";
-import { PLAN_CONFIG, isValidUserPlan, type UserPlan } from "@/config/plans";
+import {
+  PLAN_CONFIG,
+  SELECTABLE_USER_PLANS,
+  isUnlimitedPlan,
+  isValidUserPlan,
+  type UserPlan,
+} from "@/config/plans";
 
 type CurrentDiagnosisCase = {
   messages: ChatMessage[];
@@ -516,14 +522,25 @@ export default function SearchBar() {
   const currentPlan = PLAN_CONFIG[userPlan];
 
   const monthlyLimit = currentPlan.dailyDiagnosisLimit;
+  const planIsUnlimited = isUnlimitedPlan(userPlan);
+  const diagnosisLimitLabel = planIsUnlimited ? "unbegrenzt" : String(monthlyLimit);
+  const savedCaseLimitLabel = planIsUnlimited
+    ? "unbegrenzt"
+    : String(currentPlan.savedCaseLimit);
 
   const remainingDiagnoses = Math.max(monthlyLimit - normalizedUsage.count, 0);
+  const remainingDiagnosesLabel = planIsUnlimited
+    ? "unbegrenzt"
+    : String(remainingDiagnoses);
 
   const savingDisabledForPlan = currentPlan.savedCaseLimit <= 0;
 
   const remainingSavedCases = savingDisabledForPlan
     ? 0
     : Math.max(currentPlan.savedCaseLimit - savedCases.length, 0);
+  const remainingSavedCasesLabel = planIsUnlimited
+    ? "unbegrenzt"
+    : String(remainingSavedCases);
 
   const diagnosisLimitReached = remainingDiagnoses <= 0;
 
@@ -1383,10 +1400,10 @@ ${chatText}
               : "Folgefrage, Messwertfrage oder Anleitung eingeben, z. B. Ladedruck Sollwert? oder Ausbauanleitung AGR-Ventil..."
           }
           rows={4}
-          className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 p-5 text-white outline-none placeholder:text-slate-500 focus:border-blue-500"
+          className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 p-5 text-white outline-none placeholder:text-slate-400 focus:border-blue-500"
         />
 
-        <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
+        <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-400">
           <span className="rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1.5">
             Ein Feld für alles
           </span>
@@ -1414,15 +1431,15 @@ ${chatText}
 
                 <p className="font-bold text-white">{currentPlan.label}</p>
 
-                <p className="text-sm text-slate-500">
-                  {normalizedUsage.count} / {monthlyLimit} KI-Anfragen diesen
+                <p className="text-sm text-slate-400">
+                  {normalizedUsage.count} / {diagnosisLimitLabel} KI-Anfragen diesen
                   Monat
                 </p>
 
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-400">
                   {savingDisabledForPlan
                     ? "Speichern erst ab Pro"
-                    : `${savedCases.length} / ${currentPlan.savedCaseLimit} Fälle gespeichert`}
+                    : `${savedCases.length} / ${savedCaseLimitLabel} Fälle gespeichert`}
                 </p>
 
                 <span
@@ -1446,10 +1463,10 @@ ${chatText}
                 </span>
               </div>
 
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-slate-400">
                 {currentPlan.description} Noch verfuegbar:{" "}
                 <span className="font-bold text-slate-300">
-                  {remainingDiagnoses}
+                  {remainingDiagnosesLabel}
                 </span>{" "}
                 KI-Anfragen. {savingDisabledForPlan ? (
                   <span className="font-bold text-yellow-300">
@@ -1459,14 +1476,14 @@ ${chatText}
                   <>
                     Noch freie Speicherplätze:{" "}
                     <span className="font-bold text-slate-300">
-                      {remainingSavedCases}
+                      {remainingSavedCasesLabel}
                     </span>
                     .
                   </>
                 )}
               </p>
 
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-slate-400">
                 {user
                   ? `Supabase-Login aktiv: ${user.email}.`
                   : "Nicht eingeloggt: Fälle und Nutzung bleiben lokal auf diesem Gerät."}
@@ -1475,7 +1492,7 @@ ${chatText}
 
             {showLocalPlanSwitcher && !user && (
               <div className="flex flex-wrap gap-2">
-                {(["free", "werkstatt", "pro"] as UserPlan[]).map((plan) => (
+                {SELECTABLE_USER_PLANS.map((plan) => (
                   <button
                     key={plan}
                     type="button"
@@ -1622,12 +1639,18 @@ ${chatText}
               }
               className={
                 message.role === "user"
-                  ? "rounded-3xl border border-blue-500/30 bg-blue-500/10 p-6 text-blue-50"
-                  : "rounded-3xl border border-slate-800 bg-slate-900/90 p-6 text-slate-100 shadow-lg shadow-blue-950/20"
+                  ? "rounded-3xl border border-blue-300 bg-blue-50 p-6 text-slate-950 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-50"
+                  : "rounded-3xl border border-slate-200 bg-white p-6 text-slate-950 shadow-lg shadow-blue-950/10 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-100 dark:shadow-blue-950/20"
               }
             >
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-black uppercase tracking-wide text-slate-400">
+                <p
+                  className={
+                    message.role === "user"
+                      ? "text-sm font-black uppercase tracking-wide text-blue-700 dark:text-blue-200"
+                      : "text-sm font-black uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                  }
+                >
                   {message.role === "user" ? "Werkstatt" : "DiagnoseHUB"}
                 </p>
 
@@ -1674,7 +1697,7 @@ ${chatText}
 
       {messages.length > 0 && (
         <div className="mt-5">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
             Schnellfragen
           </p>
 
@@ -1721,7 +1744,7 @@ ${chatText}
                 Technische Zusatzinfos
               </p>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-slate-400">
                 Motorkontext, Fehlercodes und Qualitätsprüfung bei Bedarf
                 öffnen.
               </p>
@@ -1737,7 +1760,7 @@ ${chatText}
                       Erkannter Motorkontext
                     </p>
 
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-400">
                       {engineContext.engineType} ·{" "}
                       {engineContext.code ?? "Motorcode nicht erkannt"}
                     </p>
@@ -1750,7 +1773,7 @@ ${chatText}
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <div className="rounded-2xl bg-slate-900/80 p-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                    <p className="text-xs uppercase tracking-wide text-slate-400">
                       Motortyp
                     </p>
                     <p className="mt-1 font-bold text-white">
@@ -1759,7 +1782,7 @@ ${chatText}
                   </div>
 
                   <div className="rounded-2xl bg-slate-900/80 p-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                    <p className="text-xs uppercase tracking-wide text-slate-400">
                       Motor
                     </p>
                     <p className="mt-1 font-bold text-white">
@@ -1768,7 +1791,7 @@ ${chatText}
                   </div>
 
                   <div className="rounded-2xl bg-slate-900/80 p-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                    <p className="text-xs uppercase tracking-wide text-slate-400">
                       Motorcode
                     </p>
                     <p className="mt-1 font-bold text-white">
@@ -1777,7 +1800,7 @@ ${chatText}
                   </div>
 
                   <div className="rounded-2xl bg-slate-900/80 p-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                    <p className="text-xs uppercase tracking-wide text-slate-400">
                       Erkennung
                     </p>
                     <p className="mt-1 font-bold text-white">
@@ -1802,7 +1825,7 @@ ${chatText}
                       Erkannte Fehlercodes
                     </p>
 
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-400">
                       {faultCodeContext.foundCodes.length} erkannte Codes
                     </p>
                   </div>
@@ -1849,7 +1872,7 @@ ${chatText}
                       Qualitätsprüfung
                     </p>
 
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-400">
                       Technische Plausibilitätskontrolle der Antwort
                     </p>
                   </div>
@@ -1881,10 +1904,10 @@ ${chatText}
               </h2>
             </div>
 
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-400">
               {savingDisabledForPlan
                 ? "Speichern erst ab Pro"
-                : `${savedCases.length} / ${currentPlan.savedCaseLimit}`}
+                : `${savedCases.length} / ${savedCaseLimitLabel}`}
             </p>
           </div>
 
@@ -1897,7 +1920,7 @@ ${chatText}
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="font-bold text-white">{savedCase.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-400">
                       Aktualisiert: {formatDateTime(savedCase.updatedAt)}
                     </p>
                   </div>

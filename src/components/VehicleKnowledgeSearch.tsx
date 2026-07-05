@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const EXAMPLES = [
   "AGR-Ventil",
@@ -14,6 +15,7 @@ const EXAMPLES = [
 ];
 
 export default function VehicleKnowledgeSearch() {
+  const supabase = useMemo(() => createClient(), []);
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState("");
   const [lastQuery, setLastQuery] = useState("");
@@ -36,10 +38,20 @@ export default function VehicleKnowledgeSearch() {
     setLastQuery(cleanedQuery);
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        window.location.href = "/login";
+        return;
+      }
+
       const response = await fetch("/api/wissen/search", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           query: cleanedQuery,
@@ -64,7 +76,7 @@ export default function VehicleKnowledgeSearch() {
     }
   }
 
-  function useExample(value: string) {
+  function selectExample(value: string) {
     setQuery(value);
     setError("");
     setAnswer("");
@@ -112,7 +124,7 @@ export default function VehicleKnowledgeSearch() {
             <button
               key={example}
               type="button"
-              onClick={() => useExample(example)}
+              onClick={() => selectExample(example)}
               className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
             >
               {example}

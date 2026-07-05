@@ -8,6 +8,7 @@ import {
   loadLearningLessonBySlug,
   loadLearningModuleBySlug,
 } from "@/lib/supabase/learningStorage";
+import { PLAN_CONFIG, type UserPlan } from "@/config/plans";
 import type {
   LearningContentBlock,
   LearningDifficulty,
@@ -24,9 +25,10 @@ function getDifficultyLabel(difficulty: LearningDifficulty) {
 }
 
 function getPlanLabel(plan: string) {
-  if (plan === "free") return "Free";
-  if (plan === "werkstatt") return "Werkstatt";
-  if (plan === "pro") return "Pro";
+  if (plan in PLAN_CONFIG) {
+    return PLAN_CONFIG[plan as UserPlan].label;
+  }
+
   return plan;
 }
 
@@ -102,10 +104,10 @@ function AccessBox({ requiredPlan }: { requiredPlan: string }) {
       </p>
 
       <Link
-        href="/billing"
+        href="/preise"
         className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-500"
       >
-        Pro aktivieren
+        Tarife ansehen
       </Link>
     </div>
   );

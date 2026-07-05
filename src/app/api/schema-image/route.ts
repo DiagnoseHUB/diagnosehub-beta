@@ -71,6 +71,100 @@ Diagnostic layout blueprint:
 - Keep the drawing orthographic or clean isometric; do not use cinematic perspective.
 `.trim();
 
+function getTopicSpecificBlueprint(subject: string, details: string) {
+  const text = `${subject} ${details}`.toLowerCase();
+
+  if (
+    text.includes("keilriemen") ||
+    text.includes("rippenriemen") ||
+    text.includes("riemenlauf") ||
+    text.includes("riemenverlauf") ||
+    text.includes("serpentine belt") ||
+    text.includes("belt routing")
+  ) {
+    return `
+Topic-specific blueprint: belt routing and belt diagnosis.
+- Draw a mechanically plausible front accessory drive only, not unrelated engine systems.
+- Show crankshaft pulley, alternator pulley, tensioner pulley, at least one idler pulley, and only optional pulleys that fit the described topic such as A/C compressor, water pump or power steering.
+- The belt must be one continuous thick loop following a believable routing path around the pulleys. No broken belt path, no random crossing, no impossible S-curves.
+- Show belt travel direction with arrows on the belt. Indicate ribbed side versus smooth back side visually by line texture, not by words.
+- P1: belt visual inspection area: cracks, missing ribs, glazing, frayed edge or contamination.
+- P2: pulley alignment and groove inspection: straightedge symbol, pulley face and belt edge tracking.
+- P3: tensioner pointer/travel range and spring movement: show a small pointer window and movement arc.
+- P4: bearing/freewheel/noise check: idler or alternator clutch with rotation arrow and stethoscope/listening icon.
+- P5: running confirmation: belt tracking centered on all pulleys after load change.
+- Add zoom insets for belt ribs, tensioner pointer, pulley grooves, and belt edge dust/misalignment.
+- Do not show hoses, turbochargers, exhaust parts, fuel rails, wiring looms or random sensors unless the text explicitly asks for them.
+`.trim();
+  }
+
+  if (
+    text.includes("ladedruck") ||
+    text.includes("turbo") ||
+    text.includes("boost") ||
+    text.includes("unterdruck") ||
+    text.includes("druckverlust")
+  ) {
+    return `
+Topic-specific blueprint: boost pressure, vacuum and charge-air diagnosis.
+- Show the air path in order: air filter/intake, turbo compressor, charge pipe, intercooler, throttle/intake manifold and pressure sensor when relevant.
+- P1 at the most likely hose, clamp or crack location.
+- P2 at connector, supply and ground of the boost pressure or control component.
+- P3 at live data plausibility between command, sensor and actuator.
+- P4 at smoke-test, pressure-test or vacuum actuator point.
+- P5 at final road-test / boost plausibility branch.
+- Zoom insets must focus on hose clamp, intercooler seam, sensor connector pins and actuator rod or vacuum nipple.
+`.trim();
+  }
+
+  if (
+    text.includes("can") ||
+    text.includes("lin") ||
+    text.includes("spannung") ||
+    text.includes("masse") ||
+    text.includes("stecker") ||
+    text.includes("kabel") ||
+    text.includes("signal")
+  ) {
+    return `
+Topic-specific blueprint: electrical diagnosis.
+- Show battery/fuse/relay/control unit/sensor or actuator as a clean circuit path, not a loose cable mess.
+- P1 at visible harness damage, water ingress or rubbed-through insulation.
+- P2 at connector pin, fuse, supply voltage and ground.
+- P3 at signal line, bus line or live data plausibility.
+- P4 only if the topic has a load, actuator movement or pressure/flow result.
+- P5 at repaired connector and repeat measurement confirmation.
+- Zoom insets must show connector lock, pin numbering shape, ground eyelet, fuse contact or probe back-pin position.
+`.trim();
+  }
+
+  if (
+    text.includes("kühl") ||
+    text.includes("thermostat") ||
+    text.includes("wasserpumpe") ||
+    text.includes("temperatur") ||
+    text.includes("überhit")
+  ) {
+    return `
+Topic-specific blueprint: cooling system diagnosis.
+- Show coolant flow in order: engine block, thermostat, radiator, expansion tank, heater core and water pump when relevant.
+- Use arrows to show hot/cold flow and bypass path. Do not draw a generic pipe maze.
+- P1 at leak trace, hose swelling, cap or reservoir level.
+- P2 at fan, temperature sensor or electrical supply only when relevant.
+- P3 at live temperature plausibility and thermostat opening behavior.
+- P4 at pressure test or pump circulation check.
+- P5 at stable temperature after warm-up confirmation.
+`.trim();
+  }
+
+  return `
+Topic-specific blueprint:
+- Use the named component or fault from the topic as the central object. Do not substitute a different automotive system.
+- Include only neighboring parts that help the diagnosis.
+- The viewer must understand the inspection order and likely failure locations from the image alone.
+`.trim();
+}
+
 function sanitizeText(value: unknown, maxLength: number) {
   if (typeof value !== "string") {
     return "";
@@ -110,6 +204,8 @@ function buildSchemaPrompt({
   subject: string;
   details: string;
 }) {
+  const topicSpecificBlueprint = getTopicSpecificBlueprint(subject, details);
+
   return `
 Create a very detailed, structured technical checkpoint diagram for DiagnoseHUB.
 The marker legend is shown outside the image in the app. The image itself must be almost text-free.
@@ -122,12 +218,16 @@ Technical diagnosis content: ${details}
 Primary composition:
 - Format: professional automotive service manual plate, not a poster, not an advertisement.
 - Composition type: ${CONTEXT_COMPOSITION[context]}
-- The graphic must show WHERE to test and IN WHAT ORDER to test. It must not be a generic component map.
+- Assume the technician has only this image and must use it to perform a real diagnosis. The graphic must show WHERE to test, WHAT to compare visually, and IN WHAT ORDER to test.
+- It must not be a generic component map, decorative overview or symbolic placeholder.
+- Every drawn part must have a diagnostic purpose. Remove anything that does not help the test sequence.
 - Use a clean white/light grey background with a subtle technical grid and thin alignment guides.
 - Use precise CAD-like vector line art with clear separation between components, connectors, hoses, pipes, sensors, brackets, seals, clamps and mounting points.
 - Use cross-section, exploded view, flow diagram or cutaway only when it helps the test sequence.
 - Show 6 to 12 relevant technical elements if enough context is available.
 - Arrows must show real technical flow: air, exhaust, fuel, coolant, current, signal, vacuum, pressure or mechanical force.
+
+${topicSpecificBlueprint}
 
 ${context === "diagnosis" ? DIAGNOSIS_LAYOUT_BLUEPRINT : ""}
 
@@ -136,6 +236,10 @@ ${MARKER_ROLE_GUIDE}
 Marker and structure rules:
 - Place large circular markers P1, P2, P3, P4 and P5 exactly at the test locations.
 - The marker sequence must read visually from left to right: P1 -> P2 -> P3 -> P4 -> P5.
+- If the topic is a route, belt path, flow path or wiring path, the path must be continuous and physically plausible from start to end.
+- Use magnified insets for the actual suspected failure surfaces: belt ribs, grooves, seal lips, connector pins, hose cracks, pressure ports, ground points, actuator rods or bearing faces.
+- Each marker must show a visible diagnostic action, not only a label: inspection magnifier, probe tips, straightedge, gauge needle, smoke nozzle, rotation arrow, movement arc, leak bubbles, wear trace, crack pattern or centered tracking line.
+- P1 to P5 must be understandable even if the app legend is not visible. Use icons and physical cues to make the test method obvious.
 - Use M1, M2, M3 or M4 only as small tool badges next to the relevant P marker.
 - Add clean arrows between markers. Avoid crossing arrows.
 - Decision branches may contain only OK, NOK, checkmark, cross, question mark and arrows.

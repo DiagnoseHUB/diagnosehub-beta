@@ -1,4 +1,7 @@
-import type { UserPlan } from "@/config/plans";
+import {
+  canAccessRequiredPlan,
+  type UserPlan,
+} from "@/config/plans";
 import type {
   LearningCategory,
   LearningCategoryWithModules,
@@ -100,14 +103,8 @@ type FindRelatedLearningModulesInput = {
   limit?: number;
 };
 
-const PLAN_RANK: Record<UserPlan, number> = {
-  free: 0,
-  werkstatt: 1,
-  pro: 2,
-};
-
 function canAccessPlan(userPlan: UserPlan, requiredPlan: UserPlan) {
-  return PLAN_RANK[userPlan] >= PLAN_RANK[requiredPlan];
+  return canAccessRequiredPlan(userPlan, requiredPlan);
 }
 
 function normalizeStringArray(value: unknown): string[] {

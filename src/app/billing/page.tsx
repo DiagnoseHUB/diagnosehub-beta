@@ -87,27 +87,36 @@ export default function BillingPage() {
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get("checkout");
     const portal = params.get("portal");
+    let nextMessage: BillingMessage | null = null;
 
     if (checkout === "success") {
-      setMessage({
+      nextMessage = {
         type: "success",
-        text: "Checkout abgeschlossen. Der Pro-Status wird nach Stripe-Webhook-Synchronisierung aktiviert.",
-      });
+        text: "Checkout abgeschlossen. Der Unlimited-Status wird nach Stripe-Webhook-Synchronisierung aktiviert.",
+      };
     }
 
     if (checkout === "cancelled") {
-      setMessage({
+      nextMessage = {
         type: "warning",
         text: "Checkout wurde abgebrochen. Es wurde kein Abo abgeschlossen.",
-      });
+      };
     }
 
     if (portal === "returned") {
-      setMessage({
+      nextMessage = {
         type: "info",
         text: "Du bist aus dem Stripe-Kundenportal zurückgekehrt.",
-      });
+      };
     }
+
+    const messageTimer = window.setTimeout(() => {
+      if (nextMessage) {
+        setMessage(nextMessage);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(messageTimer);
   }, [supabase]);
 
   async function getAccessToken() {
@@ -136,8 +145,12 @@ export default function BillingPage() {
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
+        body: JSON.stringify({
+          plan: "unlimited",
+        }),
       });
 
       const responseText = await response.text();
@@ -175,7 +188,7 @@ export default function BillingPage() {
       if (messageText.includes("Bitte zuerst einloggen")) {
         setMessage({
           type: "warning",
-          text: "Bitte zuerst einloggen. Danach kannst du DiagnoseHUB Pro aktivieren.",
+          text: "Bitte zuerst einloggen. Danach kannst du DiagnoseHUB Unlimited aktivieren.",
         });
         return;
       }
@@ -252,15 +265,15 @@ export default function BillingPage() {
         <section className="mx-auto max-w-6xl">
           <div className="mb-8 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-blue-50 p-8 shadow-sm transition-colors dark:border-slate-800 dark:from-slate-900 dark:to-slate-950">
             <p className="text-sm font-black uppercase tracking-wide text-blue-700 dark:text-blue-400">
-              DiagnoseHUB Pro
+              DiagnoseHUB Unlimited
             </p>
 
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-slate-100 sm:text-4xl">
-              Pro-Abo aktivieren
+              Unlimited aktivieren
             </h1>
 
             <p className="mt-4 max-w-3xl text-base leading-7 text-slate-700 dark:text-slate-300">
-              Aktiviere DiagnoseHUB Pro für Werkstatt-Diagnosen,
+              Aktiviere DiagnoseHUB Unlimited für Werkstatt-Diagnosen,
               KI-Anleitungen und erweiterte Funktionen. Der Checkout läuft über
               Stripe.
             </p>
@@ -300,7 +313,7 @@ export default function BillingPage() {
                       "Anleitungen und Diagnosefälle können gespeichert und später wieder geöffnet werden.",
                   },
                   {
-                    title: "Pro-Funktionen",
+                    title: "Komplett-Funktionen",
                     description:
                       "Basis für erweiterte Limits, Historie und kommende Werkstattfunktionen.",
                   },
@@ -329,12 +342,12 @@ export default function BillingPage() {
 
             <aside className="rounded-3xl border border-blue-200 bg-white p-6 shadow-xl transition-colors dark:border-blue-900 dark:bg-slate-900">
               <p className="text-sm font-black uppercase tracking-wide text-blue-700 dark:text-blue-400">
-                Pro
+                Unlimited
               </p>
 
               <div className="mt-4 flex items-end gap-2">
                 <span className="text-5xl font-black tracking-tight text-slate-950 dark:text-slate-100">
-                  49 €
+                  49,99 €
                 </span>
 
                 <span className="pb-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
@@ -369,7 +382,7 @@ export default function BillingPage() {
               >
                 {checkoutLoading
                   ? "Stripe Checkout wird geöffnet..."
-                  : "Pro aktivieren"}
+                  : "Unlimited aktivieren"}
               </button>
 
               {!isLoggedIn && !accountLoading && (

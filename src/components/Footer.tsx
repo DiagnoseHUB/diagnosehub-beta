@@ -77,13 +77,13 @@ function Footer() {
 
               <div>
                 <p className="text-xl font-bold text-white">DiagnoseHUB</p>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-slate-300">
                   KI-Diagnose für Werkstätten
                 </p>
               </div>
             </div>
 
-            <p className="mt-6 max-w-md leading-7 text-slate-400">
+            <p className="mt-6 max-w-md leading-7 text-slate-300">
               DiagnoseHUB unterstützt Kfz-Werkstätten bei strukturierter
               Fehlersuche, Prüfstrategie, Folgefragen und Dokumentation von
               Diagnosefällen.
@@ -108,7 +108,7 @@ function Footer() {
                 <a
                   key={link.href}
                   href={link.href}
-                  className="text-sm text-slate-400 transition hover:text-blue-300"
+                  className="text-sm text-slate-300 transition hover:text-blue-300"
                 >
                   {link.label}
                 </a>
@@ -124,7 +124,7 @@ function Footer() {
                 <a
                   key={link.href}
                   href={link.href}
-                  className="text-sm text-slate-400 transition hover:text-blue-300"
+                  className="text-sm text-slate-300 transition hover:text-blue-300"
                 >
                   {link.label}
                 </a>
@@ -140,7 +140,7 @@ function Footer() {
                 <a
                   key={link.href}
                   href={link.href}
-                  className="text-sm text-slate-400 transition hover:text-blue-300"
+                  className="text-sm text-slate-300 transition hover:text-blue-300"
                 >
                   {link.label}
                 </a>
@@ -151,7 +151,7 @@ function Footer() {
 
             <div className="mt-5 grid gap-3">
               {futureLinks.map((link) => (
-                <p key={link} className="text-sm text-slate-400">
+                <p key={link} className="text-sm text-slate-300">
                   {link}
                 </p>
               ))}
@@ -161,20 +161,20 @@ function Footer() {
           <div>
             <p className="font-bold text-white">Hinweis</p>
 
-            <p className="mt-5 leading-7 text-slate-400">
+            <p className="mt-5 leading-7 text-slate-300">
               DiagnoseHUB ersetzt keine fachgerechte Prüfung am Fahrzeug. Die
               Plattform dient als Diagnosehilfe für Eingrenzung, Strukturierung
               und Dokumentation.
             </p>
 
-            <p className="mt-5 leading-7 text-slate-500">
+            <p className="mt-5 leading-7 text-slate-400">
               Herstellerangaben, Reparaturleitfäden, gesetzliche Vorgaben und
               eigene Messwerte bleiben maßgeblich.
             </p>
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-4 border-t border-slate-800 pt-6 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
+        <div className="mt-12 flex flex-col gap-4 border-t border-slate-800 pt-6 text-sm text-slate-400 md:flex-row md:items-center md:justify-between">
           <p>© 2026 DiagnoseHUB. Alle Rechte vorbehalten.</p>
 
           <div className="flex flex-wrap gap-4">

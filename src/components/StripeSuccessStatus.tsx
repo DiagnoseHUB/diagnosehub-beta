@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { PLAN_CONFIG, isValidUserPlan } from "@/config/plans";
 
 type StatusState = "loading" | "success" | "error" | "missing-session";
 
@@ -62,17 +63,21 @@ export default function StripeSuccessStatus() {
 
         if (!response.ok) {
           throw new Error(
-            data.error || "Pro-Zugang konnte nicht automatisch aktiviert werden."
+            data.error || "Tarif konnte nicht automatisch aktiviert werden."
           );
         }
 
         window.dispatchEvent(new Event("diagnosehub-account-updated"));
 
         setStatus("success");
+        const planLabel = isValidUserPlan(data.plan)
+          ? PLAN_CONFIG[data.plan].label
+          : "DiagnoseHUB";
+
         setMessage(
           data.plan === "service_reminder"
             ? "Deine Service-Erinnerung wurde erfolgreich aktiviert. Du kannst deine Fahrzeuge jetzt zentral verwalten."
-            : "Dein Pro-Zugang wurde erfolgreich aktiviert. Du kannst DiagnoseHUB jetzt mit Pro-Funktionen nutzen."
+            : `Dein ${planLabel}-Zugang wurde erfolgreich aktiviert. Du kannst DiagnoseHUB jetzt mit deinem Tarif nutzen.`
         );
       } catch (error) {
         console.error("Stripe Erfolgseite Fehler:", error);
@@ -81,7 +86,7 @@ export default function StripeSuccessStatus() {
         setMessage(
           error instanceof Error
             ? error.message
-            : "Pro-Zugang konnte nicht automatisch aktiviert werden."
+            : "Tarif konnte nicht automatisch aktiviert werden."
         );
       }
     }

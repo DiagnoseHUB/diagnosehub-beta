@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireComponentKnowledgeAccess } from "@/lib/planAccess";
 
 export const runtime = "nodejs";
 
@@ -77,6 +78,12 @@ function extractResponseText(data: any): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const access = await requireComponentKnowledgeAccess(request);
+
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: 403 });
+    }
+
     const rawBody = await request.text();
 
     if (!rawBody) {

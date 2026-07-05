@@ -9,7 +9,11 @@ import type {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/client";
-import { PLAN_CONFIG, type UserPlan } from "@/config/plans";
+import {
+  PLAN_CONFIG,
+  SELECTABLE_USER_PLANS,
+  type UserPlan,
+} from "@/config/plans";
 import {
   clearLocalWorkshopProfileState,
   convertProfileToDemoAccount,
@@ -768,7 +772,7 @@ export default function LoginPage() {
                 <p className="mb-4 font-bold text-white">Plan auswählen</p>
 
                 <div className="grid gap-4">
-                  {(["free", "werkstatt", "pro"] as UserPlan[]).map(
+                  {SELECTABLE_USER_PLANS.map(
                     (planKey) => (
                       <button
                         key={planKey}

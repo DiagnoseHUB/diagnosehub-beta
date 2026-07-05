@@ -4,6 +4,10 @@ import {
   type SupabaseClient,
   type User,
 } from "@supabase/supabase-js";
+import {
+  isValidCheckoutPlan,
+  type CheckoutPlan,
+} from "@/config/plans";
 
 export const runtime = "nodejs";
 
@@ -15,9 +19,42 @@ type StripeCheckoutResponse = {
   };
 };
 
-type CheckoutPlan = "pro" | "service_reminder";
-
 const SERVICE_REMINDER_PRICE_ID = "price_1TpVO842X13b5UMoMVnPM0Dd";
+const DIAGNOSE_150_PRICE_ID = "price_1TpkdG42X13b5UMo5cogbSq9";
+const COMPLETE_150_PRICE_ID = "price_1TpkdX42X13b5UMoidQ4ainw";
+
+const CHECKOUT_PRICE_ENV: Record<CheckoutPlan, string> = {
+  diagnose_150: "STRIPE_DIAGNOSE_150_PRICE_ID",
+  complete_150: "STRIPE_COMPLETE_150_PRICE_ID",
+  unlimited: "STRIPE_UNLIMITED_PRICE_ID",
+  service_reminder: "STRIPE_SERVICE_REMINDER_PRICE_ID",
+};
+
+function getCheckoutPriceId(plan: CheckoutPlan) {
+  if (plan === "service_reminder") {
+    return (
+      process.env.STRIPE_SERVICE_REMINDER_PRICE_ID?.trim() ||
+      SERVICE_REMINDER_PRICE_ID
+    );
+  }
+
+  if (plan === "unlimited") {
+    return (
+      process.env.STRIPE_UNLIMITED_PRICE_ID?.trim() ||
+      getRequiredEnv("STRIPE_PRO_PRICE_ID")
+    );
+  }
+
+  if (plan === "diagnose_150") {
+    return process.env.STRIPE_DIAGNOSE_150_PRICE_ID?.trim() || DIAGNOSE_150_PRICE_ID;
+  }
+
+  if (plan === "complete_150") {
+    return process.env.STRIPE_COMPLETE_150_PRICE_ID?.trim() || COMPLETE_150_PRICE_ID;
+  }
+
+  return getRequiredEnv(CHECKOUT_PRICE_ENV[plan]);
+}
 
 function getBaseUrl(request: NextRequest) {
   const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -110,11 +147,7 @@ async function createStripeCheckoutSession({
   plan: CheckoutPlan;
 }) {
   const stripeSecretKey = getRequiredEnv("STRIPE_SECRET_KEY");
-  const priceId =
-    plan === "service_reminder"
-      ? process.env.STRIPE_SERVICE_REMINDER_PRICE_ID?.trim() ||
-        SERVICE_REMINDER_PRICE_ID
-      : getRequiredEnv("STRIPE_PRO_PRICE_ID");
+  const priceId = getCheckoutPriceId(plan);
   const baseUrl = getBaseUrl(request);
 
   const body = new URLSearchParams();
@@ -217,7 +250,7 @@ async function readPlanFromRequest(request: NextRequest) {
 }
 
 function validatePlan(plan: string | null) {
-  if (plan !== "pro" && plan !== "service_reminder") {
+  if (plan !== "pro" && !isValidCheckoutPlan(plan)) {
     return NextResponse.json(
       { error: "Ungültiger Tarif." },
       { status: 400 }
@@ -228,7 +261,11 @@ function validatePlan(plan: string | null) {
 }
 
 function toCheckoutPlan(plan: string | null): CheckoutPlan {
-  return plan === "service_reminder" ? "service_reminder" : "pro";
+  if (plan === "pro") {
+    return "unlimited";
+  }
+
+  return isValidCheckoutPlan(plan) ? plan : "diagnose_150";
 }
 
 export async function GET(request: NextRequest) {
@@ -277,7 +314,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Du musst eingeloggt sein, damit der Pro-Zugang deinem Account zugeordnet werden kann.",
+            "Du musst eingeloggt sein, damit der Tarif deinem Account zugeordnet werden kann.",
         },
         { status: 401 }
       );

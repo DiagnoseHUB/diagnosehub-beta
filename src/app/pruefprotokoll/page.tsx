@@ -6,7 +6,11 @@ import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/client";
-import { PLAN_CONFIG, type UserPlan } from "@/config/plans";
+import {
+  PLAN_CONFIG,
+  hasPremiumAccess as hasPlanPremiumAccess,
+  type UserPlan,
+} from "@/config/plans";
 import {
   loadWorkshopProfileState,
   readLocalWorkshopProfileState,
@@ -424,7 +428,7 @@ const inspectionProfiles = [
 ];
 
 function hasPremiumAccess(userPlan: UserPlan) {
-  return userPlan === "werkstatt" || userPlan === "pro";
+  return hasPlanPremiumAccess(userPlan);
 }
 
 function formatDateTime(value: string) {

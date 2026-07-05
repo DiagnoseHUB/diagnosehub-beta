@@ -24,7 +24,7 @@ type SchemaImageApiResponse = {
 };
 
 const SCHEMA_IMAGE_CACHE_NAME = "diagnosehub-schema-images-v1";
-const SCHEMA_IMAGE_PROMPT_VERSION = "diagnostic-board-v5";
+const SCHEMA_IMAGE_PROMPT_VERSION = "diagnostic-board-v6";
 
 const MARKER_LEGEND = [
   {
@@ -285,7 +285,7 @@ export default function TechnicalSchemaImage({
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700 dark:text-slate-300">
             Visueller Werkstatt-Prüfplan mit Prüfreihenfolge, Messpunkten,
             Entscheidungspfaden und Fehlerstellen. Die Grafik nutzt stabile
-            Marker statt fehleranfaelliger Bild-Texte; die Erklärung steht
+            Marker statt fehleranfälliger Bild-Texte; die Erklärung steht
             hier in der App. Wird lokal im Browser-Cache gespeichert, nicht in
             der Datenbank.
           </p>

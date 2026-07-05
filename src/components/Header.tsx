@@ -377,7 +377,7 @@ function Header() {
                 onClick={closeMobileMenu}
                 className="rounded-2xl bg-blue-600 px-5 py-4 text-center font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-500 dark:shadow-blue-950/40"
               >
-                Pro aktivieren
+                Tarife ansehen
               </a>
 
               <a

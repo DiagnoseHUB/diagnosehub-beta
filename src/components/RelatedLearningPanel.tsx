@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { UserPlan } from "@/config/plans";
+import { PLAN_CONFIG, type UserPlan } from "@/config/plans";
 import type { RelatedLearningModule } from "@/types/learning";
 
 type RelatedLearningResponse = {
@@ -25,9 +25,10 @@ function normalizeList(values: string[]) {
 }
 
 function getPlanLabel(plan: string) {
-  if (plan === "free") return "Free";
-  if (plan === "werkstatt") return "Werkstatt";
-  if (plan === "pro") return "Pro";
+  if (plan in PLAN_CONFIG) {
+    return PLAN_CONFIG[plan as UserPlan].label;
+  }
+
   return plan;
 }
 
@@ -67,9 +68,12 @@ export default function RelatedLearningPanel({
       payload.systems.length > 0;
 
     if (!hasSearchSignal) {
-      setModules([]);
-      setError("");
-      return;
+      const resetTimer = window.setTimeout(() => {
+        setModules([]);
+        setError("");
+      }, 0);
+
+      return () => window.clearTimeout(resetTimer);
     }
 
     const controller = new AbortController();

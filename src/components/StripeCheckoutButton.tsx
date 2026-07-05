@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { CheckoutPlan } from "@/config/plans";
 
 type StripeCheckoutButtonProps = {
   className?: string;
   children?: React.ReactNode;
-  plan?: "pro" | "service_reminder";
+  plan?: CheckoutPlan | "pro";
 };
 
 export default function StripeCheckoutButton({
   className = "",
-  children = "Pro aktivieren",
+  children = "Tarif aktivieren",
   plan = "pro",
 }: StripeCheckoutButtonProps) {
   const supabase = createClient();

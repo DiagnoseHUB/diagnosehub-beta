@@ -39,13 +39,13 @@ export async function POST(request: Request) {
       client_reference_id: user.id,
       metadata: {
         user_id: user.id,
-        plan: "pro",
+        plan: "unlimited",
         source: "diagnosehub_checkout",
       },
       subscription_data: {
         metadata: {
           user_id: user.id,
-          plan: "pro",
+          plan: "unlimited",
           source: "diagnosehub_checkout",
         },
       },
