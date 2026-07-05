@@ -55,6 +55,7 @@ export default function LoginPage() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authMessage, setAuthMessage] = useState("");
 
@@ -350,6 +351,52 @@ export default function LoginPage() {
       );
     } finally {
       setAuthLoading(false);
+    }
+  }
+
+  async function openCustomerPortal() {
+    resetMessages();
+    setPortalLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const accessToken = data.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Bitte zuerst einloggen.");
+      }
+
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const payload = (await response.json()) as {
+        url?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(
+          payload.error || "Stripe Kundenportal konnte nicht geöffnet werden."
+        );
+      }
+
+      if (!payload.url) {
+        throw new Error("Stripe Kundenportal URL fehlt.");
+      }
+
+      window.location.href = payload.url;
+    } catch (error) {
+      setError(getErrorMessage(error));
+    } finally {
+      setPortalLoading(false);
     }
   }
 
@@ -876,6 +923,19 @@ export default function LoginPage() {
                     Admin-Freischaltung gesetzt. Profilangaben ändern deinen
                     Tarif nicht.
                   </p>
+
+                  {plan !== "free" && (
+                    <button
+                      type="button"
+                      onClick={() => void openCustomerPortal()}
+                      disabled={!user || portalLoading}
+                      className="mt-5 rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {portalLoading
+                        ? "Kundenportal wird geöffnet..."
+                        : "Abo verwalten / kündigen"}
+                    </button>
+                  )}
                 </div>
               </div>
 
