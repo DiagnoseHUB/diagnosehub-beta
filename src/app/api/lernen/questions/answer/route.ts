@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import { isValidUserPlan, type UserPlan } from "@/config/plans";
-import { evaluateLearningQuestionAnswer } from "@/lib/supabase/learningQuestionStorage";
+import { requireLearningAccess } from "@/lib/planAccess";
+import {
+  evaluateLearningQuestionAnswer,
+  saveLearningQuestionAttempt,
+} from "@/lib/supabase/learningQuestionStorage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +16,17 @@ function normalizeNumberArray(value: unknown): number[] {
   return value
     .map((entry) => Number(entry))
     .filter((entry) => Number.isInteger(entry) && entry >= 0);
+}
+
+function getErrorStatus(errorMessage: string) {
+  if (
+    errorMessage.includes("Nicht eingeloggt") ||
+    errorMessage.includes("Session")
+  ) {
+    return 401;
+  }
+
+  return 500;
 }
 
 export async function POST(request: Request) {
@@ -29,30 +43,53 @@ export async function POST(request: Request) {
       );
     }
 
-    const userPlan: UserPlan = isValidUserPlan(body.userPlan)
-      ? body.userPlan
-      : "free";
+    const access = await requireLearningAccess(request);
+
+    if (!access.ok) {
+      return NextResponse.json(
+        {
+          error: access.error,
+          userPlan: access.plan,
+        },
+        { status: 403 }
+      );
+    }
 
     const result = await evaluateLearningQuestionAnswer({
       questionId,
       selectedAnswerIndexes: normalizeNumberArray(body.selectedAnswerIndexes),
-      userPlan,
+      userPlan: access.plan,
     });
+
+    try {
+      await saveLearningQuestionAttempt({
+        userId: access.user.id,
+        questionId,
+        selectedAnswerIndexes: result.selectedAnswerIndexes,
+      });
+    } catch (attemptError) {
+      console.error(
+        "Lernfortschritt konnte nicht gespeichert werden:",
+        attemptError
+      );
+    }
 
     return NextResponse.json({
       result,
+      userPlan: access.plan,
     });
   } catch (error) {
     console.error("Antwort konnte nicht geprüft werden:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Antwort konnte nicht geprüft werden.";
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Antwort konnte nicht geprüft werden.",
+        error: errorMessage,
       },
-      { status: 500 }
+      { status: getErrorStatus(errorMessage) }
     );
   }
 }

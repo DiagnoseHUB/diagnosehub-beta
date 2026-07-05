@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type TechnicalSchemaContext = "diagnosis" | "instruction" | "learning";
 
@@ -190,6 +191,7 @@ export default function TechnicalSchemaImage({
   autoGenerate = false,
   className = "",
 }: TechnicalSchemaImageProps) {
+  const supabase = useMemo(() => createClient(), []);
   const [imageUrl, setImageUrl] = useState("");
   const [revisedPrompt, setRevisedPrompt] = useState("");
   const [cacheStatus, setCacheStatus] = useState<"new" | "cached" | "">("");
@@ -224,10 +226,21 @@ export default function TechnicalSchemaImage({
         return;
       }
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error(
+          "Bitte zuerst einloggen, um neue Schema-Grafiken zu erzeugen."
+        );
+      }
+
       const response = await fetch("/api/schema-image", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           context,
@@ -258,7 +271,16 @@ export default function TechnicalSchemaImage({
     } finally {
       setLoading(false);
     }
-  }, [canGenerate, cleanedDetails, context, generationKey, loading, subject, title]);
+  }, [
+    canGenerate,
+    cleanedDetails,
+    context,
+    generationKey,
+    loading,
+    subject,
+    supabase.auth,
+    title,
+  ]);
 
   useEffect(() => {
     if (!autoGenerate || !canGenerate || generatedKeyRef.current === generationKey) {

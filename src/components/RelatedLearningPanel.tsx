@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { PLAN_CONFIG, type UserPlan } from "@/config/plans";
+import { createClient } from "@/lib/supabase/client";
 import type { RelatedLearningModule } from "@/types/learning";
 
 type RelatedLearningResponse = {
   modules?: RelatedLearningModule[];
+  userPlan?: UserPlan;
   error?: string;
 };
 
@@ -14,7 +16,6 @@ type RelatedLearningPanelProps = {
   faultCodes: string[];
   parts: string[];
   systems: string[];
-  userPlan: UserPlan;
 };
 
 function normalizeList(values: string[]) {
@@ -43,8 +44,8 @@ export default function RelatedLearningPanel({
   faultCodes,
   parts,
   systems,
-  userPlan,
 }: RelatedLearningPanelProps) {
+  const supabase = useMemo(() => createClient(), []);
   const [modules, setModules] = useState<RelatedLearningModule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -54,10 +55,9 @@ export default function RelatedLearningPanel({
       faultCodes: normalizeList(faultCodes),
       parts: normalizeList(parts),
       systems: normalizeList(systems),
-      userPlan,
       limit: 4,
     };
-  }, [faultCodes, parts, systems, userPlan]);
+  }, [faultCodes, parts, systems]);
 
   const requestKey = JSON.stringify(payload);
 
@@ -83,10 +83,21 @@ export default function RelatedLearningPanel({
       setError("");
 
       try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          throw new Error(
+            "Bitte einloggen, um passende Lerninhalte zum Diagnosefall zu laden."
+          );
+        }
+
         const response = await fetch("/api/lernen/related", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: requestKey,
           signal: controller.signal,
@@ -124,7 +135,7 @@ export default function RelatedLearningPanel({
     return () => {
       controller.abort();
     };
-  }, [requestKey, payload]);
+  }, [requestKey, payload, supabase.auth]);
 
   if (!loading && modules.length === 0 && !error) {
     return null;

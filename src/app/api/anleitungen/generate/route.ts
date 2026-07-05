@@ -726,7 +726,10 @@ function modelSupportsReasoning(model: string) {
   );
 }
 
-function buildOpenAiRequestBody(input: string, instructions: string) {
+function buildOpenAiRequestBody(
+  input: string,
+  instructions: string
+): Parameters<typeof client.responses.create>[0] {
   const model = process.env.OPENAI_MODEL || "gpt-5.5";
 
   return {
@@ -841,7 +844,9 @@ export async function GET(request: Request) {
       );
     }
 
-    const response = await client.responses.retrieve(jobId);
+    const response = (await client.responses.retrieve(jobId)) as OpenAI.Responses.Response & {
+      incomplete_details?: { reason?: string } | null;
+    };
     const status = response.status || "unknown";
 
     if (status === "queued" || status === "in_progress") {
@@ -852,12 +857,11 @@ export async function GET(request: Request) {
     }
 
     if (status !== "completed") {
-      const responseAny = response as any;
       const incompleteReason =
-        responseAny.incomplete_details &&
-        typeof responseAny.incomplete_details === "object" &&
-        "reason" in responseAny.incomplete_details
-          ? String(responseAny.incomplete_details.reason)
+        response.incomplete_details &&
+        typeof response.incomplete_details === "object" &&
+        "reason" in response.incomplete_details
+          ? String(response.incomplete_details.reason)
           : "unbekannt";
 
       return NextResponse.json(
@@ -969,12 +973,12 @@ Keine langen Disclaimer.
 Die Antwort muss vollständig bleiben und darf nicht wegen Laenge abbrechen.
 `;
 
-    const response = await client.responses.create(
+    const response = (await client.responses.create(
       buildOpenAiRequestBody(
         input,
         buildBaseInstructions(query || "KI-Anleitung", source)
-      ) as any
-    );
+      )
+    )) as OpenAI.Responses.Response;
 
     return NextResponse.json({
       jobId: response.id,

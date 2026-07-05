@@ -2,11 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  PLAN_CONFIG,
-  isValidUserPlan,
-  type UserPlan,
-} from "@/config/plans";
+import { PLAN_CONFIG, type UserPlan } from "@/config/plans";
+import { createClient } from "@/lib/supabase/client";
 import type {
   LearningDifficulty,
   LearningQuestionAnswerResult,
@@ -37,15 +34,15 @@ type PublicLearningQuestion = {
 type QuestionsApiResponse = {
   questions?: PublicLearningQuestion[];
   count?: number;
+  userPlan?: UserPlan;
   error?: string;
 };
 
 type AnswerApiResponse = {
   result?: LearningQuestionAnswerResult;
+  userPlan?: UserPlan;
   error?: string;
 };
-
-const USER_PLAN_STORAGE_KEY = "diagnosehub-user-plan";
 
 const categoryOptions = [
   { label: "Alle Bereiche", value: "" },
@@ -66,16 +63,6 @@ const difficultyOptions: { label: string; value: "" | LearningDifficulty }[] = [
 ];
 
 const limitOptions = [10, 20, 50, 100];
-
-function readLocalUserPlan(): UserPlan {
-  if (typeof window === "undefined") {
-    return "free";
-  }
-
-  const savedPlan = localStorage.getItem(USER_PLAN_STORAGE_KEY);
-
-  return isValidUserPlan(savedPlan) ? savedPlan : "free";
-}
 
 function getDifficultyLabel(difficulty: LearningDifficulty) {
   if (difficulty === "basic") return "Grundlage";
@@ -99,6 +86,7 @@ function normalizeSelection(values: number[]) {
 }
 
 export default function LearningQuizClient() {
+  const supabase = useMemo(() => createClient(), []);
   const [userPlan, setUserPlan] = useState<UserPlan>("free");
   const [categorySlug, setCategorySlug] = useState("");
   const [difficulty, setDifficulty] = useState<"" | LearningDifficulty>("");
@@ -115,7 +103,6 @@ export default function LearningQuizClient() {
   const [loading, setLoading] = useState(false);
   const [checkingQuestionId, setCheckingQuestionId] = useState("");
   const [error, setError] = useState("");
-const [debugRunId, setDebugRunId] = useState("");
   const answeredCount = Object.keys(answerResults).length;
 
   const correctCount = Object.values(answerResults).filter(
@@ -128,7 +115,6 @@ const [debugRunId, setDebugRunId] = useState("");
   const requestUrl = useMemo(() => {
     const params = new URLSearchParams();
 
-    params.set("userPlan", userPlan);
     params.set("limit", String(limit));
 
     if (categorySlug) {
@@ -140,11 +126,7 @@ const [debugRunId, setDebugRunId] = useState("");
     }
 
     return `/api/lernen/questions?${params.toString()}`;
-  }, [userPlan, categorySlug, difficulty, limit]);
-
-  useEffect(() => {
-    setUserPlan(readLocalUserPlan());
-  }, []);
+  }, [categorySlug, difficulty, limit]);
 
   useEffect(() => {
     void loadQuestions();
@@ -157,14 +139,31 @@ const [debugRunId, setDebugRunId] = useState("");
     setAnswerResults({});
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error(
+          "Bitte zuerst einloggen. Das Lernportal wird anhand deines gebuchten Plans freigeschaltet."
+        );
+      }
+
       const response = await fetch(requestUrl, {
         method: "GET",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       const data = (await response.json()) as QuestionsApiResponse;
 
       if (!response.ok) {
         throw new Error(data.error || "Fragen konnten nicht geladen werden.");
+      }
+
+      if (data.userPlan) {
+        setUserPlan(data.userPlan);
       }
 
       setQuestions(data.questions || []);
@@ -217,15 +216,25 @@ const [debugRunId, setDebugRunId] = useState("");
     setError("");
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error(
+          "Bitte zuerst einloggen. Antworten werden pro Account geprüft und gespeichert."
+        );
+      }
+
       const response = await fetch("/api/lernen/questions/answer", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           questionId: question.id,
           selectedAnswerIndexes,
-          userPlan,
         }),
       });
 
@@ -233,6 +242,10 @@ const [debugRunId, setDebugRunId] = useState("");
 
       if (!response.ok || !data.result) {
         throw new Error(data.error || "Antwort konnte nicht geprüft werden.");
+      }
+
+      if (data.userPlan) {
+        setUserPlan(data.userPlan);
       }
 
       setAnswerResults((currentValues) => ({

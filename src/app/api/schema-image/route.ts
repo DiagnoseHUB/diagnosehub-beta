@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { loadAuthenticatedUserFromRequest } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -330,6 +331,8 @@ async function requestOpenAiImage(apiKey: string, body: ImageRequestBody) {
 
 export async function POST(request: Request) {
   try {
+    await loadAuthenticatedUserFromRequest(request);
+
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
@@ -414,15 +417,21 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Schema-Bild konnte nicht erstellt werden:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Schema-Bild konnte nicht erstellt werden.";
+    const status =
+      errorMessage.includes("Nicht eingeloggt") ||
+      errorMessage.includes("Session")
+        ? 401
+        : 500;
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Schema-Bild konnte nicht erstellt werden.",
+        error: errorMessage,
       },
-      { status: 500 },
+      { status },
     );
   }
 }

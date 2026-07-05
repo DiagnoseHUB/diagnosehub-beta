@@ -57,9 +57,9 @@ type DiagnosisUsageDatabaseRow = {
 
 type UsageControl = {
   enabled: boolean;
-  source: "disabled" | "supabase";
-  supabase: SupabaseClient | null;
-  user: User | null;
+  source: "supabase";
+  supabase: SupabaseClient;
+  user: User;
   plan: UserPlan;
   planLabel: string;
   todayKey: string;
@@ -69,7 +69,7 @@ type UsageControl = {
 
 type UsageLimitPayload = {
   enabled: boolean;
-  source: "disabled" | "supabase";
+  source: "supabase";
   plan: UserPlan;
   planLabel: string;
   todayKey: string;
@@ -285,24 +285,9 @@ async function saveDiagnosisUsageCount(
 }
 
 async function resolveUsageControl(
-  accessToken: string,
-  useServerUsageTracking: boolean
+  accessToken: string
 ): Promise<UsageControl> {
   const todayKey = getTodayKeyGermany();
-
-  if (!useServerUsageTracking) {
-    return {
-      enabled: false,
-      source: "disabled",
-      supabase: null,
-      user: null,
-      plan: "free",
-      planLabel: PLAN_LABELS.free,
-      todayKey,
-      countBefore: 0,
-      maxDailyDiagnoses: PLAN_DAILY_LIMITS.free,
-    };
-  }
 
   if (!accessToken) {
     throw new Error(
@@ -642,7 +627,7 @@ async function createDiagnosisAnswer(
   const reasoningEffort = getDiagnosisReasoningEffort();
   const maxOutputTokens = getDiagnosisMaxOutputTokens();
 
-  const response = await client.responses.create({
+  const responseInput: Parameters<typeof client.responses.create>[0] = {
     model,
     ...(modelSupportsReasoning(model)
       ? {
@@ -672,7 +657,11 @@ ${input}
         `,
       },
     ],
-  } as any);
+  };
+
+  const response = (await client.responses.create(
+    responseInput
+  )) as OpenAI.Responses.Response;
 
   const answer = response.output_text?.trim();
 
@@ -701,7 +690,6 @@ export async function POST(request: Request) {
     const messages = normalizeMessages(body.messages);
     const accessToken =
       typeof body.accessToken === "string" ? body.accessToken : "";
-    const useServerUsageTracking = body.useServerUsageTracking === true;
 
     if (!input) {
       return NextResponse.json(
@@ -710,10 +698,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const usageControl = await resolveUsageControl(
-      accessToken,
-      useServerUsageTracking
-    );
+    if (!accessToken) {
+      return NextResponse.json(
+        {
+          error:
+            "Bitte zuerst einloggen. Auch Free-Diagnosen werden serverseitig gezählt, damit die Monatslimits fair bleiben.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const usageControl = await resolveUsageControl(accessToken);
 
     if (
       usageControl.enabled &&

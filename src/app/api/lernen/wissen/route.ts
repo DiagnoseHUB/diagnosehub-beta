@@ -50,7 +50,23 @@ function cleanQuery(value: unknown): string {
   return value.trim().slice(0, 300);
 }
 
-function extractResponseText(data: any): string {
+type OpenAiTextContent = {
+  text?: unknown;
+};
+
+type OpenAiOutputItem = {
+  content?: unknown;
+};
+
+type OpenAiResponseData = {
+  output_text?: unknown;
+  output?: unknown;
+  error?: {
+    message?: string;
+  };
+};
+
+function extractResponseText(data: OpenAiResponseData): string {
   if (typeof data?.output_text === "string") {
     return data.output_text;
   }
@@ -60,9 +76,9 @@ function extractResponseText(data: any): string {
   if (Array.isArray(output)) {
     const texts: string[] = [];
 
-    for (const item of output) {
+    for (const item of output as OpenAiOutputItem[]) {
       if (Array.isArray(item?.content)) {
-        for (const content of item.content) {
+        for (const content of item.content as OpenAiTextContent[]) {
           if (typeof content?.text === "string") {
             texts.push(content.text);
           }
@@ -151,7 +167,7 @@ export async function POST(request: NextRequest) {
 
     const openAiText = await openAiResponse.text();
 
-    let openAiData: any = {};
+    let openAiData: OpenAiResponseData = {};
 
     if (openAiText) {
       try {

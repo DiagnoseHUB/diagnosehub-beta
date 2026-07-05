@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isValidUserPlan, type UserPlan } from "@/config/plans";
+import { requireLearningAccess } from "@/lib/planAccess";
 import { findRelatedLearningModules } from "@/lib/supabase/learningStorage";
 
 export const runtime = "nodejs";
@@ -29,37 +29,53 @@ function normalizeLimit(value: unknown) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const access = await requireLearningAccess(request);
+
+    if (!access.ok) {
+      return NextResponse.json(
+        {
+          error: access.error,
+          modules: [],
+          userPlan: access.plan,
+        },
+        { status: 403 }
+      );
+    }
 
     const faultCodes = normalizeStringArray(body.faultCodes);
     const parts = normalizeStringArray(body.parts);
     const systems = normalizeStringArray(body.systems);
-    const userPlan: UserPlan = isValidUserPlan(body.userPlan)
-      ? body.userPlan
-      : "free";
     const limit = normalizeLimit(body.limit);
 
     const modules = await findRelatedLearningModules({
       faultCodes,
       parts,
       systems,
-      userPlan,
+      userPlan: access.plan,
       limit,
     });
 
     return NextResponse.json({
       modules,
+      userPlan: access.plan,
     });
   } catch (error) {
     console.error("Passende Lernmodule konnten nicht geladen werden:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Passende Lernmodule konnten nicht geladen werden.";
+    const status =
+      errorMessage.includes("Nicht eingeloggt") ||
+      errorMessage.includes("Session")
+        ? 401
+        : 500;
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Passende Lernmodule konnten nicht geladen werden.",
+        error: errorMessage,
       },
-      { status: 500 }
+      { status }
     );
   }
 }

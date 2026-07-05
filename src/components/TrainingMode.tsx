@@ -146,21 +146,25 @@ export default function TrainingMode({
   }, [trainingKey, title]);
 
   useEffect(() => {
-    const preparedQuestionPool = prepareTrainingQuestions(questions ?? []);
+    const initTimer = window.setTimeout(() => {
+      const preparedQuestionPool = prepareTrainingQuestions(questions ?? []);
 
-    const selectedQuestions = selectQuestionsForRun({
-      questionPool: preparedQuestionPool,
-      maxQuestions,
-      storageKey,
-    });
+      const selectedQuestions = selectQuestionsForRun({
+        questionPool: preparedQuestionPool,
+        maxQuestions,
+        storageKey,
+      });
 
-    setQuestionPoolLength(preparedQuestionPool.length);
-    setTrainingQuestions(selectedQuestions);
-    setCurrentIndex(0);
-    setSelectedAnswerId(null);
-    setChecked(false);
-    setScore(0);
-    setFinished(false);
+      setQuestionPoolLength(preparedQuestionPool.length);
+      setTrainingQuestions(selectedQuestions);
+      setCurrentIndex(0);
+      setSelectedAnswerId(null);
+      setChecked(false);
+      setScore(0);
+      setFinished(false);
+    }, 0);
+
+    return () => window.clearTimeout(initTimer);
   }, [questionsKey, runId, maxQuestions, storageKey, questions]);
 
   const currentQuestion = trainingQuestions[currentIndex];

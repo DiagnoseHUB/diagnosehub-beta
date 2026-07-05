@@ -1,5 +1,6 @@
 import {
   hasComponentKnowledgeAccess,
+  hasLearningAccess,
   isValidUserPlan,
   type UserPlan,
 } from "@/config/plans";
@@ -42,5 +43,37 @@ export async function requireComponentKnowledgeAccess(request: Request) {
   return {
     ok: true as const,
     plan,
+  };
+}
+
+export async function requireLearningAccess(request: Request) {
+  const { user, supabase } = await loadAuthenticatedUserFromRequest(request);
+
+  const { data, error } = await supabase
+    .from("workshop_profiles")
+    .select("plan")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Plan konnte nicht geladen werden: ${error.message}`);
+  }
+
+  const profile = data as WorkshopProfilePlanRow | null;
+  const plan: UserPlan = isValidUserPlan(profile?.plan) ? profile.plan : "free";
+
+  if (!hasLearningAccess(plan)) {
+    return {
+      ok: false as const,
+      plan,
+      error:
+        "Lernen und Prüfungsfragen sind in deinem aktuellen Tarif nicht enthalten. Dafür brauchst du Komplett 150 oder Unlimited.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    plan,
+    user,
   };
 }

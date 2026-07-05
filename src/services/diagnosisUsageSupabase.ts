@@ -147,15 +147,3 @@ export async function incrementDiagnosisUsageInSupabase(
 
   return saveDiagnosisUsageToSupabase(supabase, user, nextUsage);
 }
-
-export async function resetDiagnosisUsageInSupabase(
-  supabase: SupabaseClient,
-  user: User
-): Promise<DiagnosisUsage> {
-  const nextUsage: DiagnosisUsage = {
-    date: getTodayKey(),
-    count: 0,
-  };
-
-  return saveDiagnosisUsageToSupabase(supabase, user, nextUsage);
-}

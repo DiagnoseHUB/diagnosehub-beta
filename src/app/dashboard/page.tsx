@@ -21,7 +21,6 @@ import {
   getInitialDiagnosisUsage,
   loadDiagnosisUsageFromSupabase,
   normalizeDiagnosisUsage,
-  resetDiagnosisUsageInSupabase,
   type DiagnosisUsage,
 } from "@/services/diagnosisUsageSupabase";
 import {
@@ -691,34 +690,6 @@ export default function DashboardPage() {
     setSuccess("Lokale Premium-Vormerkungen wurden nach Supabase migriert.");
   }
 
-  async function resetUsageCounter() {
-    if (!user) {
-      setError("Zum Zurücksetzen musst du eingeloggt sein.");
-      return;
-    }
-
-    setSuccess("");
-    setError("");
-    setUsageLoading(true);
-
-    try {
-      const nextUsage = await resetDiagnosisUsageInSupabase(supabase, user);
-
-      setDiagnosisUsage(nextUsage);
-      saveDiagnosisUsageToLocalStorage(nextUsage);
-      setUsageSource("supabase");
-      setSuccess("Nutzungszähler wurde in Supabase zurückgesetzt.");
-    } catch (error) {
-      setError(
-        `Nutzungszähler konnte nicht zurückgesetzt werden: ${getErrorMessage(
-          error
-        )}`
-      );
-    } finally {
-      setUsageLoading(false);
-    }
-  }
-
   async function deleteDiagnosisCase(caseId: string) {
     setSuccess("");
     setError("");
@@ -953,9 +924,9 @@ export default function DashboardPage() {
           />
 
           <DashboardCard
-            title="Diagnosen heute"
+            title="Diagnosen diesen Monat"
             value={`${normalizedUsage.count}/${currentDailyLimit}`}
-            description={`${remainingDiagnoses} Diagnosen heute noch verfuegbar.`}
+            description={`${remainingDiagnoses} Diagnosen diesen Monat noch verfügbar.`}
           >
             <SourceBadge source={usageSource} />
           </DashboardCard>
@@ -1018,26 +989,15 @@ export default function DashboardPage() {
 
           <Section
             title="Nutzungszähler"
-            description="Der Tageszähler wird bei Login aus Supabase geladen und dort zurückgesetzt."
+            description="Der Monatszähler wird bei Login aus Supabase geladen und bei Diagnoseanfragen serverseitig erhöht."
             right={
-              <>
-                <button
-                  type="button"
-                  onClick={resetUsageCounter}
-                  disabled={usageLoading}
-                  className="rounded-xl border border-red-500/40 bg-red-500/10 px-5 py-3 font-semibold text-red-300 transition hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Zähler zurücksetzen
-                </button>
-
-                <button
-                  type="button"
-                  onClick={clearCurrentCase}
-                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
-                >
-                  Aktuellen Fall leeren
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={clearCurrentCase}
+                className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              >
+                Aktuellen Fall leeren
+              </button>
             }
           >
             <div className="grid gap-4 md:grid-cols-3">
@@ -1056,7 +1016,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                <p className="text-sm text-slate-500">Anfragen heute</p>
+                <p className="text-sm text-slate-500">Anfragen diesen Monat</p>
                 <p className="mt-2 text-3xl font-black text-white">
                   {normalizedUsage.count}
                 </p>

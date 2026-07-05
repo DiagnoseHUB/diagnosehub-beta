@@ -864,7 +864,7 @@ export default function SearchBar() {
       );
       setCaseStorageSource("local");
       setError(
-        "Supabase-Fallhistorie konnte nicht geladen werden. Lokale Fälle bleiben verfuegbar.",
+        "Supabase-Fallhistorie konnte nicht geladen werden. Lokale Fälle bleiben verfügbar.",
       );
       loadLocalSavedCasesIntoState(activeUser.id);
     } finally {
@@ -1042,6 +1042,13 @@ Antwortformat exakt:
       return;
     }
 
+    if (!user) {
+      setError(
+        "Bitte zuerst einloggen. Free-Diagnosen werden serverseitig gezählt, damit die Monatslimits fair bleiben.",
+      );
+      return;
+    }
+
     const usageBeforeRequest = normalizeDiagnosisUsage(diagnosisUsage);
     const limitBeforeRequest = PLAN_CONFIG[userPlan].dailyDiagnosisLimit;
 
@@ -1078,7 +1085,6 @@ Antwortformat exakt:
 
     try {
       const accessToken = await getAccessTokenForServerLimit();
-      const useServerUsageTracking = accessToken.length > 0;
 
       const response = await fetch("/api/diagnose", {
         method: "POST",
@@ -1089,7 +1095,6 @@ Antwortformat exakt:
           input: diagnosisInput,
           messages,
           accessToken,
-          useServerUsageTracking,
         }),
       });
 
@@ -1498,7 +1503,7 @@ ${chatText}
               </div>
 
               <p className="mt-2 text-sm text-slate-400">
-                {currentPlan.description} Noch verfuegbar:{" "}
+                {currentPlan.description} Noch verfügbar:{" "}
                 <span className="font-bold text-slate-300">
                   {remainingDiagnosesLabel}
                 </span>{" "}
@@ -1520,7 +1525,7 @@ ${chatText}
               <p className="mt-2 text-sm text-slate-400">
                 {user
                   ? `Supabase-Login aktiv: ${user.email}.`
-                  : "Nicht eingeloggt: Fälle und Nutzung bleiben lokal auf diesem Gerät."}
+                  : "Nicht eingeloggt: Bitte einloggen, um Diagnosen mit serverseitigem Monatslimit zu starten."}
               </p>
             </div>
 
@@ -1600,11 +1605,13 @@ ${chatText}
           <button
             type="button"
             onClick={() => void sendDiagnosis()}
-            disabled={loading || diagnosisLimitReached}
+            disabled={loading || diagnosisLimitReached || !user}
             className="rounded-xl bg-blue-600 px-6 py-3 font-bold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading
               ? "DiagnoseHUB arbeitet..."
+              : !user
+                ? "Login erforderlich"
               : diagnosisLimitReached
                 ? "Monatslimit erreicht"
                 : search.trim() && isInstructionRequest(search)
@@ -1741,7 +1748,7 @@ ${chatText}
                 key={question}
                 type="button"
                 onClick={() => void sendDiagnosis(question)}
-                disabled={loading || diagnosisLimitReached}
+                disabled={loading || diagnosisLimitReached || !user}
                 className="rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-blue-500 hover:text-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {question}
@@ -1764,7 +1771,6 @@ ${chatText}
               (faultCode) => faultCode.system,
             ) ?? []),
           ].filter(Boolean)}
-          userPlan={userPlan}
         />
       )}
 

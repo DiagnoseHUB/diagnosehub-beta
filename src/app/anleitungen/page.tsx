@@ -282,14 +282,18 @@ function InstructionsPageContent() {
       return;
     }
 
-    setSearchTerm(queryFromDiagnosis);
-    setActiveSearchTerm(queryFromDiagnosis);
-    setSelectedCategory(allCategoryLabel);
+    const initTimer = window.setTimeout(() => {
+      setSearchTerm(queryFromDiagnosis);
+      setActiveSearchTerm(queryFromDiagnosis);
+      setSelectedCategory(allCategoryLabel);
 
-    if (shouldAutoGenerate && !autoGenerationStartedRef.current) {
-      autoGenerationStartedRef.current = true;
-      void handleGenerateInstruction(queryFromDiagnosis, "diagnosis");
-    }
+      if (shouldAutoGenerate && !autoGenerationStartedRef.current) {
+        autoGenerationStartedRef.current = true;
+        void handleGenerateInstruction(queryFromDiagnosis, "diagnosis");
+      }
+    }, 0);
+
+    return () => window.clearTimeout(initTimer);
   }, [searchParams]);
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {

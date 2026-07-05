@@ -1,6 +1,6 @@
 import { randomInt } from "crypto";
 import { NextResponse } from "next/server";
-import { isValidUserPlan, type UserPlan } from "@/config/plans";
+import { requireLearningAccess } from "@/lib/planAccess";
 import { loadPublishedLearningQuestions } from "@/lib/supabase/learningQuestionStorage";
 import type {
   LearningDifficulty,
@@ -113,10 +113,19 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    const requestedPlan = searchParams.get("userPlan");
-    const userPlan: UserPlan = isValidUserPlan(requestedPlan)
-      ? requestedPlan
-      : "free";
+    const access = await requireLearningAccess(request);
+
+    if (!access.ok) {
+      return NextResponse.json(
+        {
+          error: access.error,
+          userPlan: access.plan,
+        },
+        { status: 403 }
+      );
+    }
+
+    const userPlan = access.plan;
 
     const requestedDifficulty = searchParams.get("difficulty");
     const difficulty = isLearningDifficulty(requestedDifficulty)
@@ -166,11 +175,10 @@ export async function GET(request: Request) {
         /*
           count = Fragenpool, aus dem zufaellig gewählt wurde.
           returnedCount = Anzahl, die wirklich angezeigt wird.
-          debugRunId = sichtbarer Kontrollwert zum Testen, ob die Route neu läuft.
         */
         count: questionPool.length,
         returnedCount: selectedQuestions.length,
-        debugRunId: `${Date.now()}-${randomInt(1_000_000)}`,
+        userPlan,
       },
       {
         headers: {
@@ -182,16 +190,22 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     console.error("Lernfragen konnten nicht geladen werden:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Lernfragen konnten nicht geladen werden.";
+    const status =
+      errorMessage.includes("Nicht eingeloggt") ||
+      errorMessage.includes("Session")
+        ? 401
+        : 500;
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Lernfragen konnten nicht geladen werden.",
+        error: errorMessage,
       },
       {
-        status: 500,
+        status,
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
           Pragma: "no-cache",
