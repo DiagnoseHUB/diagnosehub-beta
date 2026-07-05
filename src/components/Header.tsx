@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import DeviceAccessGuard from "@/components/DeviceAccessGuard";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 import { PLAN_CONFIG, type UserPlan } from "@/config/plans";
@@ -209,6 +210,8 @@ function Header() {
   const sourceLabel = accountSourceLabels[accountSource];
 
   return (
+    <>
+    <DeviceAccessGuard />
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 text-slate-950 backdrop-blur-xl transition-colors dark:border-slate-800/90 dark:bg-slate-950/95 dark:text-slate-100">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="flex min-h-20 items-center justify-between gap-4">
@@ -409,6 +412,7 @@ function Header() {
         )}
       </div>
     </header>
+    </>
   );
 }
 

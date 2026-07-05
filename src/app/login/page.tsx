@@ -11,6 +11,12 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/client";
 import {
+  getOrCreateDeviceId,
+  loadRegisteredDevices,
+  removeRegisteredDevice,
+  type DeviceAccessResponse,
+} from "@/services/deviceAccess";
+import {
   PLAN_CONFIG,
   type UserPlan,
 } from "@/config/plans";
@@ -68,6 +74,10 @@ export default function LoginPage() {
     useState<WorkshopProfileDatabaseRow | null>(null);
 
   const [profileLoading, setProfileLoading] = useState(false);
+  const [deviceAccess, setDeviceAccess] = useState<DeviceAccessResponse | null>(
+    null
+  );
+  const [deviceLoading, setDeviceLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
@@ -106,6 +116,7 @@ export default function LoginPage() {
 
       if (data.session?.user) {
         await loadWorkshopProfile(data.session.user);
+        await loadDeviceAccess(data.session);
       }
     }
 
@@ -123,9 +134,11 @@ export default function LoginPage() {
 
         if (nextSession?.user) {
           await loadWorkshopProfile(nextSession.user);
+          await loadDeviceAccess(nextSession);
         } else {
           setDatabaseProfile(null);
           setSavedAccount(null);
+          setDeviceAccess(null);
           setName("");
           setWorkshop("");
           setRole(DEFAULT_ROLE);
@@ -151,6 +164,31 @@ export default function LoginPage() {
     setWorkshop(localAccount.workshop || "");
     setRole(localAccount.role || DEFAULT_ROLE);
     setPlan(localAccount.plan || "free");
+  }
+
+  async function loadDeviceAccess(existingSession?: Session | null) {
+    setDeviceLoading(true);
+
+    try {
+      const session =
+        existingSession ??
+        (await supabase.auth.getSession()).data.session ??
+        null;
+
+      if (!session?.access_token) {
+        setDeviceAccess(null);
+        return;
+      }
+
+      getOrCreateDeviceId();
+      const access = await loadRegisteredDevices(session.access_token);
+      setDeviceAccess(access);
+    } catch (error) {
+      console.error("Gerätezugriff konnte nicht geladen werden:", error);
+      setDeviceAccess(null);
+    } finally {
+      setDeviceLoading(false);
+    }
   }
 
   function applyProfileToState(
@@ -260,6 +298,10 @@ export default function LoginPage() {
           await loadWorkshopProfile(data.user);
         }
 
+        if (data.session) {
+          await loadDeviceAccess(data.session);
+        }
+
         return;
       }
 
@@ -307,6 +349,10 @@ export default function LoginPage() {
 
       if (data.user) {
         await loadWorkshopProfile(data.user);
+      }
+
+      if (data.session) {
+        await loadDeviceAccess(data.session);
       }
     } catch (error) {
       setAuthError(`Login fehlgeschlagen: ${getErrorMessage(error)}`);
@@ -415,6 +461,7 @@ export default function LoginPage() {
       setUser(null);
       setDatabaseProfile(null);
       setSavedAccount(null);
+      setDeviceAccess(null);
       setName("");
       setWorkshop("");
       setRole(DEFAULT_ROLE);
@@ -517,6 +564,30 @@ export default function LoginPage() {
       );
     } finally {
       setProfileLoading(false);
+    }
+  }
+
+  async function removeDevice(deviceId: string) {
+    setError("");
+    setSuccess("");
+    setDeviceLoading(true);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+
+      if (!accessToken) {
+        setError("Bitte zuerst einloggen.");
+        return;
+      }
+
+      await removeRegisteredDevice(accessToken, deviceId);
+      await loadDeviceAccess(data.session);
+      showSuccess("Gerät wurde entfernt.");
+    } catch (error) {
+      setError(`Gerät konnte nicht entfernt werden: ${getErrorMessage(error)}`);
+    } finally {
+      setDeviceLoading(false);
     }
   }
 
@@ -637,6 +708,75 @@ export default function LoginPage() {
                 nur als Fallback und für Migration erhalten.
               </p>
             </div>
+
+            {user && (
+              <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-wide text-blue-700 dark:text-blue-300">
+                      Gerätezugriff
+                    </p>
+                    <h2 className="mt-3 text-2xl font-black text-slate-950 dark:text-white">
+                      {deviceAccess
+                        ? `${deviceAccess.activeDeviceCount}/${deviceAccess.maxDevices} Geräte aktiv`
+                        : "Geräte werden geprüft"}
+                    </h2>
+                    <p className="mt-2 leading-7 text-slate-600 dark:text-slate-300">
+                      {deviceAccess?.accountType === "workshop"
+                        ? "Werkstattkonten können bis zu 3 Geräte nutzen."
+                        : "Private Konten können bis zu 2 Geräte nutzen."}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void loadDeviceAccess()}
+                    disabled={deviceLoading}
+                    className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    {deviceLoading ? "Lädt..." : "Aktualisieren"}
+                  </button>
+                </div>
+
+                {deviceAccess?.error && (
+                  <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm leading-6 text-yellow-800 dark:border-yellow-500/30 dark:bg-yellow-500/10 dark:text-yellow-200">
+                    {deviceAccess.error}
+                  </div>
+                )}
+
+                {deviceAccess && deviceAccess.devices.length > 0 && (
+                  <div className="mt-5 grid gap-3">
+                    {deviceAccess.devices.map((device) => (
+                      <div
+                        key={device.deviceId}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="font-black text-slate-950 dark:text-white">
+                              {device.deviceName}
+                              {device.current ? " · dieses Gerät" : ""}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                              Zuletzt aktiv: {formatDateTime(device.lastSeenAt)}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => void removeDevice(device.deviceId)}
+                            disabled={deviceLoading || device.current}
+                            className="rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-slate-950 dark:text-red-300 dark:hover:bg-red-500/10"
+                          >
+                            Entfernen
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-8">
