@@ -29,7 +29,6 @@ export type WorkshopProfileInput = {
   workshopName: string;
   email: string;
   role: string;
-  plan: UserPlan;
 };
 
 export type WorkshopProfileState = {
@@ -206,13 +205,14 @@ export async function saveWorkshopProfileToSupabase(
   user: User,
   input: WorkshopProfileInput
 ): Promise<WorkshopProfileDatabaseRow> {
+  const existingProfile = await loadWorkshopProfileFromSupabase(supabase, user);
   const payload = {
     id: user.id,
     full_name: input.fullName,
     workshop_name: input.workshopName,
     email: input.email,
     role: input.role,
-    plan: input.plan,
+    plan: existingProfile?.plan || "free",
   };
 
   const { data, error } = await supabase

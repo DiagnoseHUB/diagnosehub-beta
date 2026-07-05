@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type {
   AuthChangeEvent,
   Session,
@@ -11,7 +12,6 @@ import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/client";
 import {
   PLAN_CONFIG,
-  SELECTABLE_USER_PLANS,
   type UserPlan,
 } from "@/config/plans";
 import {
@@ -47,7 +47,6 @@ function getErrorMessage(error: unknown) {
 export default function LoginPage() {
   const supabase = useMemo(() => createClient(), []);
 
-  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -96,7 +95,6 @@ export default function LoginPage() {
         return;
       }
 
-      setSession(data.session);
       setUser(data.session?.user ?? null);
 
       if (data.session?.user?.email) {
@@ -114,7 +112,6 @@ export default function LoginPage() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, nextSession: Session | null) => {
-        setSession(nextSession);
         setUser(nextSession?.user ?? null);
 
         if (nextSession?.user?.email) {
@@ -252,7 +249,6 @@ export default function LoginPage() {
       }
 
       if (data.session) {
-        setSession(data.session);
         setUser(data.user);
         setAuthPassword("");
         setAuthMessage("Registrierung erfolgreich. Du bist eingeloggt.");
@@ -302,7 +298,6 @@ export default function LoginPage() {
         return;
       }
 
-      setSession(data.session);
       setUser(data.user);
       setAuthPassword("");
       setAuthMessage("Login erfolgreich.");
@@ -329,7 +324,6 @@ export default function LoginPage() {
         return;
       }
 
-      setSession(null);
       setUser(null);
       setDatabaseProfile(null);
       setSavedAccount(null);
@@ -385,7 +379,6 @@ export default function LoginPage() {
         workshopName: cleanWorkshop,
         email: authUserEmail,
         role: cleanRole || "Werkstatt",
-        plan,
       });
 
       applyProfileToState(profile, user);
@@ -442,10 +435,6 @@ export default function LoginPage() {
     } finally {
       setProfileLoading(false);
     }
-  }
-
-  function changePlan(nextPlan: UserPlan) {
-    setPlan(nextPlan);
   }
 
   return (
@@ -536,19 +525,19 @@ export default function LoginPage() {
               )}
 
               <div className="mt-6 flex flex-wrap gap-3">
-                <a
+                <Link
                   href="/dashboard"
                   className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
                 >
                   Zum Dashboard
-                </a>
+                </Link>
 
-                <a
+                <Link
                   href="/#diagnose"
                   className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
                 >
                   Zur Diagnose
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -769,64 +758,46 @@ export default function LoginPage() {
               </div>
 
               <div className="mt-8">
-                <p className="mb-4 font-bold text-white">Plan auswählen</p>
+                <p className="mb-4 font-bold text-white">Aktiver Tarif</p>
 
-                <div className="grid gap-4">
-                  {SELECTABLE_USER_PLANS.map(
-                    (planKey) => (
-                      <button
-                        key={planKey}
-                        type="button"
-                        onClick={() => changePlan(planKey)}
-                        disabled={!user || profileLoading}
-                        className={
-                          plan === planKey
-                            ? "rounded-2xl border border-blue-500 bg-blue-500/10 p-5 text-left disabled:cursor-not-allowed disabled:opacity-50"
-                            : "rounded-2xl border border-slate-800 bg-slate-950/70 p-5 text-left transition hover:border-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50"
-                        }
+                <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <span className="inline-flex rounded-full border border-blue-400/40 bg-blue-500/20 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-200">
+                        {PLAN_CONFIG[plan].badge}
+                      </span>
+
+                      <h3 className="mt-3 text-xl font-bold text-white">
+                        {PLAN_CONFIG[plan].label}
+                      </h3>
+
+                      <p className="mt-2 leading-7 text-slate-400">
+                        {PLAN_CONFIG[plan].description}
+                      </p>
+                    </div>
+
+                    <span className="rounded-full bg-blue-600 px-3 py-1 text-xs font-bold text-white">
+                      Aktiv
+                    </span>
+                  </div>
+
+                  <ul className="mt-4 grid gap-2 md:grid-cols-2">
+                    {PLAN_CONFIG[plan].features.map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex gap-3 text-sm text-slate-300"
                       >
-                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                          <div>
-                            <span
-                              className={
-                                plan === planKey
-                                  ? "inline-flex rounded-full border border-blue-400/40 bg-blue-500/20 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-200"
-                                  : "inline-flex rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slate-400"
-                              }
-                            >
-                              {PLAN_CONFIG[planKey].badge}
-                            </span>
+                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-400" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
 
-                            <h3 className="mt-3 text-xl font-bold text-white">
-                              {PLAN_CONFIG[planKey].label}
-                            </h3>
-
-                            <p className="mt-2 leading-7 text-slate-400">
-                              {PLAN_CONFIG[planKey].description}
-                            </p>
-                          </div>
-
-                          {plan === planKey && (
-                            <span className="rounded-full bg-blue-600 px-3 py-1 text-xs font-bold text-white">
-                              Aktiv
-                            </span>
-                          )}
-                        </div>
-
-                        <ul className="mt-4 grid gap-2 md:grid-cols-2">
-                          {PLAN_CONFIG[planKey].features.map((feature) => (
-                            <li
-                              key={feature}
-                              className="flex gap-3 text-sm text-slate-300"
-                            >
-                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-400" />
-                              <span>{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </button>
-                    )
-                  )}
+                  <p className="mt-4 text-sm leading-6 text-slate-400">
+                    Tarife werden nach Stripe-Zahlung oder durch eine manuelle
+                    Admin-Freischaltung gesetzt. Profilangaben ändern deinen
+                    Tarif nicht.
+                  </p>
                 </div>
               </div>
 
