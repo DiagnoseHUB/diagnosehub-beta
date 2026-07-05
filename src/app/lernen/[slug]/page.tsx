@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import LearningLessonList from "@/components/LearningLessonList";
 import LearningLessonProgress from "@/components/LearningLessonProgress";
@@ -99,9 +100,9 @@ function AccessBox({ requiredPlan }: { requiredPlan: string }) {
       <h2 className="text-xl font-black">Lerninhalt gesperrt</h2>
 
       <p className="mt-3 leading-7">
-        Dieser Inhalt benoetigt mindestens den Plan{" "}
-        <strong>{getPlanLabel(requiredPlan)}</strong>. Für Testwerkstätten kann
-        der Zugang später kostenlos über Supabase freigeschaltet werden.
+        Dieser Inhalt benötigt mindestens den Plan{" "}
+        <strong>{getPlanLabel(requiredPlan)}</strong>. Der Zugang kann bei
+        Bedarf serverseitig freigeschaltet werden.
       </p>
 
       <Link
@@ -211,58 +212,10 @@ function ModulePage({ detail }: { detail: LearningModuleDetail }) {
             </PlanAccessGate>
           )}
 
-          <section className="hidden">
-
-            <div className="hidden">
-              {lessons.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
-                  Noch keine veröffentlichten Lektionen vorhanden.
-                </div>
-              ) : (
-                lessons.map((lesson, index) => (
-                  <Link
-                    key={lesson.id}
-                    href={`/lernen/${lesson.slug}`}
-                    className="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-blue-400 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-900/80 dark:hover:border-blue-500 dark:hover:bg-blue-950/30"
-                  >
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                      <div>
-                        <p className="text-sm font-black uppercase tracking-wide text-blue-700 dark:text-blue-400">
-                          Lektion {index + 1}
-                        </p>
-
-                        <h3 className="mt-1 text-xl font-black text-slate-950 group-hover:text-blue-700 dark:text-slate-100 dark:group-hover:text-blue-300">
-                          {lesson.title}
-                        </h3>
-
-                        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-                          {lesson.summary || lesson.subtitle}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 md:justify-end">
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                          {lesson.estimatedMinutes} Min.
-                        </span>
-
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                          {getPlanLabel(lesson.requiredPlan)}
-                        </span>
-
-                        {lesson.isLocked && (
-                          <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-bold text-yellow-700 dark:text-yellow-300">
-                            Gesperrt
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
         </section>
       </main>
+
+      <Footer />
     </div>
   );
 }
@@ -433,6 +386,8 @@ function LessonPage({ detail }: { detail: LearningLessonDetail }) {
           )}
         </article>
       </main>
+
+      <Footer />
     </div>
   );
 }

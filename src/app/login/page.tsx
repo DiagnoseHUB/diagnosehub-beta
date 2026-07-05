@@ -521,45 +521,47 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-950 transition-colors dark:bg-slate-950 dark:text-white">
       <Header />
 
       <main className="mx-auto max-w-7xl px-6 py-14">
         <section className="grid gap-10 lg:grid-cols-[0.9fr_1fr] lg:items-start">
           <div>
-            <div className="inline-flex rounded-full border border-green-500/30 bg-green-500/10 px-5 py-2 text-sm font-semibold text-green-300">
-              Supabase Login + Datenbank
+            <div className="inline-flex rounded-full border border-green-200 bg-green-50 px-5 py-2 text-sm font-black text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300">
+              Account + Daten
             </div>
 
-            <h1 className="mt-6 text-5xl font-black tracking-tight md:text-6xl">
+            <h1 className="mt-6 text-5xl font-black tracking-tight text-slate-950 dark:text-white md:text-6xl">
               DiagnoseHUB Account.
             </h1>
 
-            <p className="mt-6 text-lg leading-8 text-slate-400">
+            <p className="mt-6 text-lg leading-8 text-slate-600 dark:text-slate-300">
               Diese Seite ist die zentrale Verwaltung für Login,
               Nutzerprofil und Plan. Der gespeicherte Plan wird von
               Dashboard, Diagnose und Prüfprotokoll verwendet.
             </p>
 
-            <div className="mt-8 rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-              <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
+            <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
+              <p className="text-sm font-black uppercase tracking-wide text-blue-700 dark:text-blue-300">
                 Account-Status
               </p>
 
-              <h2 className="mt-3 text-2xl font-bold">{accountStatus}</h2>
+              <h2 className="mt-3 text-2xl font-bold text-slate-950 dark:text-white">
+                {accountStatus}
+              </h2>
 
               {user ? (
-                <div className="mt-5 space-y-3 text-slate-400">
+                <div className="mt-5 space-y-3 text-slate-600 dark:text-slate-300">
                   <p>
                     Supabase E-Mail:{" "}
-                    <span className="font-semibold text-white">
+                    <span className="font-semibold text-slate-950 dark:text-white">
                       {user.email}
                     </span>
                   </p>
 
                   <p>
                     User-ID:{" "}
-                    <span className="break-all font-mono text-sm text-slate-300">
+                    <span className="break-all font-mono text-sm text-slate-700 dark:text-slate-300">
                       {user.id}
                     </span>
                   </p>
@@ -568,40 +570,40 @@ export default function LoginPage() {
                     <>
                       <p>
                         Betrieb/Firma:{" "}
-                        <span className="font-semibold text-white">
+                        <span className="font-semibold text-slate-950 dark:text-white">
                           {databaseProfile.workshop_name}
                         </span>
                       </p>
 
                       <p>
                         Name:{" "}
-                        <span className="font-semibold text-white">
+                        <span className="font-semibold text-slate-950 dark:text-white">
                           {databaseProfile.full_name}
                         </span>
                       </p>
 
                       <p>
                         Plan:{" "}
-                        <span className="font-semibold text-white">
+                        <span className="font-semibold text-slate-950 dark:text-white">
                           {PLAN_CONFIG[databaseProfile.plan].label}
                         </span>
                       </p>
 
                       <p>
                         Aktualisiert:{" "}
-                        <span className="font-semibold text-white">
+                        <span className="font-semibold text-slate-950 dark:text-white">
                           {formatDateTime(databaseProfile.updated_at)}
                         </span>
                       </p>
                     </>
                   ) : (
-                    <p className="text-yellow-300">
+                    <p className="text-yellow-700 dark:text-yellow-300">
                       Noch kein Nutzerprofil in Supabase gespeichert.
                     </p>
                   )}
                 </div>
               ) : (
-                <p className="mt-4 leading-7 text-slate-400">
+                <p className="mt-4 leading-7 text-slate-600 dark:text-slate-300">
                   Noch nicht eingeloggt. Registriere dich oder melde dich mit
                   einem bestehenden Supabase-Account an.
                 </p>
@@ -610,24 +612,26 @@ export default function LoginPage() {
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/dashboard"
-                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
+                  className="rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white transition hover:bg-blue-500"
                 >
                   Zum Dashboard
                 </Link>
 
                 <Link
                   href="/#diagnose"
-                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
+                  className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                 >
                   Zur Diagnose
                 </Link>
               </div>
             </div>
 
-            <div className="mt-8 rounded-3xl border border-blue-500/20 bg-blue-500/10 p-6">
-              <p className="font-bold text-blue-300">Aktueller Stand</p>
+            <div className="mt-8 rounded-3xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-500/20 dark:bg-blue-500/10">
+              <p className="font-bold text-blue-700 dark:text-blue-300">
+                Aktueller Stand
+              </p>
 
-              <p className="mt-3 leading-7 text-slate-300">
+              <p className="mt-3 leading-7 text-slate-700 dark:text-slate-300">
                 Nutzerprofil, Diagnosefälle und Nutzungszähler sind für
                 eingeloggte Nutzer an Supabase angebunden. Lokale Daten bleiben
                 nur als Fallback und für Migration erhalten.
@@ -636,18 +640,18 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-8">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-blue-950/30">
-              <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-                Supabase Auth
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+              <p className="text-sm font-black uppercase tracking-wide text-blue-700 dark:text-blue-300">
+                Login
               </p>
 
-              <h2 className="mt-3 text-3xl font-bold">
+              <h2 className="mt-3 text-3xl font-bold text-slate-950 dark:text-white">
                 {user ? "Eingeloggt" : "Login / Registrierung"}
               </h2>
 
               {!user && (
                 <>
-                  <div className="mt-6 flex rounded-2xl border border-slate-800 bg-slate-950 p-1">
+                  <div className="mt-6 flex rounded-2xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-950">
                     <button
                       type="button"
                       onClick={() => {
@@ -657,7 +661,7 @@ export default function LoginPage() {
                       className={
                         authMode === "login"
                           ? "flex-1 rounded-xl bg-blue-600 px-4 py-3 font-bold text-white"
-                          : "flex-1 rounded-xl px-4 py-3 font-bold text-slate-400 transition hover:text-white"
+                          : "flex-1 rounded-xl px-4 py-3 font-bold text-slate-600 transition hover:text-slate-950 dark:text-slate-400 dark:hover:text-white"
                       }
                     >
                       Einloggen
@@ -672,7 +676,7 @@ export default function LoginPage() {
                       className={
                         authMode === "register"
                           ? "flex-1 rounded-xl bg-blue-600 px-4 py-3 font-bold text-white"
-                          : "flex-1 rounded-xl px-4 py-3 font-bold text-slate-400 transition hover:text-white"
+                          : "flex-1 rounded-xl px-4 py-3 font-bold text-slate-600 transition hover:text-slate-950 dark:text-slate-400 dark:hover:text-white"
                       }
                     >
                       Registrieren
@@ -681,7 +685,7 @@ export default function LoginPage() {
 
                   <div className="mt-6 grid gap-4">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-300">
+                      <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                         E-Mail
                       </label>
 
@@ -690,13 +694,13 @@ export default function LoginPage() {
                         onChange={(event) => setAuthEmail(event.target.value)}
                         placeholder="mail@beispiel.de"
                         autoComplete="email"
-                        className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-5 py-4 text-slate-950 outline-none placeholder:text-slate-400 focus:border-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-600"
                       />
                     </div>
 
                     {authMode !== "reset" && (
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-300">
+                      <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                         Passwort
                       </label>
 
@@ -712,7 +716,7 @@ export default function LoginPage() {
                             ? "current-password"
                             : "new-password"
                         }
-                        className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-5 py-4 text-slate-950 outline-none placeholder:text-slate-400 focus:border-blue-500 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-600"
                       />
                     </div>
                     )}
@@ -746,9 +750,9 @@ export default function LoginPage() {
                         onClick={() => {
                           setAuthMode("reset");
                           setAuthPassword("");
-                          resetMessages();
-                        }}
-                        className="text-blue-300 transition hover:text-blue-200"
+                        resetMessages();
+                      }}
+                        className="text-blue-700 transition hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
                       >
                         Passwort vergessen?
                       </button>
@@ -757,9 +761,9 @@ export default function LoginPage() {
                         type="button"
                         onClick={() => {
                           setAuthMode("login");
-                          resetMessages();
-                        }}
-                        className="text-blue-300 transition hover:text-blue-200"
+                        resetMessages();
+                      }}
+                        className="text-blue-700 transition hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
                       >
                         Zurück zum Login
                       </button>
@@ -769,12 +773,12 @@ export default function LoginPage() {
               )}
 
               {user && (
-                <div className="mt-6 rounded-2xl border border-green-500/30 bg-green-500/10 p-5">
-                  <p className="font-bold text-green-300">
+                <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5 dark:border-green-500/30 dark:bg-green-500/10">
+                  <p className="font-bold text-green-700 dark:text-green-300">
                     Supabase-Session aktiv
                   </p>
 
-                  <p className="mt-2 leading-7 text-slate-300">
+                  <p className="mt-2 leading-7 text-slate-700 dark:text-slate-300">
                     Du bist mit {user.email} eingeloggt.
                   </p>
 
@@ -782,7 +786,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={handleLogout}
                     disabled={authLoading}
-                    className="mt-5 rounded-xl border border-red-500/30 px-5 py-3 font-semibold text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-5 rounded-2xl border border-red-200 bg-white px-5 py-3 font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-500/10"
                   >
                     Ausloggen
                   </button>
@@ -790,30 +794,30 @@ export default function LoginPage() {
               )}
 
               {authMessage && (
-                <div className="mt-5 rounded-xl border border-green-500/30 bg-green-500/10 px-5 py-4 text-green-300">
+                <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300">
                   {authMessage}
                 </div>
               )}
 
               {authError && (
-                <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-red-300">
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
                   {authError}
                 </div>
               )}
             </div>
 
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-blue-950/30">
-              <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+              <p className="text-sm font-black uppercase tracking-wide text-blue-700 dark:text-blue-300">
                 Nutzerprofil
               </p>
 
-              <h2 className="mt-3 text-3xl font-bold">
+              <h2 className="mt-3 text-3xl font-bold text-slate-950 dark:text-white">
                 In Supabase speichern
               </h2>
 
-              <p className="mt-3 leading-7 text-slate-400">
+              <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">
                 Diese Daten werden im bestehenden Profilbereich{" "}
-                <span className="font-mono text-slate-300">
+                <span className="font-mono text-slate-700 dark:text-slate-300">
                   workshop_profiles
                 </span>{" "}
                 gespeichert. Der Plan wird danach serverseitig für Limits
@@ -822,7 +826,7 @@ export default function LoginPage() {
 
               <div className="mt-8 grid gap-4">
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-300">
+                  <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Name
                   </label>
 
@@ -831,12 +835,12 @@ export default function LoginPage() {
                     onChange={(event) => setName(event.target.value)}
                     placeholder="Max Mustermann"
                     disabled={!user || profileLoading}
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none placeholder:text-slate-600 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-5 py-4 text-slate-950 outline-none placeholder:text-slate-400 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-600"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-300">
+                  <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Betrieb/Firma optional
                   </label>
 
@@ -845,27 +849,27 @@ export default function LoginPage() {
                     onChange={(event) => setWorkshop(event.target.value)}
                     placeholder="Optional, z. B. KFZ Musterbetrieb"
                     disabled={!user || profileLoading}
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none placeholder:text-slate-600 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-5 py-4 text-slate-950 outline-none placeholder:text-slate-400 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-600"
                   />
-                  <p className="mt-2 text-sm text-slate-500">
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                     Für private Nutzer kann dieses Feld leer bleiben.
                   </p>
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-300">
+                  <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Login-E-Mail
                   </label>
 
                   <input
                     value={user?.email || authEmail}
                     disabled
-                    className="w-full cursor-not-allowed rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-slate-400 outline-none"
+                    className="w-full cursor-not-allowed rounded-2xl border border-slate-300 bg-slate-100 px-5 py-4 text-slate-500 outline-none dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-300">
+                  <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Rolle
                   </label>
 
@@ -874,26 +878,28 @@ export default function LoginPage() {
                     onChange={(event) => setRole(event.target.value)}
                     placeholder="Privatnutzer / Mechaniker / Meister / Inhaber"
                     disabled={!user || profileLoading}
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none placeholder:text-slate-600 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-5 py-4 text-slate-950 outline-none placeholder:text-slate-400 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-600"
                   />
                 </div>
               </div>
 
               <div className="mt-8">
-                <p className="mb-4 font-bold text-white">Aktiver Tarif</p>
+                <p className="mb-4 font-bold text-slate-950 dark:text-white">
+                  Aktiver Tarif
+                </p>
 
-                <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5">
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-500/30 dark:bg-blue-500/10">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
-                      <span className="inline-flex rounded-full border border-blue-400/40 bg-blue-500/20 px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-200">
+                      <span className="inline-flex rounded-full border border-blue-300 bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-blue-700 dark:border-blue-400/40 dark:bg-blue-500/20 dark:text-blue-200">
                         {PLAN_CONFIG[plan].badge}
                       </span>
 
-                      <h3 className="mt-3 text-xl font-bold text-white">
+                      <h3 className="mt-3 text-xl font-bold text-slate-950 dark:text-white">
                         {PLAN_CONFIG[plan].label}
                       </h3>
 
-                      <p className="mt-2 leading-7 text-slate-400">
+                      <p className="mt-2 leading-7 text-slate-700 dark:text-slate-300">
                         {PLAN_CONFIG[plan].description}
                       </p>
                     </div>
@@ -907,7 +913,7 @@ export default function LoginPage() {
                     {PLAN_CONFIG[plan].features.map((feature) => (
                       <li
                         key={feature}
-                        className="flex gap-3 text-sm text-slate-300"
+                        className="flex gap-3 text-sm text-slate-700 dark:text-slate-300"
                       >
                         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-400" />
                         <span>{feature}</span>
@@ -915,7 +921,7 @@ export default function LoginPage() {
                     ))}
                   </ul>
 
-                  <p className="mt-4 text-sm leading-6 text-slate-400">
+                  <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-400">
                     Tarife werden nach Stripe-Zahlung oder durch eine manuelle
                     Admin-Freischaltung gesetzt. Profilangaben ändern deinen
                     Tarif nicht.
@@ -926,7 +932,7 @@ export default function LoginPage() {
                       type="button"
                       onClick={() => void openCustomerPortal()}
                       disabled={!user || portalLoading}
-                      className="mt-5 rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mt-5 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                       {portalLoading
                         ? "Kundenportal wird geöffnet..."
@@ -952,20 +958,20 @@ export default function LoginPage() {
                   type="button"
                   onClick={deleteDatabaseProfile}
                   disabled={!user || profileLoading || !databaseProfile}
-                  className="rounded-2xl border border-red-500/30 px-6 py-4 font-bold text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-2xl border border-red-200 bg-white px-6 py-4 font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-500/10"
                 >
                   Profil aus Supabase löschen
                 </button>
               </div>
 
               {success && (
-                <div className="mt-5 rounded-xl border border-green-500/30 bg-green-500/10 px-5 py-4 text-green-300">
+                <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300">
                   {success}
                 </div>
               )}
 
               {error && (
-                <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-red-300">
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
                   {error}
                 </div>
               )}

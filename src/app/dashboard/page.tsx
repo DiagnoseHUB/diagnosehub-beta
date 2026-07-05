@@ -186,15 +186,19 @@ function DashboardCard({
   children?: ReactNode;
 }) {
   return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-lg shadow-blue-950/20">
-      <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900/80 dark:shadow-blue-950/20">
+      <p className="text-sm font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {title}
       </p>
 
-      <div className="mt-3 text-3xl font-black text-white">{value}</div>
+      <div className="mt-3 text-3xl font-black text-slate-950 dark:text-white">
+        {value}
+      </div>
 
       {description && (
-        <p className="mt-3 leading-7 text-slate-400">{description}</p>
+        <p className="mt-3 leading-7 text-slate-600 dark:text-slate-300">
+          {description}
+        </p>
       )}
 
       {children && <div className="mt-5">{children}</div>}
@@ -214,12 +218,14 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6 shadow-xl shadow-blue-950/20">
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900/70 dark:shadow-blue-950/20">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h2 className="text-2xl font-black text-white">{title}</h2>
+          <h2 className="text-2xl font-black text-slate-950 dark:text-white">
+            {title}
+          </h2>
           {description && (
-            <p className="mt-2 max-w-3xl leading-7 text-slate-400">
+            <p className="mt-2 max-w-3xl leading-7 text-slate-600 dark:text-slate-300">
               {description}
             </p>
           )}
@@ -238,8 +244,8 @@ function SourceBadge({ source }: { source: DataSource }) {
     <span
       className={
         source === "supabase"
-          ? "rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-green-300"
-          : "rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-300"
+          ? "rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300"
+          : "rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-700 dark:border-yellow-500/30 dark:bg-yellow-500/10 dark:text-yellow-300"
       }
     >
       {dataSourceLabels[source]}
@@ -249,7 +255,7 @@ function SourceBadge({ source }: { source: DataSource }) {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-950/60 p-8 text-center text-slate-400">
+    <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-400">
       {text}
     </div>
   );
@@ -257,20 +263,20 @@ function EmptyState({ text }: { text: string }) {
 
 function LoginRequired() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-950 transition-colors dark:bg-slate-950 dark:text-white">
       <Header />
 
       <main className="mx-auto max-w-5xl px-6 py-16">
-        <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-8 shadow-2xl shadow-blue-950/30">
-          <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-400">
+        <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+          <p className="text-sm font-black uppercase tracking-[0.3em] text-blue-700 dark:text-blue-300">
             DiagnoseHUB Dashboard
           </p>
 
-          <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
+          <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-950 dark:text-white md:text-5xl">
             Bitte einloggen.
           </h1>
 
-          <p className="mt-5 max-w-3xl leading-8 text-slate-400">
+          <p className="mt-5 max-w-3xl leading-8 text-slate-600 dark:text-slate-300">
             Das Dashboard zeigt Nutzerprofil, Supabase-Fallhistorie und
             Nutzungszähler. Dafür brauchst du eine
             aktive Supabase-Session. Lokale Alt-Daten werden hier bewusst nicht
@@ -280,14 +286,14 @@ function LoginRequired() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/login"
-              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500"
+              className="rounded-2xl bg-blue-600 px-6 py-3 font-black text-white transition hover:bg-blue-500"
             >
               Zum Login
             </Link>
 
             <Link
               href="/#diagnose"
-              className="rounded-xl border border-slate-700 px-6 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              className="rounded-2xl border border-slate-300 bg-white px-6 py-3 font-black text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               Zur Diagnose
             </Link>
@@ -678,18 +684,20 @@ export default function DashboardPage() {
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white">
+      <div className="min-h-screen bg-slate-50 text-slate-950 transition-colors dark:bg-slate-950 dark:text-white">
         <Header />
 
         <main className="mx-auto max-w-7xl px-6 py-16">
-          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-8">
-            <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-400">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+            <p className="text-sm font-black uppercase tracking-[0.3em] text-blue-700 dark:text-blue-300">
               DiagnoseHUB Dashboard
             </p>
 
-            <h1 className="mt-4 text-4xl font-black">Dashboard wird geladen...</h1>
+            <h1 className="mt-4 text-4xl font-black text-slate-950 dark:text-white">
+              Dashboard wird geladen...
+            </h1>
 
-            <p className="mt-4 leading-8 text-slate-400">
+            <p className="mt-4 leading-8 text-slate-600 dark:text-slate-300">
               Supabase-Session wird geprüft.
             </p>
           </div>
@@ -705,21 +713,21 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-950 transition-colors dark:bg-slate-950 dark:text-white">
       <Header />
 
       <main className="mx-auto max-w-7xl px-6 py-10">
         <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-400">
+            <p className="text-sm font-black uppercase tracking-[0.3em] text-blue-700 dark:text-blue-300">
               DiagnoseHUB
             </p>
 
-            <h1 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">
+            <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 dark:text-white md:text-5xl">
               Dashboard
             </h1>
 
-            <p className="mt-4 max-w-3xl leading-8 text-slate-400">
+            <p className="mt-4 max-w-3xl leading-8 text-slate-600 dark:text-slate-300">
               Übersicht über Nutzerprofil, Diagnosefälle und Nutzungszähler.
               Dieses Dashboard ist nur mit aktivem Supabase-Login sichtbar.
             </p>
@@ -730,7 +738,7 @@ export default function DashboardPage() {
               type="button"
               onClick={refreshAllSupabaseData}
               disabled={isLoading}
-              className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               {isLoading ? "Lädt..." : "Supabase neu laden"}
             </button>
@@ -738,7 +746,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={exportDashboardData}
-              className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-5 py-3 font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
+              className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-3 font-bold text-blue-700 transition hover:bg-blue-600 hover:text-white dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500 dark:hover:text-white"
             >
               Export JSON
             </button>
@@ -746,13 +754,13 @@ export default function DashboardPage() {
         </div>
 
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 leading-7 text-red-300">
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 leading-7 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="mb-6 rounded-2xl border border-green-500/30 bg-green-500/10 px-5 py-4 leading-7 text-green-300">
+          <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 leading-7 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300">
             {success}
           </div>
         )}
@@ -794,40 +802,44 @@ export default function DashboardPage() {
             right={
               <a
                 href="/login"
-                className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
+                className="rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white transition hover:bg-blue-500"
               >
                 Profil bearbeiten
               </a>
             }
           >
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/70">
                 <p className="text-sm text-slate-500">Betrieb/Firma</p>
-                <p className="mt-2 font-bold text-white">
+                <p className="mt-2 font-bold text-slate-950 dark:text-white">
                   {workshopData.workshop}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/70">
                 <p className="text-sm text-slate-500">Name</p>
-                <p className="mt-2 font-bold text-white">{workshopData.name}</p>
+                <p className="mt-2 font-bold text-slate-950 dark:text-white">
+                  {workshopData.name}
+                </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/70">
                 <p className="text-sm text-slate-500">E-Mail</p>
-                <p className="mt-2 break-words font-bold text-white">
+                <p className="mt-2 break-words font-bold text-slate-950 dark:text-white">
                   {workshopData.email}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/70">
                 <p className="text-sm text-slate-500">Rolle</p>
-                <p className="mt-2 font-bold text-white">{workshopData.role}</p>
+                <p className="mt-2 font-bold text-slate-950 dark:text-white">
+                  {workshopData.role}
+                </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/70">
                 <p className="text-sm text-slate-500">Zuletzt geändert</p>
-                <p className="mt-2 font-bold text-white">
+                <p className="mt-2 font-bold text-slate-950 dark:text-white">
                   {formatDateTime(workshopData.updatedAt)}
                 </p>
               </div>
@@ -841,30 +853,30 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={clearCurrentCase}
-                className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
               >
                 Aktuellen Fall leeren
               </button>
             }
           >
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/70">
                 <p className="text-sm text-slate-500">Quelle</p>
                 <div className="mt-2">
                   <SourceBadge source={usageSource} />
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/70">
                 <p className="text-sm text-slate-500">Datum</p>
-                <p className="mt-2 font-bold text-white">
+                <p className="mt-2 font-bold text-slate-950 dark:text-white">
                   {formatDate(normalizedUsage.date)}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/70">
                 <p className="text-sm text-slate-500">Anfragen diesen Monat</p>
-                <p className="mt-2 text-3xl font-black text-white">
+                <p className="mt-2 text-3xl font-black text-slate-950 dark:text-white">
                   {normalizedUsage.count}
                 </p>
               </div>
@@ -879,18 +891,18 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => openDiagnosisCase(latestCase, "diagnose")}
-                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
+                  className="rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white transition hover:bg-blue-500"
                 >
                   Letzten Fall öffnen
                 </button>
               }
             >
-              <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5">
-                <h3 className="text-xl font-bold text-white">
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-500/30 dark:bg-blue-500/10">
+                <h3 className="text-xl font-bold text-slate-950 dark:text-white">
                   {latestCase.title || "Unbenannter Diagnosefall"}
                 </h3>
 
-                <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-400">
+                <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-300">
                   <span>Aktualisiert: {formatDateTime(latestCase.updatedAt)}</span>
                   <span>Fehlercode: {getFaultCodeText(latestCase)}</span>
                   <span>{latestCase.messages.length} Nachrichten</span>
@@ -908,7 +920,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => user && loadSupabaseCases(user, false)}
                   disabled={caseLoading}
-                  className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                 >
                   Fälle neu laden
                 </button>
@@ -917,14 +929,14 @@ export default function DashboardPage() {
                   type="button"
                   onClick={migrateLocalCasesNow}
                   disabled={caseLoading}
-                  className="rounded-xl border border-green-500/40 bg-green-500/10 px-5 py-3 font-semibold text-green-300 transition hover:bg-green-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-2xl border border-green-200 bg-green-50 px-5 py-3 font-bold text-green-700 transition hover:bg-green-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-300 dark:hover:bg-green-500"
                 >
                   Lokale Fälle migrieren
                 </button>
 
                 <Link
                   href="/#diagnose"
-                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
+                  className="rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white transition hover:bg-blue-500"
                 >
                   Neuen Fall starten
                 </Link>
@@ -942,19 +954,19 @@ export default function DashboardPage() {
                 {sortedCases.map((diagnosisCase) => (
                   <div
                     key={diagnosisCase.id}
-                    className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5"
+                    className="rounded-3xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950/70"
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
-                        <h3 className="text-xl font-bold text-white">
+                        <h3 className="text-xl font-bold text-slate-950 dark:text-white">
                           {diagnosisCase.title || "Unbenannter Diagnosefall"}
                         </h3>
 
-                        <p className="mt-2 text-sm text-slate-500">
+                        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                           Aktualisiert: {formatDateTime(diagnosisCase.updatedAt)}
                         </p>
 
-                        <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-400">
+                        <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-300">
                           {diagnosisCase.engineContext?.code && (
                             <span>
                               Motorcode: {diagnosisCase.engineContext.code}
@@ -965,7 +977,7 @@ export default function DashboardPage() {
                           <span>{diagnosisCase.messages.length} Nachrichten</span>
                         </div>
 
-                        <p className="mt-3 line-clamp-2 leading-7 text-slate-400">
+                        <p className="mt-3 line-clamp-2 leading-7 text-slate-600 dark:text-slate-300">
                           {diagnosisCase.messages?.[0]?.content ||
                             "Keine Beschreibung vorhanden."}
                         </p>
@@ -977,7 +989,7 @@ export default function DashboardPage() {
                           onClick={() =>
                             openDiagnosisCase(diagnosisCase, "diagnose")
                           }
-                          className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
+                          className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-600 hover:text-white dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500"
                         >
                           Öffnen
                         </button>
@@ -987,7 +999,7 @@ export default function DashboardPage() {
                           onClick={() =>
                             openDiagnosisCase(diagnosisCase, "protocol")
                           }
-                          className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                          className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                         >
                           Prüfprotokoll
                         </button>
@@ -996,7 +1008,7 @@ export default function DashboardPage() {
                           type="button"
                           onClick={() => deleteDiagnosisCase(diagnosisCase.id)}
                           disabled={caseLoading}
-                          className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500"
                         >
                           Löschen
                         </button>

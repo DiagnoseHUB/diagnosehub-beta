@@ -1,354 +1,313 @@
-import Header from "@/components/Header";
+import Link from "next/link";
 import Footer from "@/components/Footer";
+import Header from "@/components/Header";
 import SearchBar from "@/components/SearchBar";
+
+const heroStats = [
+  { label: "Diagnose", value: "P1-P5" },
+  { label: "Lernen", value: "3 Stufen" },
+  { label: "Tarife", value: "klar" },
+];
+
+const workflowSteps = [
+  {
+    label: "01",
+    title: "Fall erfassen",
+    description:
+      "Fahrzeug, Fehlercode, Symptom, Motorcode, Live-Daten oder bisherige Prüfung eingeben.",
+  },
+  {
+    label: "02",
+    title: "Prüfplan erhalten",
+    description:
+      "DiagnoseHUB sortiert Ursachen, Messpunkte und sinnvolle Reihenfolge in einen nachvollziehbaren Ablauf.",
+  },
+  {
+    label: "03",
+    title: "Dokumentieren",
+    description:
+      "Fall speichern, Folgefragen stellen und bei Bedarf als Prüfprotokoll weiterverwenden.",
+  },
+];
 
 const featureCards = [
   {
     title: "KI-Diagnose",
     description:
-      "Fehlerbild, Fehlercode, Symptome und Messwerte eingeben. DiagnoseHUB erstellt daraus eine strukturierte technische Einschätzung.",
+      "Strukturierte technische Einschätzung aus Fehlerbild, Fehlercode, Symptomen und Messwerten.",
   },
   {
-    title: "Prüfstrategie",
+    title: "Schema-Bilder",
     description:
-      "Die Antwort wird als Werkstatt-Prüfplan aufgebaut: mögliche Ursachen, sinnvolle Reihenfolge, Messwerte und nächste Schritte.",
+      "Prüfpunktorientierte Werkstatt-Grafiken mit Markern, Messpunkten und Entscheidungspfad.",
   },
   {
-    title: "Fallhistorie",
+    title: "Lernportal",
     description:
-      "Diagnosefälle können gespeichert, später geöffnet und für Folgefragen oder Prüfprotokolle weiterverwendet werden.",
+      "Module, Quiz, Bauteilwissen und Gesellenprüfungs-Training in klaren Lernstufen.",
   },
   {
-    title: "Prüfprotokoll",
+    title: "Service-Erinnerung",
     description:
-      "Aus einem Diagnosefall lässt sich ein druckbares Prüfprotokoll für Werkstattdokumentation und Kundenakte erstellen.",
+      "Fahrzeuge zentral speichern und HU, AU, Service sowie Wartungsintervalle im Blick behalten.",
   },
 ];
 
-const workflowSteps = [
+const audienceCards = [
   {
-    title: "1. Fehlerfall beschreiben",
+    title: "Azubis",
     description:
-      "Fahrzeug, Motorcode, Fehlercode, Symptome, Live-Daten oder Kundenbeanstandung eingeben.",
+      "Diagnose verstehen, Prüfungsfragen üben und technische Zusammenhänge schneller greifen.",
+    href: "/azubis",
   },
   {
-    title: "2. Prüfplan erhalten",
+    title: "Schulen",
     description:
-      "DiagnoseHUB strukturiert den Fall und schlägt eine technische Prüfstrategie vor.",
+      "Fallbasierter Unterricht mit Diagnosewegen, Fachgespräch und prüfungsnahen Aufgaben.",
+    href: "/schulen",
   },
   {
-    title: "3. Fall dokumentieren",
+    title: "Werkstätten",
     description:
-      "Fall speichern, später öffnen, weiterbearbeiten und als Prüfprotokoll nutzen.",
+      "Fehlerfälle schneller strukturieren, dokumentieren und mit klarer Prüfreihenfolge bearbeiten.",
+    href: "/werkstaetten",
   },
 ];
 
-const betaHighlights = [
-  "Supabase Login",
-  "Nutzerprofil",
-  "Planlimits",
-  "Fallhistorie",
-  "Tarifmodelle",
-  "Prüfprotokoll",
-];
+function DiagnosticBoardPreview() {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-200/70 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/20">
+      <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-4 dark:border-slate-800">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.28em] text-blue-700 dark:text-blue-300">
+            Beispiel
+          </p>
+          <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">
+            Passat B8 · P0299
+          </h2>
+        </div>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+          Ladedruck
+        </span>
+      </div>
 
-const targetGroups = [
-  {
-    title: "Freie Werkstätten",
-    description:
-      "Für Betriebe, die Diagnosefälle schneller strukturieren und sauber dokumentieren wollen.",
-  },
-  {
-    title: "Kfz-Mechatroniker",
-    description:
-      "Für den Alltag zwischen Fehlerspeicher, Messwerten, Probefahrt und Reparaturentscheidung.",
-  },
-  {
-    title: "Meisterschule & Lernen",
-    description:
-      "Lernmodule, Prüfungsfragen, Bauteilwissen und technische Fallbeispiele für Diagnoseverständnis.",
-  },
-];
+      <div className="mt-5 grid gap-3">
+        {[
+          "Fehlerspeicher und Freeze-Frame prüfen",
+          "Ladeluftstrecke mit Druck/Rauch testen",
+          "Soll-/Ist-Ladedruck vergleichen",
+          "VTG/Wastegate und Sensorik bewerten",
+        ].map((item, index) => (
+          <div
+            key={item}
+            className="grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-xs font-black text-white dark:bg-slate-100 dark:text-slate-950">
+              P{index + 1}
+            </span>
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              {item}
+            </span>
+            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+              OK/NOK
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-yellow-300 bg-yellow-50 p-4 text-sm leading-6 text-yellow-950 dark:border-yellow-700/60 dark:bg-yellow-950/30 dark:text-yellow-100">
+        DiagnoseHUB ersetzt keine Herstellerdaten. Messwerte, Sicherheit und
+        Reparaturentscheidung bleiben fachliche Verantwortung.
+      </div>
+    </div>
+  );
+}
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-950 transition-colors dark:bg-slate-950 dark:text-slate-100">
       <Header />
 
       <main>
-        <section className="relative overflow-hidden border-b border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950">
-          <div className="absolute inset-0 opacity-30">
-            <div className="absolute left-1/2 top-20 h-80 w-80 -translate-x-1/2 rounded-full bg-blue-600 blur-[120px]" />
-            <div className="absolute bottom-0 right-10 h-72 w-72 rounded-full bg-cyan-500 blur-[130px]" />
-          </div>
-
-          <div className="relative mx-auto grid max-w-7xl gap-12 px-6 py-20 md:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <section className="border-b border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-950">
+          <div className="mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:grid-cols-[1fr_0.9fr] lg:items-center lg:py-20">
             <div>
-              <div className="inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-5 py-2 text-sm font-bold uppercase tracking-[0.25em] text-blue-300">
-                DiagnoseHUB Beta 0.1
-              </div>
-
-              <h1 className="mt-6 max-w-4xl text-5xl font-black tracking-tight text-white md:text-7xl">
-                KI-Diagnose für Werkstatt und privat.
-              </h1>
-
-              <p className="mt-6 max-w-3xl text-lg leading-9 text-slate-300">
-                DiagnoseHUB hilft dabei, Fehlerfälle schneller zu strukturieren:
-                Fehlercode, Symptom, Motorcode oder Messwerte eingeben und eine
-                praxisnahe Prüfstrategie für Werkstatt und eigenes Fahrzeug
-                erhalten.
+              <p className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-black uppercase tracking-[0.28em] text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
+                DiagnoseHUB Beta 0.2
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-4">
+              <h1 className="mt-6 max-w-4xl text-5xl font-black tracking-tight text-slate-950 dark:text-white sm:text-6xl">
+                KI-Diagnose für Werkstatt, Lernen und private Fahrzeuge.
+              </h1>
+
+              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
+                Eine Plattform für technische Fehlersuche: Diagnosefälle
+                strukturieren, Prüfpunkte verstehen, Lernfortschritt sichern
+                und Service-Termine im Blick behalten.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-3">
                 <a
                   href="#diagnose"
-                  className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-lg shadow-blue-950/40 transition hover:bg-blue-500"
+                  className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-500 dark:shadow-blue-950/40"
                 >
                   Diagnose starten
                 </a>
-
-                <a
-                  href="/dashboard"
-                  className="rounded-xl border border-slate-700 px-6 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                <Link
+                  href="/lernen"
+                  className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-black text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
                 >
-                  Dashboard öffnen
-                </a>
-
-                <a
+                  Lernbereich öffnen
+                </Link>
+                <Link
                   href="/preise"
-                  className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-6 py-3 font-semibold text-blue-300 transition hover:bg-blue-500 hover:text-white"
+                  className="rounded-xl border border-blue-200 bg-blue-50 px-6 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20"
                 >
                   Tarife ansehen
-                </a>
+                </Link>
               </div>
 
-              <div className="mt-8 flex flex-wrap gap-3">
-                {betaHighlights.map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full border border-slate-700 bg-slate-950/70 px-4 py-2 text-sm font-semibold text-slate-300"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-6 shadow-2xl shadow-blue-950/40 backdrop-blur">
-              <p className="text-sm font-bold uppercase tracking-[0.25em] text-blue-400">
-                Beispiel
-              </p>
-
-              <h2 className="mt-4 text-3xl font-black text-white">
-                VW Passat B8 · P0299
-              </h2>
-
-              <p className="mt-4 leading-8 text-slate-300">
-                Leistungsverlust, Ladedruck zu niedrig, sporadischer Notlauf.
-                DiagnoseHUB strukturiert daraus mögliche Ursachen und eine
-                sinnvolle Prüfreihenfolge.
-              </p>
-
-              <div className="mt-6 grid gap-3">
-                {[
-                  "Fehlerspeicher und Freeze-Frame prüfen",
-                  "Ladeluftstrecke auf Undichtigkeiten prüfen",
-                  "Soll-/Ist-Ladedruck vergleichen",
-                  "Unterdrucksystem oder Ladedrucksteller prüfen",
-                  "VTG-Verstellung und Sensorwerte bewerten",
-                ].map((item) => (
+              <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
+                {heroStats.map((item) => (
                   <div
-                    key={item}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/80 px-5 py-4 text-slate-300"
+                    key={item.label}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
                   >
-                    {item}
+                    <p className="text-2xl font-black text-slate-950 dark:text-white">
+                      {item.value}
+                    </p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      {item.label}
+                    </p>
                   </div>
                 ))}
               </div>
-
-              <p className="mt-6 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm leading-7 text-yellow-100">
-                Hinweis: DiagnoseHUB ersetzt keine fachgerechte Prüfung am
-                Fahrzeug. Herstellerangaben und eigene Messwerte bleiben
-                maßgeblich.
-              </p>
             </div>
+
+            <DiagnosticBoardPreview />
           </div>
         </section>
 
         <section id="diagnose" className="mx-auto max-w-7xl px-6 py-12">
-          <div className="mb-8">
-            <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-400">
-              Diagnose
-            </p>
-
-            <h2 className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">
-              Fehlerfall analysieren
-            </h2>
-
-            <p className="mt-4 max-w-3xl leading-8 text-slate-300">
-              Gib Fahrzeugdaten, Fehlercodes, Symptome oder Live-Daten ein.
-              Folgefragen bleiben im selben Diagnoseverlauf.
-            </p>
+          <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.28em] text-blue-700 dark:text-blue-300">
+                KI-Diagnose
+              </p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+                Fehlerfall analysieren
+              </h2>
+              <p className="mt-3 max-w-3xl leading-7 text-slate-600 dark:text-slate-300">
+                Gib Fahrzeugdaten, Fehlercodes, Symptome oder Live-Daten ein.
+                Folgefragen bleiben im selben Diagnoseverlauf.
+              </p>
+            </div>
           </div>
 
           <SearchBar />
         </section>
 
-        <section
-          id="workflow"
-          className="border-y border-slate-800 bg-slate-900/50"
-        >
-          <div className="mx-auto max-w-7xl px-6 py-16">
-            <div className="mb-8">
-              <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-400">
+        <section id="workflow" className="border-y border-slate-200 bg-white py-16 dark:border-slate-800 dark:bg-slate-900/70">
+          <div className="mx-auto max-w-7xl px-6">
+            <div className="mb-8 max-w-3xl">
+              <p className="text-sm font-black uppercase tracking-[0.28em] text-blue-700 dark:text-blue-300">
                 Ablauf
               </p>
-
-              <h2 className="mt-3 text-3xl font-black text-white md:text-4xl">
-                Vom Fehlerbild zum Prüfplan
+              <h2 className="mt-3 text-3xl font-black text-slate-950 dark:text-white">
+                Vom Symptom zur prüfbaren Entscheidung
               </h2>
-
-              <p className="mt-4 max-w-3xl leading-8 text-slate-300">
-                Die Plattform ist für reale Werkstattfälle gebaut: erst
-                eingrenzen, dann prüfen, dann dokumentieren.
-              </p>
             </div>
 
             <div className="grid gap-5 md:grid-cols-3">
               {workflowSteps.map((step) => (
-                <div
-                  key={step.title}
-                  className="rounded-3xl border border-slate-800 bg-slate-950/70 p-6"
+                <article
+                  key={step.label}
+                  className="rounded-3xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-950"
                 >
-                  <h3 className="text-xl font-bold text-white">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-black text-white dark:bg-slate-100 dark:text-slate-950">
+                    {step.label}
+                  </span>
+                  <h3 className="mt-5 text-xl font-black text-slate-950 dark:text-white">
                     {step.title}
                   </h3>
-
-                  <p className="mt-4 leading-7 text-slate-300">
+                  <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     {step.description}
                   </p>
-                </div>
+                </article>
               ))}
             </div>
           </div>
         </section>
 
         <section id="features" className="mx-auto max-w-7xl px-6 py-16">
-          <div className="mb-8">
-            <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-400">
-              Funktionen
+          <div className="mb-8 max-w-3xl">
+            <p className="text-sm font-black uppercase tracking-[0.28em] text-blue-700 dark:text-blue-300">
+              Plattform
             </p>
-
-            <h2 className="mt-3 text-3xl font-black text-white md:text-4xl">
-              Für Werkstatt und private Diagnose gebaut
+            <h2 className="mt-3 text-3xl font-black text-slate-950 dark:text-white">
+              Ein System für Diagnose, Wissen und Alltag
             </h2>
-
-            <p className="mt-4 max-w-3xl leading-8 text-slate-300">
-              DiagnoseHUB kombiniert KI-Antworten mit Werkstattlogik,
-              Fallhistorie, Planlimits und druckbarer Dokumentation.
-            </p>
           </div>
 
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             {featureCards.map((feature) => (
-              <div
+              <article
                 key={feature.title}
-                className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-lg shadow-blue-950/20"
+                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
               >
-                <h3 className="text-xl font-bold text-white">
+                <h3 className="text-xl font-black text-slate-950 dark:text-white">
                   {feature.title}
                 </h3>
-
-                <p className="mt-4 leading-7 text-slate-300">
+                <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                   {feature.description}
                 </p>
-              </div>
+              </article>
             ))}
           </div>
         </section>
 
-        <section className="border-y border-slate-800 bg-slate-900/50">
-          <div className="mx-auto max-w-7xl px-6 py-16">
-            <div className="mb-8">
-              <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-400">
-                Zielgruppe
+        <section className="border-y border-slate-200 bg-slate-100 py-16 dark:border-slate-800 dark:bg-slate-900/70">
+          <div className="mx-auto max-w-7xl px-6">
+            <div className="mb-8 max-w-3xl">
+              <p className="text-sm font-black uppercase tracking-[0.28em] text-blue-700 dark:text-blue-300">
+                Zielgruppen
               </p>
-
-              <h2 className="mt-3 text-3xl font-black text-white md:text-4xl">
-                Werkstatt, Diagnose und Lernen in einem System
+              <h2 className="mt-3 text-3xl font-black text-slate-950 dark:text-white">
+                Drei Einstiege, eine Plattform
               </h2>
             </div>
 
             <div className="grid gap-5 md:grid-cols-3">
-              {targetGroups.map((group) => (
-                <div
-                  key={group.title}
-                  className="rounded-3xl border border-slate-800 bg-slate-950/70 p-6"
+              {audienceCards.map((group) => (
+                <Link
+                  key={group.href}
+                  href={group.href}
+                  className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950"
                 >
-                  <h3 className="text-xl font-bold text-white">
+                  <h3 className="text-xl font-black text-slate-950 group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-300">
                     {group.title}
                   </h3>
-
-                  <p className="mt-4 leading-7 text-slate-300">
+                  <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     {group.description}
                   </p>
-                </div>
+                  <p className="mt-5 text-sm font-black text-blue-700 dark:text-blue-300">
+                    Mehr erfahren
+                  </p>
+                </Link>
               ))}
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-6 py-16">
-          <div className="rounded-[2rem] border border-blue-500/20 bg-blue-500/10 p-8 shadow-2xl shadow-blue-950/30">
-            <div className="grid gap-8 lg:grid-cols-[1fr_0.8fr] lg:items-center">
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-300">
-                  Lernplattform aktiv
-                </p>
-
-                <h2 className="mt-3 text-3xl font-black text-white md:text-4xl">
-                  Vorbereitung für Meisterschule und Diagnose-Training
-                </h2>
-
-                <p className="mt-4 leading-8 text-slate-300">
-                  Der Lernbereich verbindet Module, Quizfragen, Fallbeispiele
-                  und Prüfungsmodus. Ziel ist eine Plattform, die
-                  Diagnosepraxis und Meisterschule sinnvoll zusammenbringt.
-                </p>
-              </div>
-
-              <div className="grid gap-3">
-                {[
-                  "Motorentechnik",
-                  "Elektrik und OBD",
-                  "Abgasnachbehandlung",
-                  "Klimaanlage",
-                  "Fahrwerk und Bremse",
-                  "Betriebsführung",
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-slate-800 bg-slate-950/70 px-5 py-4 font-semibold text-slate-300"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="hinweis" className="mx-auto max-w-7xl px-6 pb-16">
-          <div className="rounded-[2rem] border border-yellow-500/20 bg-yellow-500/10 p-8">
-            <p className="text-sm font-bold uppercase tracking-[0.3em] text-yellow-300">
+        <section id="hinweis" className="mx-auto max-w-7xl px-6 py-16">
+          <div className="rounded-3xl border border-yellow-300 bg-yellow-50 p-8 dark:border-yellow-700/60 dark:bg-yellow-950/30">
+            <p className="text-sm font-black uppercase tracking-[0.28em] text-yellow-800 dark:text-yellow-300">
               Werkstatt-Hinweis
             </p>
-
-            <h2 className="mt-3 text-3xl font-black text-white">
+            <h2 className="mt-3 text-3xl font-black text-slate-950 dark:text-white">
               Diagnosehilfe, keine Reparaturfreigabe
             </h2>
-
-            <p className="mt-4 max-w-4xl leading-8 text-slate-300">
+            <p className="mt-4 max-w-4xl leading-7 text-yellow-950 dark:text-yellow-100">
               DiagnoseHUB liefert technische Einschätzungen und strukturierte
               Prüfvorschläge. Die Verantwortung für Diagnose, Messung,
               Reparaturentscheidung, Herstellervorgaben und Arbeitssicherheit

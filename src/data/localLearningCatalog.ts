@@ -81,7 +81,7 @@ export const LOCAL_LEARNING_CATEGORIES: LearningCategory[] = [
     id: "local-cat-fahrwerk",
     slug: "bremse-fahrwerk",
     title: "Bremse & Fahrwerk",
-    description: "ABS/ESP, Verschleissbilder, Fahrwerkdiagnose und Sicherheit.",
+    description: "ABS/ESP, Verschleißbilder, Fahrwerkdiagnose und Sicherheit.",
     icon: "disc",
     sortOrder: 40,
     isActive: true,
@@ -92,7 +92,7 @@ export const LOCAL_LEARNING_CATEGORIES: LearningCategory[] = [
     id: "local-cat-klima",
     slug: "klima-thermomanagement",
     title: "Klima & Thermomanagement",
-    description: "Klimaanlage, Kühlung, Waermepumpe und Temperaturmanagement.",
+    description: "Klimaanlage, Kühlung, Wärmepumpe und Temperaturmanagement.",
     icon: "snowflake",
     sortOrder: 50,
     isActive: true,
@@ -195,7 +195,7 @@ const MODULE_SEEDS: ModuleSeed[] = [
     sortOrder: 60,
     tags: ["ottomotor", "lambda", "falschluft", "zündaussetzer"],
     relatedFaultCodes: ["P0171", "P0300", "P0301", "P0130"],
-    relatedParts: ["Lambdasonde", "Zundspule", "Injektor", "Saugrohr"],
+    relatedParts: ["Lambdasonde", "Zündspule", "Injektor", "Saugrohr"],
     relatedSystems: ["Motormanagement", "Abgas"],
   },
   {
@@ -204,7 +204,7 @@ const MODULE_SEEDS: ModuleSeed[] = [
     title: "Bremse, Fahrwerk, ABS/ESP",
     subtitle: "Sicherheitsrelevante Systeme fachgerecht prüfen",
     description:
-      "Von Verschleissbildern über Raddrehzahlsensoren bis zur ABS/ESP-Diagnose mit Messwerten und Probefahrt.",
+      "Von Verschleißbildern über Raddrehzahlsensoren bis zur ABS/ESP-Diagnose mit Messwerten und Probefahrt.",
     difficulty: "intermediate",
     estimatedMinutes: 80,
     sortOrder: 70,
@@ -848,14 +848,14 @@ const LESSON_SEEDS: LessonSeed[] = [
       "Zündaussetzer können elektrisch, mechanisch, kraftstoffseitig oder gemischbedingt entstehen.",
     checklist: [
       "Aussetzerzähller je Zylinder beobachten.",
-      "Zundspule/Kerze testweise zylinderweise vergleichen.",
+      "Zündspule/Kerze testweise zylinderweise vergleichen.",
       "Kompression oder Druckverlust bei Verdacht prüfen.",
       "Einspritzung und Falschluft bewerten.",
     ],
     quiz: {
       question: "Was hilft beim Eingrenzen eines zylinderbezogenen Aussetzers?",
       answers: [
-        "Bauteile wie Zundspule kontrolliert zwischen Zylindern tauschen und Aussetzerzähller beobachten.",
+        "Bauteile wie Zündspule kontrolliert zwischen Zylindern tauschen und Aussetzerzähller beobachten.",
         "Alle Steuergeräte ersetzen.",
         "Nur Fehlerspeicher löschen.",
         "Kühlwasser auffüllen ohne Prüfung.",
@@ -899,15 +899,15 @@ const LESSON_SEEDS: LessonSeed[] = [
   {
     moduleSlug: "bremse-fahrwerk-abs-esp-diagnose",
     slug: "verschleissbild-reifen-bremse-fahrwerk",
-    title: "Verschleissbilder richtig lesen",
+    title: "Verschleißbilder richtig lesen",
     subtitle: "Reifen, Bremse und Fahrwerk als Hinweise nutzen",
     summary:
-      "Du verbindest ungleichmäßigen Verschleiss mit Spur, Sturz, Lager, Bremse und Fahrprofil.",
+      "Du verbindest ungleichmäßigen Verschleiß mit Spur, Sturz, Lager, Bremse und Fahrprofil.",
     difficulty: "intermediate",
     estimatedMinutes: 25,
     sortOrder: 10,
     focus:
-      "Verschleissbilder sind Diagnosehinweise. Sie zeigen, wo du messen und prüfen musst.",
+      "Verschleißbilder sind Diagnosehinweise. Sie zeigen, wo du messen und prüfen musst.",
     checklist: [
       "Reifenbild innen/aussen/mittig bewerten.",
       "Luftdruck und Achsgeometrie beachten.",
@@ -1067,7 +1067,7 @@ const LESSON_SEEDS: LessonSeed[] = [
       "Luftmenge und Innenraumfilter prüfen.",
       "Ausblastemperaturen links/rechts vergleichen.",
       "Stellmotoren und Klappenpositionen testen.",
-      "Kühlmitteltemperatur und Waermetauscher beurteilen.",
+      "Kühlmitteltemperatur und Wärmetauscher beurteilen.",
     ],
     quiz: {
       question: "Was ist bei links/rechts unterschiedlicher Ausblastemperatur naheliegend?",

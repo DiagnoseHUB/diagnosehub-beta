@@ -19,6 +19,7 @@ type PricePlan =
       features: string[];
       cta: string;
       href: string;
+      bestFor: string;
       highlighted: boolean;
       type: "link";
     }
@@ -30,6 +31,7 @@ type PricePlan =
       features: string[];
       cta: string;
       href?: string;
+      bestFor: string;
       highlighted: boolean;
       type: "stripe";
       plan: CheckoutPlan;
@@ -49,6 +51,7 @@ const plans: PricePlan[] = [
     ],
     cta: "Kostenlos starten",
     href: "/lernen",
+    bestFor: "Erster Eindruck",
     highlighted: false,
     type: "link",
   },
@@ -66,6 +69,7 @@ const plans: PricePlan[] = [
       "Kein Bauteilwissen und kein Lernportal",
     ],
     cta: "Diagnose 150 aktivieren",
+    bestFor: "Fälle bearbeiten",
     highlighted: false,
     type: "stripe",
     plan: "diagnose_150",
@@ -84,6 +88,7 @@ const plans: PricePlan[] = [
       "Für Werkstatt, Azubis und private Schrauber",
     ],
     cta: "Komplett 150 aktivieren",
+    bestFor: "Diagnose + Lernen",
     highlighted: true,
     type: "stripe",
     plan: "complete_150",
@@ -102,6 +107,7 @@ const plans: PricePlan[] = [
       "Für intensive Nutzung im Alltag",
     ],
     cta: "Unlimited aktivieren",
+    bestFor: "Hohe Nutzung",
     highlighted: false,
     type: "stripe",
     plan: "unlimited",
@@ -121,9 +127,25 @@ const plans: PricePlan[] = [
     ],
     cta: "Service aktivieren",
     href: "/service-erinnerung",
+    bestFor: "Private Fahrzeuge",
     highlighted: false,
     type: "stripe",
     plan: "service_reminder",
+  },
+];
+
+const comparisonItems = [
+  {
+    title: "Nur Diagnose",
+    text: "Diagnose 150 passt, wenn Fälle, Prüfpläne und Schema-Bilder im Mittelpunkt stehen.",
+  },
+  {
+    title: "Alles in einem",
+    text: "Komplett 150 kombiniert Diagnose, Lernportal, Bauteilwissen und Service-Erinnerung.",
+  },
+  {
+    title: "Keine Fallgrenze",
+    text: "Unlimited ist für intensive Nutzung gedacht, wenn 150 Fälle nicht reichen.",
   },
 ];
 
@@ -132,21 +154,40 @@ export default function PreisePage() {
     <div className="min-h-screen bg-slate-50 text-slate-950 transition-colors dark:bg-slate-950 dark:text-slate-100">
       <Header />
 
-      <main className="px-4 py-8 sm:px-6 lg:px-8">
+      <main className="px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <section className="mb-10">
-            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
-              DiagnoseHUB Preise
-            </p>
+          <section className="mb-10 grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 lg:grid-cols-[1fr_0.8fr] lg:p-8">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.24em] text-blue-700 dark:text-blue-300">
+                DiagnoseHUB Preise
+              </p>
 
-            <h1 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-              Wähle deinen Zugang
-            </h1>
+              <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 dark:text-white sm:text-5xl">
+                Der passende Zugang für Diagnose, Lernen und Service.
+              </h1>
 
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
-              Für Werkstätten, Azubis und private Fahrzeughalter: Starte klein
-              und schalte genau die Funktionen frei, die du wirklich brauchst.
-            </p>
+              <p className="mt-4 max-w-3xl leading-7 text-slate-600 dark:text-slate-300">
+                Für Werkstätten, Azubis, Schulen und private Fahrzeughalter:
+                Starte klein und schalte genau die Funktionen frei, die du im
+                Alltag brauchst.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              {comparisonItems.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950"
+                >
+                  <p className="font-black text-slate-950 dark:text-white">
+                    {item.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    {item.text}
+                  </p>
+                </div>
+              ))}
+            </div>
           </section>
 
           <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
@@ -155,15 +196,21 @@ export default function PreisePage() {
                 key={plan.name}
                 className={
                   plan.highlighted
-                    ? "relative rounded-3xl border-2 border-blue-500 bg-white p-6 shadow-md transition-colors dark:bg-slate-900"
-                    : "rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900"
+                    ? "relative flex flex-col rounded-3xl border-2 border-blue-500 bg-white p-6 shadow-lg shadow-blue-100 transition-colors dark:bg-slate-900 dark:shadow-blue-950/20"
+                    : "flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900"
                 }
               >
-                {plan.highlighted && (
-                  <div className="mb-4 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
-                    Empfehlung
-                  </div>
-                )}
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                    {plan.bestFor}
+                  </span>
+
+                  {plan.highlighted && (
+                    <span className="inline-flex rounded-full bg-blue-600 px-3 py-1 text-xs font-black text-white">
+                      Empfehlung
+                    </span>
+                  )}
+                </div>
 
                 <h2 className="text-2xl font-bold text-slate-950 dark:text-white">
                   {plan.name}
@@ -197,11 +244,16 @@ export default function PreisePage() {
                   ))}
                 </ul>
 
-                {plan.type === "stripe" ? (
-                  <>
+                <div className="mt-auto pt-6">
+                  {plan.type === "stripe" ? (
+                    <>
                     <StripeCheckoutButton
                       plan={plan.plan}
-                      className="block w-full rounded-2xl bg-blue-600 px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-blue-700"
+                      className={
+                        plan.highlighted
+                          ? "block w-full rounded-2xl bg-blue-600 px-5 py-3 text-center text-sm font-black text-white transition hover:bg-blue-700"
+                          : "block w-full rounded-2xl bg-slate-950 px-5 py-3 text-center text-sm font-black text-white transition hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
+                      }
                     >
                       {plan.cta}
                     </StripeCheckoutButton>
@@ -215,27 +267,63 @@ export default function PreisePage() {
                       </Link>
                     )}
                   </>
-                ) : (
-                  <Link
-                    href={plan.href}
-                    className="mt-6 block rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-center text-sm font-semibold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
-                  >
-                    {plan.cta}
-                  </Link>
-                )}
+                  ) : (
+                    <Link
+                      href={plan.href}
+                      className="block rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-center text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
+                    >
+                      {plan.cta}
+                    </Link>
+                  )}
+                </div>
               </article>
             ))}
           </section>
 
-          <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-xl font-bold text-slate-950 dark:text-white">
-              Hinweis zu Stripe
+          <section className="mt-8 grid gap-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900 md:grid-cols-3">
+            <div>
+              <h2 className="text-xl font-black text-slate-950 dark:text-white">
+                Sicher bezahlen
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Die Buchung läuft über Stripe. Nach erfolgreicher Zahlung wird
+                dein Tarif zentral am Account gespeichert.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-xl font-black text-slate-950 dark:text-white">
+                Fair starten
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Free bleibt zum Testen verfügbar. Lerninhalte und Bauteilwissen
+                sind in den Komplett-Tarifen enthalten.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-xl font-black text-slate-950 dark:text-white">
+                Kündigung
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Aktive Abos lassen sich im Account über das Stripe-Kundenportal
+                verwalten oder kündigen.
+              </p>
+            </div>
+          </section>
+
+          <section className="mt-8 rounded-3xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-500/30 dark:bg-blue-500/10">
+            <h2 className="text-xl font-black text-slate-950 dark:text-white">
+              Für Schulen und Werkstätten
             </h2>
 
-            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Für die neuen Monatstarife müssen in Stripe eigene Price-IDs
-              hinterlegt werden. Danach funktionieren die Buttons direkt über
-              den bestehenden Checkout.
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-700 dark:text-slate-200">
+              Einzelne Nutzer können direkt buchen. Für Schulklassen,
+              Ausbildungsgruppen oder interne Werkstatt-Tests kann ein Account
+              zusätzlich manuell freigeschaltet werden.
             </p>
           </section>
         </div>
