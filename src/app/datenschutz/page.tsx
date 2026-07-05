@@ -107,6 +107,12 @@ export default function DatenschutzPage() {
                 Inhalt der Anfrage ist die Rechtsgrundlage Art. 6 Abs. 1 lit. b
                 DSGVO oder Art. 6 Abs. 1 lit. f DSGVO.
               </p>
+
+              <p className="mt-4">
+                Wenn du das Feedbackformular nutzt, wird dein Feedback nicht
+                öffentlich angezeigt. Die Angaben werden ausschließlich intern
+                zur Bearbeitung und Verbesserung von DiagnoseHUB verwendet.
+              </p>
             </section>
 
             <section>
@@ -117,7 +123,7 @@ export default function DatenschutzPage() {
               <p className="mt-4">
                 Für Login, Authentifizierung, Nutzerprofile und Datenbankfunktionen
                 nutzen wir Supabase. Dabei können insbesondere E-Mail-Adresse,
-                Nutzer-ID, Login-Status, Werkstattprofil, Tarifstatus,
+                Nutzer-ID, Login-Status, Nutzerprofil, Tarifstatus,
                 gespeicherte Diagnosefälle, Nutzungszähler und technische
                 Metadaten verarbeitet werden.
               </p>
@@ -258,7 +264,7 @@ export default function DatenschutzPage() {
                 <li>Stripe für Zahlungsabwicklung und Abonnements,</li>
                 <li>
                   Resend oder einen vergleichbaren E-Mail-Dienstleister für
-                  automatisierte Service-Erinnerungen,
+                  automatisierte Service-Erinnerungen und Feedback-E-Mails,
                 </li>
                 <li>ALL-INKL/Kasserver für Domain und E-Mail-Infrastruktur.</li>
               </ul>

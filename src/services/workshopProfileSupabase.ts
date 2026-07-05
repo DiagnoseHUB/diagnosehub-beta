@@ -26,7 +26,7 @@ export type WorkshopProfileDatabaseRow = {
 
 export type WorkshopProfileInput = {
   fullName: string;
-  workshopName: string;
+  workshopName?: string;
   email: string;
   role: string;
 };
@@ -46,9 +46,9 @@ export const USER_PLAN_STORAGE_KEY = "diagnosehub-user-plan";
 
 export const defaultWorkshopProfileState: WorkshopProfileState = {
   name: "Nicht hinterlegt",
-  workshop: "Nicht hinterlegt",
+  workshop: "Nicht angegeben",
   email: "Nicht hinterlegt",
-  role: "Werkstatt",
+  role: "Privatnutzer",
   plan: "free",
   updatedAt: "",
   source: "fallback",
@@ -209,9 +209,9 @@ export async function saveWorkshopProfileToSupabase(
   const payload = {
     id: user.id,
     full_name: input.fullName,
-    workshop_name: input.workshopName,
+    workshop_name: input.workshopName?.trim() || "Nicht angegeben",
     email: input.email,
-    role: input.role,
+    role: input.role || "Privatnutzer",
     plan: existingProfile?.plan || "free",
   };
 

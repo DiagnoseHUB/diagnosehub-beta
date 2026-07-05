@@ -316,7 +316,7 @@ function LoginRequired() {
           </h1>
 
           <p className="mt-5 max-w-3xl leading-8 text-slate-400">
-            Das Dashboard zeigt Werkstattprofil, Supabase-Fallhistorie,
+            Das Dashboard zeigt Nutzerprofil, Supabase-Fallhistorie,
             Nutzungszähler und Premium-Vormerkungen. Dafür brauchst du eine
             aktive Supabase-Session. Lokale Alt-Daten werden hier bewusst nicht
             mehr als Dashboard angezeigt.
@@ -517,9 +517,9 @@ export default function DashboardPage() {
 
       setWorkshopData(profileState);
     } catch (error) {
-      console.error("Werkstattprofil konnte nicht geladen werden:", error);
+      console.error("Nutzerprofil konnte nicht geladen werden:", error);
       setError(
-        `Werkstattprofil konnte nicht aus Supabase geladen werden: ${getErrorMessage(
+        `Nutzerprofil konnte nicht aus Supabase geladen werden: ${getErrorMessage(
           error
         )}`
       );
@@ -901,7 +901,7 @@ export default function DashboardPage() {
             </h1>
 
             <p className="mt-4 max-w-3xl leading-8 text-slate-400">
-              Uebersicht ueber Werkstattprofil, Diagnosefälle, Nutzungszähler und
+              Übersicht über Nutzerprofil, Diagnosefälle, Nutzungszähler und
               Premium-Vormerkungen. Dieses Dashboard ist nur mit aktivem
               Supabase-Login sichtbar.
             </p>
@@ -971,7 +971,7 @@ export default function DashboardPage() {
 
         <div className="space-y-8">
           <Section
-            title="Werkstattprofil"
+            title="Nutzerprofil"
             description="Diese Daten kommen bevorzugt aus Supabase und werden für Header, Dashboard und Prüfprotokoll genutzt."
             right={
               <a
@@ -984,7 +984,7 @@ export default function DashboardPage() {
           >
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                <p className="text-sm text-slate-500">Werkstatt</p>
+                <p className="text-sm text-slate-500">Betrieb/Firma</p>
                 <p className="mt-2 font-bold text-white">
                   {workshopData.workshop}
                 </p>
@@ -1312,3 +1312,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

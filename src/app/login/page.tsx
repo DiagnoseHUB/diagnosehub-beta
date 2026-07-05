@@ -27,7 +27,7 @@ import {
   type WorkshopProfileDatabaseRow,
 } from "@/services/workshopProfileSupabase";
 
-const DEFAULT_ROLE = "Inhaber / Werkstatt";
+const DEFAULT_ROLE = "Privatnutzer";
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("de-DE", {
@@ -77,11 +77,11 @@ export default function LoginPage() {
     }
 
     if (!databaseProfile && !savedAccount) {
-      return "Eingeloggt, aber Werkstattprofil fehlt";
+      return "Eingeloggt, aber Nutzerprofil fehlt";
     }
 
     if (!savedAccount) {
-      return "Werkstattprofil vorhanden";
+      return "Nutzerprofil vorhanden";
     }
 
     return `${savedAccount.workshop} · ${PLAN_CONFIG[savedAccount.plan].label}`;
@@ -193,7 +193,7 @@ export default function LoginPage() {
       applyProfileToState(profile, currentUser);
     } catch (error) {
       setError(
-        `Werkstattprofil konnte nicht geladen werden: ${getErrorMessage(error)}`
+        `Nutzerprofil konnte nicht geladen werden: ${getErrorMessage(error)}`
       );
     } finally {
       setProfileLoading(false);
@@ -449,11 +449,6 @@ export default function LoginPage() {
       return;
     }
 
-    if (!cleanWorkshop) {
-      setError("Bitte gib den Werkstattnamen ein.");
-      return;
-    }
-
     if (!authUserEmail || !authUserEmail.includes("@")) {
       setError("Keine gültige Supabase-E-Mail gefunden.");
       return;
@@ -466,17 +461,17 @@ export default function LoginPage() {
         fullName: cleanName,
         workshopName: cleanWorkshop,
         email: authUserEmail,
-        role: cleanRole || "Werkstatt",
+        role: cleanRole || DEFAULT_ROLE,
       });
 
       applyProfileToState(profile, user);
 
       showSuccess(
-        "Werkstattprofil wurde in Supabase gespeichert. Header, Dashboard und Diagnose nutzen diesen Plan."
+        "Nutzerprofil wurde gespeichert. Header, Dashboard und Diagnose nutzen diese Daten."
       );
     } catch (error) {
       setError(
-        `Werkstattprofil konnte nicht gespeichert werden: ${getErrorMessage(error)}`
+        `Nutzerprofil konnte nicht gespeichert werden: ${getErrorMessage(error)}`
       );
     } finally {
       setProfileLoading(false);
@@ -493,7 +488,7 @@ export default function LoginPage() {
     }
 
     const confirmed = window.confirm(
-      "Werkstattprofil wirklich aus Supabase löschen? Der Login-Account bleibt bestehen."
+      "Nutzerprofil wirklich aus Supabase löschen? Der Login-Account bleibt bestehen."
     );
 
     if (!confirmed) {
@@ -515,10 +510,10 @@ export default function LoginPage() {
       clearLocalWorkshopProfileState();
       notifyWorkshopProfileChanged();
 
-      showSuccess("Werkstattprofil wurde aus Supabase gelöscht.");
+      showSuccess("Nutzerprofil wurde aus Supabase gelöscht.");
     } catch (error) {
       setError(
-        `Werkstattprofil konnte nicht gelöscht werden: ${getErrorMessage(error)}`
+        `Nutzerprofil konnte nicht gelöscht werden: ${getErrorMessage(error)}`
       );
     } finally {
       setProfileLoading(false);
@@ -542,7 +537,7 @@ export default function LoginPage() {
 
             <p className="mt-6 text-lg leading-8 text-slate-400">
               Diese Seite ist die zentrale Verwaltung für Login,
-              Werkstattprofil und Plan. Der gespeicherte Plan wird von
+              Nutzerprofil und Plan. Der gespeicherte Plan wird von
               Dashboard, Diagnose und Prüfprotokoll verwendet.
             </p>
 
@@ -572,14 +567,14 @@ export default function LoginPage() {
                   {databaseProfile ? (
                     <>
                       <p>
-                        Werkstatt:{" "}
+                        Betrieb/Firma:{" "}
                         <span className="font-semibold text-white">
                           {databaseProfile.workshop_name}
                         </span>
                       </p>
 
                       <p>
-                        Bearbeiter:{" "}
+                        Name:{" "}
                         <span className="font-semibold text-white">
                           {databaseProfile.full_name}
                         </span>
@@ -601,7 +596,7 @@ export default function LoginPage() {
                     </>
                   ) : (
                     <p className="text-yellow-300">
-                      Noch kein Werkstattprofil in Supabase gespeichert.
+                      Noch kein Nutzerprofil in Supabase gespeichert.
                     </p>
                   )}
                 </div>
@@ -633,7 +628,7 @@ export default function LoginPage() {
               <p className="font-bold text-blue-300">Aktueller Stand</p>
 
               <p className="mt-3 leading-7 text-slate-300">
-                Werkstattprofil, Diagnosefälle, Nutzungszähler und
+                Nutzerprofil, Diagnosefälle, Nutzungszähler und
                 Premium-Vormerkungen sind für eingeloggte Nutzer an Supabase
                 angebunden. Lokale Daten bleiben nur als Fallback und für
                 Migration erhalten.
@@ -694,7 +689,7 @@ export default function LoginPage() {
                       <input
                         value={authEmail}
                         onChange={(event) => setAuthEmail(event.target.value)}
-                        placeholder="mail@werkstatt.de"
+                        placeholder="mail@beispiel.de"
                         autoComplete="email"
                         className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
                       />
@@ -810,7 +805,7 @@ export default function LoginPage() {
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-blue-950/30">
               <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-                Werkstattprofil
+                Nutzerprofil
               </p>
 
               <h2 className="mt-3 text-3xl font-bold">
@@ -818,7 +813,7 @@ export default function LoginPage() {
               </h2>
 
               <p className="mt-3 leading-7 text-slate-400">
-                Diese Daten werden in{" "}
+                Diese Daten werden im bestehenden Profilbereich{" "}
                 <span className="font-mono text-slate-300">
                   workshop_profiles
                 </span>{" "}
@@ -843,16 +838,19 @@ export default function LoginPage() {
 
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-300">
-                    Werkstatt
+                    Betrieb/Firma optional
                   </label>
 
                   <input
                     value={workshop}
                     onChange={(event) => setWorkshop(event.target.value)}
-                    placeholder="KFZ Musterbetrieb"
+                    placeholder="Optional, z. B. KFZ Musterbetrieb"
                     disabled={!user || profileLoading}
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none placeholder:text-slate-600 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                   />
+                  <p className="mt-2 text-sm text-slate-500">
+                    Für private Nutzer kann dieses Feld leer bleiben.
+                  </p>
                 </div>
 
                 <div>
@@ -875,7 +873,7 @@ export default function LoginPage() {
                   <input
                     value={role}
                     onChange={(event) => setRole(event.target.value)}
-                    placeholder="Inhaber / Meister / Mechaniker"
+                    placeholder="Privatnutzer / Mechaniker / Meister / Inhaber"
                     disabled={!user || profileLoading}
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none placeholder:text-slate-600 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                   />
@@ -948,7 +946,7 @@ export default function LoginPage() {
                 >
                   {profileLoading
                     ? "Speichert..."
-                    : "Werkstattprofil speichern"}
+                    : "Nutzerprofil speichern"}
                 </button>
 
                 <button

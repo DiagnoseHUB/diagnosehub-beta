@@ -93,7 +93,7 @@ async function syncWorkshopProfilePlan(userId: string, plan: UserPlan) {
 
   if (error) {
     console.warn(
-      `Werkstattprofil-Plan konnte nicht synchronisiert werden: ${error.message}`
+      `Nutzerprofil-Plan konnte nicht synchronisiert werden: ${error.message}`
     );
   }
 }

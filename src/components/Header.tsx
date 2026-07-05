@@ -198,7 +198,10 @@ function Header() {
     };
   }, [supabase]);
 
-  const accountLabel = demoAccount?.workshop || "Kein Account";
+  const accountLabel =
+    demoAccount?.workshop && demoAccount.workshop !== "Nicht angegeben"
+      ? demoAccount.workshop
+      : demoAccount?.name || "Kein Account";
   const planLabel = PLAN_CONFIG[userPlan].label;
   const sourceLabel = accountSourceLabels[accountSource];
 

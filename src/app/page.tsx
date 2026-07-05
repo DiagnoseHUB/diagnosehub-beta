@@ -45,7 +45,7 @@ const workflowSteps = [
 
 const betaHighlights = [
   "Supabase Login",
-  "Werkstattprofil",
+  "Nutzerprofil",
   "Planlimits",
   "Fallhistorie",
   "Tarifmodelle",

@@ -1,4 +1,6 @@
 import Image from "next/image";
+import Link from "next/link";
+import FeedbackForm from "@/components/FeedbackForm";
 
 const productLinks = [
   {
@@ -11,11 +13,11 @@ const productLinks = [
   },
   {
     label: "Prüfprotokoll",
-    href: "/prüfprotokoll",
+    href: "/pruefprotokoll",
   },
   {
-    label: "Premium vormerken",
-    href: "/premium",
+    label: "Preise",
+    href: "/preise",
   },
   {
     label: "Login",
@@ -33,7 +35,7 @@ const infoLinks = [
     href: "/#features",
   },
   {
-    label: "Werkstatt-Hinweis",
+    label: "Hinweis",
     href: "/#hinweis",
   },
 ];
@@ -78,15 +80,15 @@ function Footer() {
               <div>
                 <p className="text-xl font-bold text-white">DiagnoseHUB</p>
                 <p className="text-sm text-slate-300">
-                  KI-Diagnose für Werkstätten
+                  KI-Diagnose für Werkstatt und privat
                 </p>
               </div>
             </div>
 
             <p className="mt-6 max-w-md leading-7 text-slate-300">
-              DiagnoseHUB unterstützt Kfz-Werkstätten bei strukturierter
-              Fehlersuche, Prüfstrategie, Folgefragen und Dokumentation von
-              Diagnosefällen.
+              DiagnoseHUB unterstützt Werkstätten und private Nutzer bei
+              strukturierter Fehlersuche, Prüfstrategie, Folgefragen und
+              Dokumentation von Diagnosefällen.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -105,13 +107,13 @@ function Footer() {
 
             <div className="mt-5 grid gap-3">
               {productLinks.map((link) => (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
                   className="text-sm text-slate-300 transition hover:text-blue-300"
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
             </div>
           </div>
@@ -121,13 +123,13 @@ function Footer() {
 
             <div className="mt-5 grid gap-3">
               {infoLinks.map((link) => (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
                   className="text-sm text-slate-300 transition hover:text-blue-300"
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
             </div>
           </div>
@@ -137,13 +139,13 @@ function Footer() {
 
             <div className="mt-5 grid gap-3">
               {legalLinks.map((link) => (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
                   className="text-sm text-slate-300 transition hover:text-blue-300"
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
             </div>
 
@@ -174,21 +176,23 @@ function Footer() {
           </div>
         </div>
 
+        <FeedbackForm />
+
         <div className="mt-12 flex flex-col gap-4 border-t border-slate-800 pt-6 text-sm text-slate-400 md:flex-row md:items-center md:justify-between">
           <p>© 2026 DiagnoseHUB. Alle Rechte vorbehalten.</p>
 
           <div className="flex flex-wrap gap-4">
-            <a href="/impressum" className="transition hover:text-blue-300">
+            <Link href="/impressum" className="transition hover:text-blue-300">
               Impressum
-            </a>
+            </Link>
 
-            <a href="/datenschutz" className="transition hover:text-blue-300">
+            <Link href="/datenschutz" className="transition hover:text-blue-300">
               Datenschutz
-            </a>
+            </Link>
 
-            <a href="/premium" className="transition hover:text-blue-300">
-              Premium
-            </a>
+            <Link href="/preise" className="transition hover:text-blue-300">
+              Preise
+            </Link>
 
             <span>Beta 0.1</span>
           </div>
