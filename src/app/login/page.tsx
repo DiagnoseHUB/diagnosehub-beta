@@ -628,10 +628,9 @@ export default function LoginPage() {
               <p className="font-bold text-blue-300">Aktueller Stand</p>
 
               <p className="mt-3 leading-7 text-slate-300">
-                Nutzerprofil, Diagnosefälle, Nutzungszähler und
-                Premium-Vormerkungen sind für eingeloggte Nutzer an Supabase
-                angebunden. Lokale Daten bleiben nur als Fallback und für
-                Migration erhalten.
+                Nutzerprofil, Diagnosefälle und Nutzungszähler sind für
+                eingeloggte Nutzer an Supabase angebunden. Lokale Daten bleiben
+                nur als Fallback und für Migration erhalten.
               </p>
             </div>
           </div>

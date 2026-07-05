@@ -1,3 +1,4 @@
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import ServiceReminderClient from "@/components/ServiceReminderClient";
 
@@ -15,6 +16,8 @@ export default function ServiceErinnerungPage() {
       <main className="px-4 py-10 sm:px-6 lg:px-8">
         <ServiceReminderClient />
       </main>
+
+      <Footer />
     </div>
   );
 }

@@ -101,7 +101,7 @@ export const LOCAL_LEARNING_CATEGORIES: LearningCategory[] = [
   },
   {
     id: "local-cat-prüfung",
-    slug: "prüfungsvorbereitung",
+    slug: "pruefungsvorbereitung",
     title: "Prüfungsvorbereitung",
     description: "Gesellenprüfung, Kundenauftrag, Fachgespräch und Bewertung.",
     icon: "clipboard",
@@ -115,7 +115,7 @@ export const LOCAL_LEARNING_CATEGORIES: LearningCategory[] = [
 const MODULE_SEEDS: ModuleSeed[] = [
   {
     categoryId: "local-cat-diagnose",
-    slug: "diagnose-prüfstrategie-vom-symptom-zur-ursache",
+    slug: "diagnose-pruefstrategie-vom-symptom-zur-ursache",
     title: "Prüfstrategie: vom Symptom zur Ursache",
     subtitle: "Sauber diagnostizieren statt Teiletausch auf Verdacht",
     description:
@@ -156,7 +156,7 @@ const MODULE_SEEDS: ModuleSeed[] = [
   },
   {
     categoryId: "local-cat-elektrik",
-    slug: "sensoren-aktoren-signalversorgung-prüfen",
+    slug: "sensoren-aktoren-signalversorgung-pruefen",
     title: "Sensoren & Aktoren: Signal und Versorgung prüfen",
     subtitle: "Von der Steckverbindung bis zum plausiblen Signal",
     description:
@@ -185,7 +185,7 @@ const MODULE_SEEDS: ModuleSeed[] = [
   },
   {
     categoryId: "local-cat-motor",
-    slug: "ottomotor-gemisch-zündaussetzer-lambda",
+    slug: "ottomotor-gemisch-zuendaussetzer-lambda",
     title: "Ottomotor: Gemisch, Zündaussetzer und Lambda",
     subtitle: "Magerlauf, Fehlzündung und Regelung sauber unterscheiden",
     description:
@@ -215,7 +215,7 @@ const MODULE_SEEDS: ModuleSeed[] = [
   },
   {
     categoryId: "local-cat-klima",
-    slug: "klima-kühlung-thermomanagement-prüfen",
+    slug: "klima-kuehlung-thermomanagement-pruefen",
     title: "Klima, Kühlung und Thermomanagement",
     subtitle: "Temperaturen, Drücke und Luftführung richtig bewerten",
     description:
@@ -229,7 +229,7 @@ const MODULE_SEEDS: ModuleSeed[] = [
   },
   {
     categoryId: "local-cat-prüfung",
-    slug: "gesellenprüfung-werkstattfälle-fachgespräch",
+    slug: "gesellenpruefung-werkstattfaelle-fachgespraech",
     title: "Gesellenprüfung: Werkstattfälle & Fachgespräch",
     subtitle: "Antworten wie in der Prüfung strukturieren",
     description:
@@ -337,8 +337,8 @@ export const LOCAL_LEARNING_MODULES: LearningModule[] = MODULE_SEEDS.map(makeMod
 
 const LESSON_SEEDS: LessonSeed[] = [
   {
-    moduleSlug: "diagnose-prüfstrategie-vom-symptom-zur-ursache",
-    slug: "kundenbeanstandung-und-prüfziel-formulieren",
+    moduleSlug: "diagnose-pruefstrategie-vom-symptom-zur-ursache",
+    slug: "kundenbeanstandung-und-pruefziel-formulieren",
     title: "Kundenbeanstandung in ein Prüfziel übersetzen",
     subtitle: "Aus vagen Aussagen eine prüfbare Aufgabe machen",
     summary:
@@ -368,8 +368,8 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "diagnose-prüfstrategie-vom-symptom-zur-ursache",
-    slug: "prüfreihenfolge-p1-bis-p5",
+    moduleSlug: "diagnose-pruefstrategie-vom-symptom-zur-ursache",
+    slug: "pruefreihenfolge-p1-bis-p5",
     title: "Prüfreihenfolge P1 bis P5",
     subtitle: "Vom einfachen Ausschluss zur belastbaren Ursache",
     summary:
@@ -400,8 +400,8 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "diagnose-prüfstrategie-vom-symptom-zur-ursache",
-    slug: "abschlussprüfung-und-dokumentation",
+    moduleSlug: "diagnose-pruefstrategie-vom-symptom-zur-ursache",
+    slug: "abschlusspruefung-und-dokumentation",
     title: "Abschlussprüfung & Dokumentation",
     subtitle: "Beweisen, dass der Fehler wirklich behoben ist",
     summary:
@@ -617,7 +617,7 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "sensoren-aktoren-signalversorgung-prüfen",
+    moduleSlug: "sensoren-aktoren-signalversorgung-pruefen",
     slug: "sensorversorgung-5v-masse-signal",
     title: "Sensorversorgung: 5 V, Masse, Signal",
     subtitle: "Drei Leitungen, viele Fehlerquellen",
@@ -648,7 +648,7 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "sensoren-aktoren-signalversorgung-prüfen",
+    moduleSlug: "sensoren-aktoren-signalversorgung-pruefen",
     slug: "pwm-und-stellglieder-verstehen",
     title: "PWM & Stellglieder verstehen",
     subtitle: "Warum ein Aktor nicht einfach nur Ein/Aus ist",
@@ -679,7 +679,7 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "sensoren-aktoren-signalversorgung-prüfen",
+    moduleSlug: "sensoren-aktoren-signalversorgung-pruefen",
     slug: "stecker-pins-korrosion-kontaktfehler",
     title: "Stecker, Pins und Kontaktfehler",
     subtitle: "Sporadische Fehler sauber nachweisen",
@@ -743,7 +743,7 @@ const LESSON_SEEDS: LessonSeed[] = [
   },
   {
     moduleSlug: "diesel-ladedruck-agr-dpf-systemdiagnose",
-    slug: "agr-plausibilität-luftmasse",
+    slug: "agr-plausibilitaet-luftmasse",
     title: "AGR & Luftmasse plausibilisieren",
     subtitle: "Warum AGR die Luftmasse verändert",
     summary:
@@ -804,7 +804,7 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "ottomotor-gemisch-zündaussetzer-lambda",
+    moduleSlug: "ottomotor-gemisch-zuendaussetzer-lambda",
     slug: "magerlauf-p0171-falschluft",
     title: "Magerlauf P0171 & Falschluft",
     subtitle: "Fuel Trims und Undichtigkeiten verstehen",
@@ -835,8 +835,8 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "ottomotor-gemisch-zündaussetzer-lambda",
-    slug: "zündaussetzer-p0300-eingrenzen",
+    moduleSlug: "ottomotor-gemisch-zuendaussetzer-lambda",
+    slug: "zuendaussetzer-p0300-eingrenzen",
     title: "Zündaussetzer P0300 eingrenzen",
     subtitle: "Zündung, Einspritzung, Kompression und Gemisch trennen",
     summary:
@@ -866,7 +866,7 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "ottomotor-gemisch-zündaussetzer-lambda",
+    moduleSlug: "ottomotor-gemisch-zuendaussetzer-lambda",
     slug: "lambda-regelung-vor-nach-kat",
     title: "Lambda-Regelung vor und nach Kat",
     subtitle: "Regelsonde, Monitorsonde und Katalysator unterscheiden",
@@ -929,7 +929,7 @@ const LESSON_SEEDS: LessonSeed[] = [
   },
   {
     moduleSlug: "bremse-fahrwerk-abs-esp-diagnose",
-    slug: "raddrehzahlsensor-abs-prüfen",
+    slug: "raddrehzahlsensor-abs-pruefen",
     title: "Raddrehzahlsensor & ABS prüfen",
     subtitle: "Signal, Ring, Lager und Leitung unterscheiden",
     summary:
@@ -960,7 +960,7 @@ const LESSON_SEEDS: LessonSeed[] = [
   },
   {
     moduleSlug: "bremse-fahrwerk-abs-esp-diagnose",
-    slug: "bremsen-service-sicherheitsprüfung",
+    slug: "bremsen-service-sicherheitspruefung",
     title: "Bremsenservice & Sicherheitsprüfung",
     subtitle: "Nicht nur Belag tauschen",
     summary:
@@ -990,7 +990,7 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "klima-kühlung-thermomanagement-prüfen",
+    moduleSlug: "klima-kuehlung-thermomanagement-pruefen",
     slug: "klimakreis-druck-temperatur",
     title: "Klimakreis: Druck und Temperatur",
     subtitle: "Warum Drücke nur mit Bedingungen Sinn ergeben",
@@ -1021,8 +1021,8 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "klima-kühlung-thermomanagement-prüfen",
-    slug: "kühlkreislauf-thermostat-lüfter",
+    moduleSlug: "klima-kuehlung-thermomanagement-pruefen",
+    slug: "kuehlkreislauf-thermostat-luefter",
     title: "Kühlkreislauf, Thermostat und Lüfter",
     subtitle: "Überhitzung und zu langsames Warmwerden trennen",
     summary:
@@ -1052,7 +1052,7 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "klima-kühlung-thermomanagement-prüfen",
+    moduleSlug: "klima-kuehlung-thermomanagement-pruefen",
     slug: "heizung-luftklappen-innenraum",
     title: "Heizung, Luftklappen und Innenraum",
     subtitle: "Wenn die Temperatur im Innenraum nicht passt",
@@ -1083,8 +1083,8 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "gesellenprüfung-werkstattfälle-fachgespräch",
-    slug: "prüfungsantwort-strukturieren",
+    moduleSlug: "gesellenpruefung-werkstattfaelle-fachgespraech",
+    slug: "pruefungsantwort-strukturieren",
     title: "Prüfungsantwort strukturieren",
     subtitle: "So klingt eine gute Antwort im Fachgespräch",
     summary:
@@ -1115,8 +1115,8 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "gesellenprüfung-werkstattfälle-fachgespräch",
-    slug: "kundenauftrag-prüfung-teil-1",
+    moduleSlug: "gesellenpruefung-werkstattfaelle-fachgespraech",
+    slug: "kundenauftrag-pruefung-teil-1",
     title: "Kundenauftrag für Teil 1 bearbeiten",
     subtitle: "Wartung, einfache Diagnose und Dokumentation",
     summary:
@@ -1146,8 +1146,8 @@ const LESSON_SEEDS: LessonSeed[] = [
     },
   },
   {
-    moduleSlug: "gesellenprüfung-werkstattfälle-fachgespräch",
-    slug: "kundenauftrag-prüfung-teil-2",
+    moduleSlug: "gesellenpruefung-werkstattfaelle-fachgespraech",
+    slug: "kundenauftrag-pruefung-teil-2",
     title: "Kundenauftrag für Teil 2 bearbeiten",
     subtitle: "Komplexe Diagnose und Reparaturentscheidung",
     summary:

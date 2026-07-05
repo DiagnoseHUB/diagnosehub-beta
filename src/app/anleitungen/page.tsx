@@ -9,6 +9,7 @@ import {
   type FormEvent,
 } from "react";
 import { useSearchParams } from "next/navigation";
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import InstructionCard from "../../components/InstructionCard";
 import TechnicalSchemaImage from "@/components/TechnicalSchemaImage";
@@ -67,6 +68,8 @@ export default function InstructionsPage() {
       >
         <InstructionsPageContent />
       </Suspense>
+
+      <Footer />
     </div>
   );
 }
@@ -433,7 +436,7 @@ function InstructionsPageContent() {
           </p>
 
           <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-slate-100 sm:text-4xl">
-            Reparatur- und Diagnoseablaeufe
+            Reparatur- und Diagnoseabläufe
           </h1>
 
           <p className="mt-4 max-w-3xl text-base leading-7 text-slate-700 dark:text-slate-300">
@@ -580,8 +583,8 @@ function InstructionsPageContent() {
               </p>
 
               <p className="mt-2 text-sm leading-6 text-yellow-950 dark:text-yellow-100">
-                Ueber den blauen Button sucht DiagnoseHUB zusätzlich nach
-                aehnlichen gespeicherten Anleitungen. Falls nichts Passendes
+                Über den blauen Button sucht DiagnoseHUB zusätzlich nach
+                ähnlichen gespeicherten Anleitungen. Falls nichts Passendes
                 gefunden wird, wird automatisch eine neue KI-Anleitung erstellt
                 und in Supabase gespeichert.
               </p>
@@ -625,7 +628,7 @@ function InstructionsPageContent() {
             </h2>
             <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
               Suche nach Bauteil, Symptom, Fahrzeugmodell oder Fehlerbereich —
-              oder prüfe per blauem Button, ob eine aehnliche Anleitung existiert
+              oder prüfe per blauem Button, ob eine ähnliche Anleitung existiert
               oder neu erstellt werden muss.
             </p>
           </div>

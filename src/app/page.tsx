@@ -66,7 +66,7 @@ const targetGroups = [
   {
     title: "Meisterschule & Lernen",
     description:
-      "Geplant als Lernplattform für Diagnoseverständnis, Prüfungsfragen und technische Fallbeispiele.",
+      "Lernmodule, Prüfungsfragen, Bauteilwissen und technische Fallbeispiele für Diagnoseverständnis.",
   },
 ];
 
@@ -89,13 +89,14 @@ export default function HomePage() {
               </div>
 
               <h1 className="mt-6 max-w-4xl text-5xl font-black tracking-tight text-white md:text-7xl">
-                KI-Diagnose für Kfz-Werkstätten.
+                KI-Diagnose für Werkstatt und privat.
               </h1>
 
               <p className="mt-6 max-w-3xl text-lg leading-9 text-slate-300">
                 DiagnoseHUB hilft dabei, Fehlerfälle schneller zu strukturieren:
                 Fehlercode, Symptom, Motorcode oder Messwerte eingeben und eine
-                praxisnahe Prüfstrategie für die Werkstatt erhalten.
+                praxisnahe Prüfstrategie für Werkstatt und eigenes Fahrzeug
+                erhalten.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
@@ -239,7 +240,7 @@ export default function HomePage() {
             </p>
 
             <h2 className="mt-3 text-3xl font-black text-white md:text-4xl">
-              Für den Werkstattalltag gebaut
+              Für Werkstatt und private Diagnose gebaut
             </h2>
 
             <p className="mt-4 max-w-3xl leading-8 text-slate-300">
@@ -302,7 +303,7 @@ export default function HomePage() {
             <div className="grid gap-8 lg:grid-cols-[1fr_0.8fr] lg:items-center">
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.3em] text-blue-300">
-                  Lernplattform geplant
+                  Lernplattform aktiv
                 </p>
 
                 <h2 className="mt-3 text-3xl font-black text-white md:text-4xl">
@@ -310,9 +311,9 @@ export default function HomePage() {
                 </h2>
 
                 <p className="mt-4 leading-8 text-slate-300">
-                  Der nächste Ausbauschritt ist ein Lernbereich mit Modulen,
-                  Quizfragen, Fallbeispielen und Prüfungsmodus. Ziel ist eine
-                  Plattform, die Diagnosepraxis und Meisterschule verbindet.
+                  Der Lernbereich verbindet Module, Quizfragen, Fallbeispiele
+                  und Prüfungsmodus. Ziel ist eine Plattform, die
+                  Diagnosepraxis und Meisterschule sinnvoll zusammenbringt.
                 </p>
               </div>
 

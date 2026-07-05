@@ -203,7 +203,7 @@ function extractJsonObject(text: string) {
   const lastBraceIndex = text.lastIndexOf("}");
 
   if (firstBraceIndex === -1 || lastBraceIndex === -1) {
-    throw new Error("KI-Antwort enthaelt kein JSON-Objekt.");
+    throw new Error("KI-Antwort enthält kein JSON-Objekt.");
   }
 
   return text.slice(firstBraceIndex, lastBraceIndex + 1);
@@ -352,7 +352,7 @@ function normalizeGuide(rawGuide: unknown, query: string): Guide {
         "Diagnosetester",
         "Drehmomentschluessel",
         "geeignetes Handwerkzeug",
-        "fahrzeugabhaengiges Spezialwerkzeug",
+        "fahrzeugabhängiges Spezialwerkzeug",
       ],
       10
     ),
@@ -578,7 +578,7 @@ Wenn passend, diese Reihenfolge verwenden:
 1. Fahrzeugidentifikation und Pflichtdaten
 2. Vorprüfung / Diagnose / Fehlerspeicher / Sichtprüfung
 3. Vorbereitung / Batterie / Abdeckungen / Zugang
-4. Demontage fahrzeugabhaengig
+4. Demontage fahrzeugabhängig
 5. Prüfung von Verschleiß- und Schadteilen
 6. Montage / Einstellung / Dichtflaechen / Schrauben
 7. Drehmomentgruppen ohne Werte nennen
@@ -615,7 +615,7 @@ SPEZIALREGEL STEUERKETTE / STEUERTRIEB:
 - Motorkennbuchstabe ist Pflicht.
 - OT-Stellung, Steuerzeiten und Arretierung berücksichtigen.
 - Kettenspanner, Gleitschienen, Führungsschienen, Kettenraeder, Versteller, Dichtungen und Einmalschrauben berücksichtigen.
-- Stirndeckel/Kettengehaeuse, Ventildeckel, Oelwanne, Motorlager und Riemenscheibe nur fahrzeugabhaengig nennen, wenn nicht sicher.
+- Stirndeckel/Kettengehäuse, Ventildeckel, Ölwanne, Motorlager und Riemenscheibe nur fahrzeugabhängig nennen, wenn nicht sicher.
 - Drehmomentgruppen nennen, aber keine Werte erfinden.
 - Nach Montage Motor von Hand durchdrehen und Steuerzeiten erneut prüfen.
 - Erster Start: Oeldruck, Geraeusche, Leckagen und Fehlerspeicher prüfen.
@@ -642,7 +642,7 @@ ${
 AUDI 3.0 TDI / BITDI HINWEIS:
 - Ohne exakten Motorkennbuchstaben keine motorcode-spezifische Freigabe formulieren.
 - Bei A6/A7 4G 3.0 TDI/BiTDI Steuertrieb als sehr komplex einstufen.
-- Motor-/Getriebeseite, Zugang und Ausbauumfang fahrzeugabhaengig formulieren.
+- Motor-/Getriebeseite, Zugang und Ausbauumfang fahrzeugabhängig formulieren.
 - Keine erfundenen Spezialwerkzeugnummern, Steuerzeitenwerte oder Drehmomente.
 - Kompakte Profi-Reihenfolge ausgeben, nicht jeden Ausbau-Unterfall ausformulieren.
 `
@@ -678,7 +678,7 @@ ${
   turbo
     ? `
 SPEZIALREGEL TURBOLADER:
-- Oelversorgung, Oelzulauf, Oelrücklauf, Kurbelgehaeuseentlueftung und Ladedruckstrecke berücksichtigen.
+- Ölversorgung, Ölzulauf, Ölrücklauf, Kurbelgehäuseentlüftung und Ladedruckstrecke berücksichtigen.
 - Bei wiederholtem Turboschaden Ursachenprüfung vor Teiletausch nennen.
 - Oelsiebe, Hohlschrauben, Leitungen und Oelqualität motorabhaengig prüfen.
 - Erststart mit Oeldruckaufbau und Dichtheitskontrolle nennen.

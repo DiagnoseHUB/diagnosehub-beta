@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import LearningLessonList from "@/components/LearningLessonList";
 import LearningLessonProgress from "@/components/LearningLessonProgress";
+import PlanAccessGate from "@/components/PlanAccessGate";
 import TechnicalSchemaImage from "@/components/TechnicalSchemaImage";
 import {
   loadLearningLessonBySlug,
@@ -181,36 +182,41 @@ function ModulePage({ detail }: { detail: LearningModuleDetail }) {
           )}
 
           {hasAccess && (
-            <TechnicalSchemaImage
-              context="learning"
-              title={module.title}
-              subject={module.title}
-              details={[
-                module.subtitle,
-                module.description,
-                ...module.tags,
-                ...module.relatedFaultCodes,
-                ...module.relatedParts,
-                ...module.relatedSystems,
-                ...lessons.map((lesson) => lesson.title),
-              ].join(" ")}
-              className="mt-6"
-            />
+            <PlanAccessGate feature="learning">
+              <TechnicalSchemaImage
+                context="learning"
+                title={module.title}
+                subject={module.title}
+                details={[
+                  module.subtitle,
+                  module.description,
+                  ...module.tags,
+                  ...module.relatedFaultCodes,
+                  ...module.relatedParts,
+                  ...module.relatedSystems,
+                  ...lessons.map((lesson) => lesson.title),
+                ].join(" ")}
+                className="mt-6"
+              />
+
+              <section className="mt-8">
+                <h2 className="text-2xl font-black text-slate-950 dark:text-slate-100">
+                  Lektionen
+                </h2>
+
+                <div className="mt-5">
+                  <LearningLessonList lessons={lessons} />
+                </div>
+              </section>
+            </PlanAccessGate>
           )}
 
-          <section className="mt-8">
-            <h2 className="text-2xl font-black text-slate-950 dark:text-slate-100">
-              Lektionen
-            </h2>
-
-            <div className="mt-5">
-              <LearningLessonList lessons={lessons} />
-            </div>
+          <section className="hidden">
 
             <div className="hidden">
               {lessons.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
-                  Noch keine veroeffentlichten Lektionen vorhanden.
+                  Noch keine veröffentlichten Lektionen vorhanden.
                 </div>
               ) : (
                 lessons.map((lesson, index) => (
@@ -331,7 +337,7 @@ function LessonPage({ detail }: { detail: LearningLessonDetail }) {
               <AccessBox requiredPlan={lesson.requiredPlan} />
             </div>
           ) : (
-            <>
+            <PlanAccessGate feature="learning">
               <LearningLessonProgress
                 lesson={{
                   lessonId: lesson.id,
@@ -423,7 +429,7 @@ function LessonPage({ detail }: { detail: LearningLessonDetail }) {
                   </div>
                 </section>
               )}
-            </>
+            </PlanAccessGate>
           )}
         </article>
       </main>
@@ -438,13 +444,13 @@ export default async function LearningSlugPage({
 }) {
   const { slug } = await params;
 
-  const moduleDetail = await loadLearningModuleBySlug(slug, "free");
+  const moduleDetail = await loadLearningModuleBySlug(slug, "pro");
 
   if (moduleDetail) {
     return <ModulePage detail={moduleDetail} />;
   }
 
-  const lessonDetail = await loadLearningLessonBySlug(slug, "free");
+  const lessonDetail = await loadLearningLessonBySlug(slug, "pro");
 
   if (lessonDetail) {
     return <LessonPage detail={lessonDetail} />;

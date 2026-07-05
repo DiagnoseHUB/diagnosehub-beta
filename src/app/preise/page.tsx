@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import StripeCheckoutButton from "@/components/StripeCheckoutButton";
 import type { CheckoutPlan } from "@/config/plans";
@@ -239,6 +240,8 @@ export default function PreisePage() {
           </section>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

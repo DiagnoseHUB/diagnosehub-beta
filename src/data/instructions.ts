@@ -3,7 +3,7 @@ import type { InstructionGuide } from "../types/instruction";
 export const instructions: InstructionGuide[] = [
   {
     id: "klima-001",
-    slug: "klima-sporadisch-keine-kühlung",
+    slug: "klima-sporadisch-keine-kuehlung",
     title: "Klimaanlage kühlt sporadisch nicht",
     subtitle:
       "Diagnoseablauf für Fahrzeuge, bei denen die Klimaanlage zeitweise ausfällt, aber kein eindeutiger Fehler gespeichert ist.",
@@ -42,8 +42,8 @@ export const instructions: InstructionGuide[] = [
       {
         title: "Kundenbeanstandung nachvollziehen",
         description:
-          "Motor starten, Klimaanlage auf LOW stellen, Geblaese mittlere Stufe, Umluft aus. Beobachten, ob die Luft an den Duesen innerhalb weniger Minuten deutlich abkühlt.",
-        check: "Ausblastemperatur an mittlerer Duese messen."
+          "Motor starten, Klimaanlage auf LOW stellen, Gebläse mittlere Stufe, Umluft aus. Beobachten, ob die Luft an den Düsen innerhalb weniger Minuten deutlich abkühlt.",
+        check: "Ausblastemperatur an mittlerer Düse messen."
       },
       {
         title: "Kaeltemittelmenge bewerten",
@@ -79,7 +79,7 @@ export const instructions: InstructionGuide[] = [
       {
         title: "Mischklappen prüfen",
         description:
-          "Wenn der Kaeltekreislauf korrekt arbeitet, aber warme Luft aus den Duesen kommt, Stellmotoren und Temperaturklappen prüfen."
+          "Wenn der Kältekreislauf korrekt arbeitet, aber warme Luft aus den Düsen kommt, Stellmotoren und Temperaturklappen prüfen."
       }
     ],
     commonCauses: [
@@ -93,7 +93,7 @@ export const instructions: InstructionGuide[] = [
     nextActions: [
       "Bei unplausiblen Druckwerten Drucksensor und Verkabelung prüfen.",
       "Bei fehlender Kompressorfreigabe Sperrbedingung im Steuergerät suchen.",
-      "Bei korrektem Kaeltekreislauf Luftverteilung und Mischklappen prüfen."
+      "Bei korrektem Kältekreislauf Luftverteilung und Mischklappen prüfen."
     ],
     proHint:
       "Bei sporadischen Ausfällen Istwerte während der Probefahrt aufzeichnen: Kompressorfreigabe, Hochdruck, Außentemperatur, Verdampfertemperatur und Lüfteransteuerung.",
@@ -101,107 +101,107 @@ export const instructions: InstructionGuide[] = [
   },
   {
     id: "motor-001",
-    slug: "turbolader-wiederholt-defekt-oelversorgung-prüfen",
-    title: "Turbolader wiederholt defekt – Oelversorgung prüfen",
+    slug: "turbolader-wiederholt-defekt-oelversorgung-pruefen",
+    title: "Turbolader wiederholt defekt – Ölversorgung prüfen",
     subtitle:
       "Diagnoseablauf bei erneutem Turboladerschaden kurz nach dem Austausch.",
     category: "Motor",
     difficulty: "schwer",
     estimatedTime: "60–120 Minuten",
     vehicleApplicability:
-      "Universell für Turbomotoren, besonders relevant bei kleinen Benzin-Turbomotoren und bekannten Oelversorgungsproblemen",
-    tags: ["Turbolader", "Oelversorgung", "Oelsieb", "Oelrücklauf", "Ladedruck"],
+      "Universell für Turbomotoren, besonders relevant bei kleinen Benzin-Turbomotoren und bekannten Ölversorgungsproblemen",
+    tags: ["Turbolader", "Ölversorgung", "Ölsieb", "Ölrücklauf", "Ladedruck"],
     symptoms: [
       "Turbolader nach kurzer Laufleistung erneut defekt",
-      "Pfeifgeraeusche",
-      "Oel im Ansaugtrakt",
+      "Pfeifgeräusche",
+      "Öl im Ansaugtrakt",
       "Ladedruckfehler",
-      "Starker Oelverbrauch",
+      "Starker Ölverbrauch",
       "Rauchentwicklung"
     ],
     tools: [
       "Diagnosetester",
-      "Oeldruckprüfer",
+      "Öldruckprüfer",
       "Endoskop",
       "Multimeter",
       "Unterdruck-/Druckpumpe",
       "Herstellerunterlagen"
     ],
     safetyNotes: [
-      "Nach Turboschaden Ansaug- und Ladeluftstrecke immer auf Oel und Fremdkoerper prüfen.",
+      "Nach Turboschaden Ansaug- und Ladeluftstrecke immer auf Öl und Fremdkörper prüfen.",
       "Motor nicht weiterlaufen lassen, wenn der Verdacht auf Mangelschmierung besteht.",
-      "Drehmomente, Oelqualität und Einbauvorschriften immer nach Herstellerangabe verwenden."
+      "Drehmomente, Ölqualität und Einbauvorschriften immer nach Herstellerangabe verwenden."
     ],
     initialChecks: [
-      "Oelstand und Oelqualität prüfen.",
-      "Oelfilter und Oelwechselhistorie prüfen.",
-      "Oelzulaufleitung auf Verkokung oder Verengung prüfen.",
-      "Oelrücklaufleitung auf Knick, Verstopfung oder falsche Montage prüfen.",
-      "Kurbelgehaeuseentlueftung prüfen."
+      "Ölstand und Ölqualität prüfen.",
+      "Ölfilter und Ölwechselhistorie prüfen.",
+      "Ölzulaufleitung auf Verkokung oder Verengung prüfen.",
+      "Ölrücklaufleitung auf Knick, Verstopfung oder falsche Montage prüfen.",
+      "Kurbelgehäuseentlüftung prüfen."
     ],
     steps: [
       {
         title: "Schadensbild am alten Turbolader prüfen",
         description:
-          "Verdichterrad, Turbinenrad und Welle prüfen. Spuren von Oelmangel, Fremdkoerpern oder Ueberdrehzahl unterscheiden.",
+          "Verdichterrad, Turbinenrad und Welle prüfen. Spuren von Ölmangel, Fremdkörpern oder Überdrehzahl unterscheiden.",
         check:
-          "Blau angelaufene Welle oder eingelaufene Lager deuten häufig auf Oelproblem hin."
+          "Blau angelaufene Welle oder eingelaufene Lager deuten häufig auf Ölproblem hin."
       },
       {
-        title: "Oelzulaufleitung ausbauen und prüfen",
+        title: "Ölzulaufleitung ausbauen und prüfen",
         description:
-          "Leitung nicht nur optisch außen prüfen. Innen auf Verkokung, zugesetzte Hohlschrauben, Siebe oder Rückstaende prüfen.",
+          "Leitung nicht nur optisch außen prüfen. Innen auf Verkokung, zugesetzte Hohlschrauben, Siebe oder Rückstände prüfen.",
         warning:
-          "Bei wiederholtem Turboschaden Oelzulaufleitung im Zweifel ersetzen."
+          "Bei wiederholtem Turboschaden Ölzulaufleitung im Zweifel ersetzen."
       },
       {
-        title: "Oelrücklauf prüfen",
+        title: "Ölrücklauf prüfen",
         description:
-          "Der Rücklauf muss frei, spannungsfrei und ohne Knick montiert sein. Rückstau führt zu Oelverlust am Turbolader."
+          "Der Rücklauf muss frei, spannungsfrei und ohne Knick montiert sein. Rückstau führt zu Ölverlust am Turbolader."
       },
       {
-        title: "Oeldruck prüfen",
+        title: "Öldruck prüfen",
         description:
-          "Oeldruck kalt und warm messen. Werte mit Herstellervorgabe vergleichen. Auch zugesetzte Oelkanaele oder verschlissene Oelpumpe berücksichtigen."
+          "Öldruck kalt und warm messen. Werte mit Herstellervorgabe vergleichen. Auch zugesetzte Ölkanäle oder verschlissene Ölpumpe berücksichtigen."
       },
       {
         title: "Ansaug- und Ladeluftstrecke reinigen",
         description:
-          "Ladeluftkühler, Schlaeuche und Ansaugwege auf Oel, Metallspaene und Fremdkoerper prüfen. Rückstaende können den neuen Lader sofort beschaedigen."
+          "Ladeluftkühler, Schläuche und Ansaugwege auf Öl, Metallspäne und Fremdkörper prüfen. Rückstände können den neuen Lader sofort beschädigen."
       },
       {
-        title: "Kurbelgehaeuseentlueftung prüfen",
+        title: "Kurbelgehäuseentlüftung prüfen",
         description:
-          "Eine defekte Entlueftung kann Ueberdruck im Kurbelgehaeuse erzeugen. Dadurch wird der Oelrücklauf aus dem Turbolader gestoert."
+          "Eine defekte Entlüftung kann Überdruck im Kurbelgehäuse erzeugen. Dadurch wird der Ölrücklauf aus dem Turbolader gestört."
       },
       {
         title: "Erstinbetriebnahme korrekt durchführen",
         description:
-          "Turbolader vor dem Start mit geeignetem Oel vorbefuellen. Motor zunächst ohne Last laufen lassen und Dichtigkeit prüfen."
+          "Turbolader vor dem Start mit geeignetem Öl vorbefüllen. Motor zunächst ohne Last laufen lassen und Dichtigkeit prüfen."
       }
     ],
     commonCauses: [
-      "Verkokte Oelzulaufleitung",
+      "Verkokte Ölzulaufleitung",
       "Zugesetztes Sieb in Hohlschraube oder Leitung",
-      "Oelrücklauf blockiert",
-      "Falsches oder altes Motoroel",
+      "Ölrücklauf blockiert",
+      "Falsches oder altes Motoröl",
       "Metallreste vom ersten Turboschaden",
-      "Defekte Kurbelgehaeuseentlueftung",
-      "Ladedruckregelung verursacht Ueberdrehzahl"
+      "Defekte Kurbelgehäuseentlüftung",
+      "Ladedruckregelung verursacht Überdrehzahl"
     ],
     nextActions: [
-      "Oelzulaufleitung ersetzen, wenn Verkokung sichtbar oder vermutet wird.",
-      "Ladeluftkühler reinigen oder ersetzen, wenn Metallspaene vorhanden sind.",
-      "Oeldruck dokumentieren.",
+      "Ölzulaufleitung ersetzen, wenn Verkokung sichtbar oder vermutet wird.",
+      "Ladeluftkühler reinigen oder ersetzen, wenn Metallspäne vorhanden sind.",
+      "Öldruck dokumentieren.",
       "Nach Reparatur Probefahrt mit Ladedruck-Ist/Soll-Werten durchführen."
     ],
     proHint:
-      "Bei wiederholtem Turboschaden nie nur den Lader ersetzen. Die Ursache liegt sehr häufig im Umfeld: Oelversorgung, Rücklauf, Entlueftung, Fremdkoerper oder Regelung.",
+      "Bei wiederholtem Turboschaden nie nur den Lader ersetzen. Die Ursache liegt sehr häufig im Umfeld: Ölversorgung, Rücklauf, Entlüftung, Fremdkörper oder Regelung.",
     lastUpdated: "2026-06-29"
   },
   {
     id: "fahrwerk-001",
-    slug: "passat-b8-vorderachse-aggregateträger-zentrieren",
+    slug: "passat-b8-vorderachse-aggregatetraeger-zentrieren",
     title: "Passat B8 Vorderachse / Aggregateträger zentrieren",
     subtitle:
       "Ablauf zum Ausrichten des Aggregateträgers nach Achsarbeiten oder Unfallschaden.",
@@ -209,13 +209,13 @@ export const instructions: InstructionGuide[] = [
     difficulty: "schwer",
     estimatedTime: "60–90 Minuten",
     vehicleApplicability:
-      "VW Passat B8 und aehnliche MQB-Fahrzeuge mit Zentrier-/Absteckpunkten",
+      "VW Passat B8 und ähnliche MQB-Fahrzeuge mit Zentrier-/Absteckpunkten",
     tags: ["Passat B8", "Achse", "Aggregateträger", "Spur", "Sturz", "Unfallschaden"],
     symptoms: [
       "Lenkrad steht schief",
       "Fahrzeug zieht zur Seite",
       "Sturz links/rechts stark unterschiedlich",
-      "Achse wurde geloest oder ersetzt",
+      "Achse wurde gelöst oder ersetzt",
       "Nach Unfallschaden keine saubere Achsgeometrie"
     ],
     tools: [
@@ -233,7 +233,7 @@ export const instructions: InstructionGuide[] = [
     initialChecks: [
       "Reifenluftdruck prüfen.",
       "Felgen/Reifen auf Beschaedigung prüfen.",
-      "Querlenker, Radlagergehaeuse und Hilfsrahmen auf Unfallschäden prüfen.",
+      "Querlenker, Radlagergehäuse und Hilfsrahmen auf Unfallschäden prüfen.",
       "Lenkgetriebe und Spurstangen auf Verzug prüfen.",
       "Karosserie-Aufnahmepunkte prüfen."
     ],
@@ -244,11 +244,11 @@ export const instructions: InstructionGuide[] = [
           "Fahrzeug auf die Buehne nehmen. Unterbodenverkleidung entfernen. Sichtprüfung der Achsteile durchführen."
       },
       {
-        title: "Aggregateträger-Schrauben loesen",
+        title: "Aggregateträger-Schrauben lösen",
         description:
-          "Befestigungsschrauben des Aggregateträgers nur so weit loesen, dass sich der Träger ausrichten laesst. Nicht vollständig entfernen, sofern nicht erforderlich.",
+          "Befestigungsschrauben des Aggregateträgers nur so weit lösen, dass sich der Träger ausrichten lässt. Nicht vollständig entfernen, sofern nicht erforderlich.",
         warning:
-          "Motor/Getriebe je nach Fahrzeugzustand abstuetzen, wenn tragende Komponenten geloest werden."
+          "Motor/Getriebe je nach Fahrzeugzustand abstützen, wenn tragende Komponenten gelöst werden."
       },
       {
         title: "Zentrierstifte einsetzen",
@@ -268,7 +268,7 @@ export const instructions: InstructionGuide[] = [
       {
         title: "Achsvermessung durchführen",
         description:
-          "Spur, Sturz und Nachlauf prüfen. Bei MQB-Fahrzeugen kann der Sturz ueber die Aggregateträgerlage beeinflusst werden."
+          "Spur, Sturz und Nachlauf prüfen. Bei MQB-Fahrzeugen kann der Sturz über die Aggregateträgerlage beeinflusst werden."
       },
       {
         title: "Probefahrt und Lenkwinkel prüfen",
@@ -278,14 +278,14 @@ export const instructions: InstructionGuide[] = [
     ],
     commonCauses: [
       "Aggregateträger nach Reparatur versetzt montiert",
-      "Querlenker oder Radlagergehaeuse verzogen",
+      "Querlenker oder Radlagergehäuse verzogen",
       "Falsche oder beschädigte Achsteile verbaut",
       "Karosserieaufnahme nach Unfall verschoben",
       "Keine Achsvermessung nach Montage"
     ],
     nextActions: [
       "Wenn Werte trotz Zentrierung nicht passen, Karosseriemaße prüfen.",
-      "Bei stark abweichendem Sturz Radlagergehaeuse und Querlenker vergleichen.",
+      "Bei stark abweichendem Sturz Radlagergehäuse und Querlenker vergleichen.",
       "Lenkwinkelsensor nach Vermessung kalibrieren, falls erforderlich."
     ],
     proHint:
@@ -294,21 +294,21 @@ export const instructions: InstructionGuide[] = [
   },
   {
     id: "elektrik-001",
-    slug: "nissan-qashqai-geblaesemotor-widerstand-prüfen",
-    title: "Nissan Qashqai Geblaesemotor / Innenraumwiderstand prüfen",
+    slug: "nissan-qashqai-geblaesemotor-widerstand-pruefen",
+    title: "Nissan Qashqai Gebläsemotor / Innenraumwiderstand prüfen",
     subtitle:
-      "Diagnoseablauf bei ausgefallenem Innenraumgeblaese oder defektem Geblaeseregler.",
+      "Diagnoseablauf bei ausgefallenem Innenraumgebläse oder defektem Gebläseregler.",
     category: "Elektrik",
     difficulty: "mittel",
     estimatedTime: "30–75 Minuten",
     vehicleApplicability:
-      "Nissan Qashqai und aehnliche Fahrzeuge mit Geblaesemotor und Vorwiderstand/Geblaeseregler",
-    tags: ["Nissan", "Qashqai", "Geblaese", "Innenraumwiderstand", "Geblaeseregler"],
+      "Nissan Qashqai und ähnliche Fahrzeuge mit Gebläsemotor und Vorwiderstand/Gebläseregler",
+    tags: ["Nissan", "Qashqai", "Gebläse", "Innenraumwiderstand", "Gebläseregler"],
     symptoms: [
-      "Geblaese läuft nicht",
-      "Geblaese läuft nur auf höchster Stufe",
-      "Geblaese läuft sporadisch",
-      "Innenraumlueftung fällt aus",
+      "Gebläse läuft nicht",
+      "Gebläse läuft nur auf höchster Stufe",
+      "Gebläse läuft sporadisch",
+      "Innenraumlüftung fällt aus",
       "Stecker am Widerstand verschmort"
     ],
     tools: [
@@ -319,69 +319,69 @@ export const instructions: InstructionGuide[] = [
       "Stromlaufplan bei Bedarf"
     ],
     safetyNotes: [
-      "Vor Arbeiten an elektrischen Steckern Zuendung ausschalten.",
+      "Vor Arbeiten an elektrischen Steckern Zündung ausschalten.",
       "Verschmorte Stecker nicht nur reinigen, sondern fachgerecht ersetzen.",
       "Keine Brücken setzen, ohne Stromlaufplan und Absicherung zu prüfen."
     ],
     initialChecks: [
       "Sicherungen prüfen.",
-      "Geblaese auf allen Stufen testen.",
+      "Gebläse auf allen Stufen testen.",
       "Bedienteilfunktion prüfen.",
-      "Stecker am Geblaesemotor und Widerstand auf Hitze-/Schmorspuren prüfen.",
+      "Stecker am Gebläsemotor und Widerstand auf Hitze-/Schmorspuren prüfen.",
       "Wassereintritt im Fußraum prüfen."
     ],
     steps: [
       {
         title: "Fehlerbild eingrenzen",
         description:
-          "Prüfen, ob das Geblaese komplett tot ist oder nur einzelne Stufen fehlen. Das Fehlerbild entscheidet, ob eher Motor, Widerstand oder Ansteuerung betroffen ist."
+          "Prüfen, ob das Gebläse komplett tot ist oder nur einzelne Stufen fehlen. Das Fehlerbild entscheidet, ob eher Motor, Widerstand oder Ansteuerung betroffen ist."
       },
       {
         title: "Sicherungen und Versorgung prüfen",
         description:
-          "Sicherung für Innenraumgeblaese prüfen. Danach Spannung am Geblaesemotor bei eingeschalteter Lueftung messen."
+          "Sicherung für Innenraumgebläse prüfen. Danach Spannung am Gebläsemotor bei eingeschalteter Lüftung messen."
       },
       {
-        title: "Geblaesemotor direkt bewerten",
+        title: "Gebläsemotor direkt bewerten",
         description:
-          "Wenn Spannung und Masse vorhanden sind, aber der Motor nicht läuft, ist der Geblaesemotor wahrscheinlich defekt oder schwergaengig."
+          "Wenn Spannung und Masse vorhanden sind, aber der Motor nicht läuft, ist der Gebläsemotor wahrscheinlich defekt oder schwergängig."
       },
       {
-        title: "Geblaesewiderstand / Regler prüfen",
+        title: "Gebläsewiderstand / Regler prüfen",
         description:
-          "Wenn einzelne Stufen fehlen oder das Geblaese nur auf höchster Stufe läuft, Regler/Widerstand und Stecker prüfen."
+          "Wenn einzelne Stufen fehlen oder das Gebläse nur auf höchster Stufe läuft, Regler/Widerstand und Stecker prüfen."
       },
       {
-        title: "Stecker auf Uebergangswiderstand prüfen",
+        title: "Stecker auf Übergangswiderstand prüfen",
         description:
           "Verschmorte Kontakte verursachen Spannungsabfall und Folgeschäden am neuen Regler."
       },
       {
-        title: "Geblaesekasten auf Blockade prüfen",
+        title: "Gebläsekasten auf Blockade prüfen",
         description:
-          "Laub, Wasser oder ein schwergaengiger Lüftermotor kann den Strom erhoehen und den Widerstand erneut zerstören."
+          "Laub, Wasser oder ein schwergängiger Lüftermotor kann den Strom erhöhen und den Widerstand erneut zerstören."
       }
     ],
     commonCauses: [
-      "Defekter Geblaesewiderstand",
-      "Schwergaengiger Geblaesemotor",
+      "Defekter Gebläsewiderstand",
+      "Schwergängiger Gebläsemotor",
       "Verschmorter Stecker",
       "Defekte Sicherung",
       "Wassereintritt",
       "Bedienteil oder Ansteuerung fehlerhaft"
     ],
     nextActions: [
-      "Bei defektem Widerstand auch Geblaesemotor auf Stromaufnahme prüfen.",
+      "Bei defektem Widerstand auch Gebläsemotor auf Stromaufnahme prüfen.",
       "Verschmorte Stecker ersetzen.",
       "Innenraumfilter und Wasserkasten prüfen."
     ],
     proHint:
-      "Wenn nur der Widerstand ersetzt wird, aber der Geblaesemotor schwergaengig ist, kommt der Fehler oft wieder.",
+      "Wenn nur der Widerstand ersetzt wird, aber der Gebläsemotor schwergängig ist, kommt der Fehler oft wieder.",
     lastUpdated: "2026-06-29"
   },
   {
     id: "diagnose-001",
-    slug: "tdi-dpf-differenzdruck-regeneration-prüfen",
+    slug: "tdi-dpf-differenzdruck-regeneration-pruefen",
     title: "TDI DPF / Differenzdruck / Regeneration prüfen",
     subtitle:
       "Grunddiagnose bei Dieselpartikelfilter-Problemen, erhöhtem Differenzdruck oder Regenerationsproblemen.",
@@ -406,7 +406,7 @@ export const instructions: InstructionGuide[] = [
       "Herstellerunterlagen"
     ],
     safetyNotes: [
-      "Regeneration nur durchführen, wenn Oelstand und Motorzustand unkritisch sind.",
+      "Regeneration nur durchführen, wenn Ölstand und Motorzustand unkritisch sind.",
       "Brandgefahr durch hohe Abgastemperaturen beachten.",
       "Bei stark beladenem DPF keine Zwangsregeneration ohne Herstellerfreigabe durchführen."
     ],
@@ -434,9 +434,9 @@ export const instructions: InstructionGuide[] = [
           "Wert bei ca. 2500 U/min beobachten. Der Wert muss plausibel steigen, darf aber nicht extrem hoch sein."
       },
       {
-        title: "Schlaeuche zum Differenzdrucksensor prüfen",
+        title: "Schläuche zum Differenzdrucksensor prüfen",
         description:
-          "Schlaeuche auf Risse, Verstopfung, Kondensat oder falschen Anschluss prüfen."
+          "Schläuche auf Risse, Verstopfung, Kondensat oder falschen Anschluss prüfen."
       },
       {
         title: "Ruß- und Aschemasse bewerten",
@@ -453,7 +453,7 @@ export const instructions: InstructionGuide[] = [
       "DPF stark mit Ruß beladen",
       "DPF mit Asche voll",
       "Differenzdrucksensor defekt",
-      "Schlaeuche verstopft oder vertauscht",
+      "Schläuche verstopft oder vertauscht",
       "Abgastemperatursensor unplausibel",
       "AGR- oder Ladedruckproblem verhindert Regeneration"
     ],

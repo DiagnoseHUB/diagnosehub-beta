@@ -411,7 +411,7 @@ function validatePaidCheckoutSession({
 
   if (!sessionUserId) {
     throw new Error(
-      "Diese Stripe-Zahlung enthaelt keine Supabase-User-ID. Bitte Checkout erneut ueber die Preise-Seite starten."
+      "Diese Stripe-Zahlung enthält keine Supabase-User-ID. Bitte Checkout erneut über die Preise-Seite starten."
     );
   }
 

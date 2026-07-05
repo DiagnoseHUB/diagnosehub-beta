@@ -1,5 +1,7 @@
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import JourneymanExamClient from "@/components/JourneymanExamClient";
+import PlanAccessGate from "@/components/PlanAccessGate";
 import { JOURNEYMAN_EXAMS } from "@/data/journeymanExams";
 
 export const metadata = {
@@ -23,12 +25,16 @@ export default function GesellenprüfungPage() {
 
       <main className="px-4 py-10 sm:px-6 lg:px-8">
         <section className="mx-auto max-w-6xl">
-          <JourneymanExamClient
-            exams={JOURNEYMAN_EXAMS}
-            initialSeed={initialSeed}
-          />
+          <PlanAccessGate feature="learning">
+            <JourneymanExamClient
+              exams={JOURNEYMAN_EXAMS}
+              initialSeed={initialSeed}
+            />
+          </PlanAccessGate>
         </section>
       </main>
+
+      <Footer />
     </div>
   );
 }

@@ -261,7 +261,7 @@ const dpfProfile: InspectionProfile = {
   description:
     "Dieses Profil prüft DPF-Beladung, Differenzdrucksensorik, Regenerationsbedingungen, Temperatursensorik und Abgasgegendruck.",
   typicalCauses: [
-    "DPF mit Ruß oder Asche ueberladen",
+    "DPF mit Ruß oder Asche überladen",
     "Differenzdrucksensor fehlerhaft",
     "Differenzdruckleitungen verstopft oder undicht",
     "Abgastemperatursensor unplausibel",
@@ -304,7 +304,7 @@ const mixtureProfile: InspectionProfile = {
     "Dieses Profil grenzt Falschluft, Kraftstoffversorgung, Lambdaregelung, Luftmassenmessung und Einspritzung ein.",
   typicalCauses: [
     "Falschluft im Ansaugsystem",
-    "Kurbelgehaeuseentlueftung undicht",
+    "Kurbelgehäuseentlüftung undicht",
     "Luftmassenmesser unplausibel",
     "Lambdasonde gealtert oder fehlerhaft",
     "Kraftstoffdruck zu niedrig oder zu hoch",
@@ -314,7 +314,7 @@ const mixtureProfile: InspectionProfile = {
   recommendedChecks: [
     "Short Term und Long Term Fuel Trim auslesen",
     "Ansaugsystem abnebeln",
-    "Kurbelgehaeuseentlueftung prüfen",
+    "Kurbelgehäuseentlüftung prüfen",
     "Luftmassenmesser auf Plausibilität prüfen",
     "Lambdasondensignal vor und nach Kat prüfen",
     "Kraftstoffdruck messen",
@@ -343,7 +343,7 @@ const misfireProfile: InspectionProfile = {
   title: "Individuelles Prüfprofil: Verbrennungsaussetzer / Laufunruhe",
   subtitle: "Für Fehler wie P0300, P0301, P0302, P0303, P0304",
   description:
-    "Dieses Profil grenzt zylinderbezogene Aussetzer ueber Zuendung, Einspritzung, Kompression, Falschluft und mechanische Ursachen ein.",
+    "Dieses Profil grenzt zylinderbezogene Aussetzer über Zündung, Einspritzung, Kompression, Falschluft und mechanische Ursachen ein.",
   typicalCauses: [
     "Zuendkerze verschlissen oder falscher Elektrodenabstand",
     "Zuendspule fehlerhaft",
@@ -806,7 +806,7 @@ export default function PrüfprotokollPage() {
             <h2 className="text-3xl font-bold">Kein Diagnosefall geladen</h2>
 
             <p className="mt-4 leading-8 text-slate-400">
-              Starte zuerst eine Diagnose oder oeffne einen gespeicherten Fall.
+              Starte zuerst eine Diagnose oder öffne einen gespeicherten Fall.
               Danach kann DiagnoseHUB daraus ein Prüfprotokoll erstellen.
             </p>
 

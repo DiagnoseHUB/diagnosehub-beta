@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireLearningAccess } from "@/lib/planAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,6 +111,18 @@ function extractResponseText(data: unknown) {
 
 export async function POST(request: Request) {
   try {
+    const access = await requireLearningAccess(request);
+
+    if (!access.ok) {
+      return NextResponse.json(
+        {
+          error: access.error,
+          userPlan: access.plan,
+        },
+        { status: 403 },
+      );
+    }
+
     const body = (await request.json()) as CaseEvaluationRequest;
     const examTitle = cleanText(body.examTitle, 120);
     const taskTitle = cleanText(body.taskTitle, 160);
@@ -225,15 +238,21 @@ Bewerte als JSON in exakt dieser Form:
     });
   } catch (error) {
     console.error("Fallaufgabe konnte nicht bewertet werden:", error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Fallaufgabe konnte nicht bewertet werden.";
+    const status =
+      errorMessage.includes("Nicht eingeloggt") ||
+      errorMessage.includes("Session")
+        ? 401
+        : 500;
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Fallaufgabe konnte nicht bewertet werden.",
+        error: errorMessage,
       },
-      { status: 500 },
+      { status },
     );
   }
 }

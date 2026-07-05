@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import PrintButton from "../../../components/PrintButton";
 import TechnicalSchemaImage from "@/components/TechnicalSchemaImage";
@@ -150,7 +151,7 @@ export default async function InstructionDetailPage({
 
           <section className="mt-6 grid gap-5 lg:grid-cols-2">
             <InfoBox title="Symptome" items={instruction.symptoms} />
-            <InfoBox title="Benoetigtes Werkzeug" items={instruction.tools} />
+            <InfoBox title="Benötigtes Werkzeug" items={instruction.tools} />
             <InfoBox title="Sicherheit" items={instruction.safetyNotes} />
             <InfoBox title="Erstprüfung" items={instruction.initialChecks} />
           </section>
@@ -236,6 +237,8 @@ export default async function InstructionDetailPage({
           </footer>
         </article>
       </main>
+
+      <Footer />
     </div>
   );
 }

@@ -1,5 +1,7 @@
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import LearningQuizClient from "@/components/LearningQuizClient";
+import PlanAccessGate from "@/components/PlanAccessGate";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +12,13 @@ export default function LearningQuizPage() {
 
       <main className="px-4 py-10 sm:px-6 lg:px-8">
         <section className="mx-auto max-w-6xl">
-          <LearningQuizClient />
+          <PlanAccessGate feature="learning">
+            <LearningQuizClient />
+          </PlanAccessGate>
         </section>
       </main>
+
+      <Footer />
     </div>
   );
 }

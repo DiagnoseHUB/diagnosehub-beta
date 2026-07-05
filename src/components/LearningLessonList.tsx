@@ -63,7 +63,7 @@ export default function LearningLessonList({ lessons }: LearningLessonListProps)
   if (lessons.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
-        Noch keine veroeffentlichten Lektionen vorhanden.
+        Noch keine veröffentlichten Lektionen vorhanden.
       </div>
     );
   }

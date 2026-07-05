@@ -1,6 +1,8 @@
 import Link from "next/link";
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import LearningLevelOverview from "@/components/LearningLevelOverview";
+import PlanAccessGate from "@/components/PlanAccessGate";
 import { loadPublishedLearningModules } from "@/lib/supabase/learningStorage";
 
 export const metadata = {
@@ -33,6 +35,7 @@ export default async function LernenPage() {
           </p>
         </section>
 
+        <PlanAccessGate feature="learning">
         <section className="mb-10 grid gap-4 md:grid-cols-3">
           <Link
             href="/lernen/quiz"
@@ -76,7 +79,7 @@ export default async function LernenPage() {
           </Link>
 
           <Link
-            href="/lernen/gesellenprüfung"
+            href="/lernen/gesellenpruefung"
             className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/80 dark:hover:border-blue-500"
           >
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-xl font-bold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
@@ -88,8 +91,8 @@ export default async function LernenPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Uebe Teil 1 und Teil 2 mit realistischen Kfz-Fällen,
-              Auswertung, Musterloesung und gespeicherten Ergebnissen.
+              Übe Teil 1 und Teil 2 mit realistischen Kfz-Fällen,
+              Auswertung, Musterlösung und gespeicherten Ergebnissen.
             </p>
 
             <p className="mt-4 text-sm font-semibold text-blue-700 group-hover:text-blue-800 dark:text-blue-300 dark:group-hover:text-blue-200">
@@ -110,8 +113,11 @@ export default async function LernenPage() {
 
           <LearningLevelOverview modules={modules} />
         </section>
+        </PlanAccessGate>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

@@ -24,7 +24,7 @@ export default function ImpressumPage() {
           <div className="mt-8 space-y-8 leading-8 text-slate-300">
             <section>
               <h2 className="text-2xl font-bold text-white">
-                Angaben gemaeß § 5 DDG
+                Angaben gemäß § 5 DDG
               </h2>
 
               <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
@@ -60,7 +60,7 @@ export default function ImpressumPage() {
 
               <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
                 <p>
-                  Kleinunternehmer gemaeß § 19 UStG. Eine Umsatzsteuer-ID ist
+                  Kleinunternehmer gemäß § 19 UStG. Eine Umsatzsteuer-ID ist
                   derzeit nicht vorhanden.
                 </p>
               </div>
@@ -108,7 +108,7 @@ export default function ImpressumPage() {
               <p className="mt-4">
                 Die Inhalte dieser Website werden mit groeßtmöglicher Sorgfalt
                 erstellt. Für Richtigkeit, Vollständigkeit und Aktualitaet der
-                Inhalte kann jedoch keine Gewähr uebernommen werden.
+                Inhalte kann jedoch keine Gewähr übernommen werden.
               </p>
             </section>
 

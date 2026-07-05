@@ -186,7 +186,7 @@ function buildDynamicQuickQuestions(
         "Aussetzerzähller prüfen?",
         "Zylinder eingrenzen?",
         "Kompression prüfen?",
-        "Injektor/Zuendung quer prüfen?",
+        "Injektor/Zündung quer prüfen?",
       );
     }
   }
@@ -903,7 +903,7 @@ export default function SearchBar() {
   function changeUserPlan(nextPlan: UserPlan) {
     if (user) {
       setError(
-        "Bei aktivem Supabase-Login wird der Plan ueber Login/Profil gespeichert. Die Schnellumschaltung ist nur für lokale Tests ohne Login aktiv.",
+        "Bei aktivem Supabase-Login wird der Plan über Login/Profil gespeichert. Die Schnellumschaltung ist nur für lokale Tests ohne Login aktiv.",
       );
       return;
     }
@@ -1015,7 +1015,7 @@ Regeln für diese Antwort:
 - Nicht schreiben "Zugang schaffen", sondern konkrete typische Demontage nennen.
 - Konkrete Verkleidungen, Abdeckungen, Stecker, Halter, Befestigungen und Richtung/Lage nennen, wenn sinnvoll.
 - Linksgewinde nennen, wenn möglich oder typisch.
-- Schrauben, Exzenter, Einstellpunkte oder Markierungen nennen, die nicht geloest oder nicht verstellt werden dürfen.
+- Schrauben, Exzenter, Einstellpunkte oder Markierungen nennen, die nicht gelöst oder nicht verstellt werden dürfen.
 - Keine erfundenen Drehmomente, Fuellmengen oder Herstellersollwerte.
 - Daten sichern nur nennen, wenn Steuergerät/Codierung/Programmierung/Anlernung betroffen ist.
 - Batterie abklemmen nur nennen, wenn technisch notwendig.
@@ -1347,7 +1347,7 @@ ${faultCode.suggestedChecks.map((check) => `- ${check}`).join("\n")}`;
 
     const causingPartText = causingPart.trim()
       ? `Schadensverursachendes Teil:\n${causingPart.trim()}`
-      : "Schadensverursachendes Teil:\nueber Eingabe/Fallverlauf";
+      : "Schadensverursachendes Teil:\nüber Eingabe/Fallverlauf";
 
     const chatText = messages
       .map((message) => {
@@ -1435,7 +1435,7 @@ ${chatText}
           onKeyDown={handleKeyDown}
           placeholder={
             messages.length === 0
-              ? "Diagnose oder Anleitung eingeben, z. B. VW Passat P0299 Leistungsverlust oder Qashqai Geblaesemotor ausbauen..."
+              ? "Diagnose oder Anleitung eingeben, z. B. VW Passat P0299 Leistungsverlust oder Qashqai Gebläsemotor ausbauen..."
               : "Folgefrage, Messwertfrage oder Anleitung eingeben, z. B. Ladedruck Sollwert? oder Ausbauanleitung AGR-Ventil..."
           }
           rows={4}

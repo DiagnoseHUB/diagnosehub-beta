@@ -52,12 +52,8 @@ const legalLinks = [
 ];
 
 const futureLinks = [
-  "Lernplattform",
   "Meisterschule-Modus",
   "PDF-Berichte",
-  "Benutzerkonten",
-  "Erweiterte Fallhistorie",
-  "Premium-Zugang",
 ];
 
 function Footer() {
@@ -149,7 +145,7 @@ function Footer() {
               ))}
             </div>
 
-            <p className="mt-6 font-bold text-white">Geplant</p>
+            <p className="mt-6 font-bold text-white">Ausblick</p>
 
             <div className="mt-5 grid gap-3">
               {futureLinks.map((link) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import type {
   ExamCaseTask,
   ExamPartId,
@@ -45,7 +46,7 @@ type SavedExamResult = {
 
 type SavedExamStore = Record<ExamPartId, SavedExamResult[]>;
 
-const EXAM_RESULTS_STORAGE_KEY = "diagnosehub-gesellenprüfung-results-v1";
+const EXAM_RESULTS_STORAGE_KEY = "diagnosehub-gesellenpruefung-results-v1";
 
 function readSavedResults(): SavedExamStore {
   if (typeof window === "undefined") {
@@ -183,6 +184,7 @@ export default function JourneymanExamClient({
   exams,
   initialSeed,
 }: JourneymanExamClientProps) {
+  const supabase = useMemo(() => createClient(), []);
   const [activeExamId, setActiveExamId] = useState<ExamPartId>("teil-1");
   const initialExam = exams[0];
   const [examRun, setExamRun] = useState<ExamRun>(() =>
@@ -272,12 +274,21 @@ export default function JourneymanExamClient({
     setGradingTaskId(task.id);
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Bitte zuerst einloggen.");
+      }
+
       const response = await fetch(
-        "/api/lernen/gesellenprüfung/fallbewertung",
+        "/api/lernen/gesellenpruefung/fallbewertung",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             examTitle: activeExam.title,

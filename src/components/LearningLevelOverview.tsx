@@ -196,7 +196,7 @@ export default function LearningLevelOverview({
 
       {modules.length === 0 ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
-          Es wurden noch keine veroeffentlichten Lernmodule gefunden.
+          Es wurden noch keine veröffentlichten Lernmodule gefunden.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

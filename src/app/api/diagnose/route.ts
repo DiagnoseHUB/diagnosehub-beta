@@ -502,13 +502,13 @@ Wichtig zur Antwortlaenge:
 
 Werkstatt-Praezision:
 - Bei Aus-/Einbau immer konkrete Demontagereihenfolge nennen.
-- Beispiel: nicht "Verkleidung ausbauen", sondern "Handschuhfach ausbauen, untere Fußraumverkleidung loesen, seitliche Mittelkonsole-Verkleidung entfernen".
+- Beispiel: nicht "Verkleidung ausbauen", sondern "Handschuhfach ausbauen, untere Fußraumverkleidung lösen, seitliche Mittelkonsole-Verkleidung entfernen".
 - Beispiel: nicht "Stecker abziehen", sondern "Stecker entriegeln, Verriegelungsnase nicht abbrechen, auf verschmorte Pins prüfen".
-- Beispiel: nicht "Befestigung loesen", sondern "Schrauben loesen oder Bajonettverschluss gegen Anschlag drehen, je nach Ausführung".
+- Beispiel: nicht "Befestigung lösen", sondern "Schrauben lösen oder Bajonettverschluss gegen Anschlag drehen, je nach Ausführung".
 - Bauteillage und Zugang kurz, aber konkret beschreiben.
 - Stecker, Verriegelungen, Clips, Halter, Kunststoffnasen und Bruchstellen erwaehnen, wenn relevant.
 - Linksgewinde ausdrücklich erwaehnen, wenn es bei diesem Bauteil/System möglich oder typisch ist.
-- Schrauben, Muttern, Exzenter, Einstellpunkte oder Markierungen nennen, die nicht geloest oder nicht verstellt werden dürfen.
+- Schrauben, Muttern, Exzenter, Einstellpunkte oder Markierungen nennen, die nicht gelöst oder nicht verstellt werden dürfen.
 - Bei Steuerzeiten, Achsgeometrie, Lenkung, Bremse, Hochvolt, Airbag, Klimaanlage und Kraftstoffsystem besonders praezise sein.
 - Erst prüfen, dann ersetzen. Keine reine Teiletausch-Empfehlung.
 - "Daten sichern" nur nennen, wenn Steuergerät, Codierung, Programmierung, Anlernung oder Batterieabklemmen mit relevanten Speicherwerten betroffen ist.
@@ -580,7 +580,7 @@ Bei Ausbau/Reparatur typische Demontage nennen:
 # Kritische Punkte
 Nur wenn relevant:
 - Linksgewinde
-- Schrauben nicht loesen
+- Schrauben nicht lösen
 - Einstellpunkte nicht verstellen
 - Clips/Verriegelungen
 - Dichtflaechen

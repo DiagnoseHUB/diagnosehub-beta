@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { createClient } from "@/lib/supabase/client";
 
@@ -413,6 +414,8 @@ export default function BillingPage() {
           </div>
         </section>
       </main>
+
+      <Footer />
     </div>
   );
 }

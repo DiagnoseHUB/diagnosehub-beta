@@ -28,7 +28,7 @@ export default function StripeSuccessStatus() {
       if (!sessionId) {
         setStatus("missing-session");
         setMessage(
-          "Die Zahlung war erfolgreich, aber es wurde keine Stripe-Session-ID uebergeben."
+          "Die Zahlung war erfolgreich, aber es wurde keine Stripe-Session-ID übergeben."
         );
         return;
       }
@@ -144,7 +144,7 @@ export default function StripeSuccessStatus() {
           {isMissingSession && (
             <div className="mt-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 dark:border-yellow-500/30 dark:bg-yellow-500/10 dark:text-yellow-300">
               Das passiert meistens, wenn noch ein alter Checkout-Link ohne
-              session_id verwendet wurde. Starte Pro erneut ueber die Preise-Seite.
+              session_id verwendet wurde. Starte Pro erneut über die Preise-Seite.
             </div>
           )}
 

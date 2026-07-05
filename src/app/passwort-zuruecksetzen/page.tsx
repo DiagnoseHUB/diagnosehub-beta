@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { createClient } from "@/lib/supabase/client";
 
@@ -193,6 +194,8 @@ export default function PasswortZuruecksetzenPage() {
           </Link>
         </section>
       </main>
+
+      <Footer />
     </div>
   );
 }
