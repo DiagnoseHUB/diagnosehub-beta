@@ -12,6 +12,11 @@ import RelatedLearningPanel from "@/components/RelatedLearningPanel";
 import TechnicalSchemaImage from "@/components/TechnicalSchemaImage";
 import { createClient } from "@/lib/supabase/client";
 import {
+  readAccountScopedLocalStorage,
+  removeAccountScopedLocalStorage,
+  writeAccountScopedLocalStorage,
+} from "@/services/accountScopedStorage";
+import {
   deleteDiagnosisCaseFromSupabase,
   loadDiagnosisCasesFromSupabase,
   migrateLocalDiagnosisCasesToSupabase,
@@ -429,9 +434,12 @@ function formatDateTime(value: string) {
   });
 }
 
-function loadLocalSavedCases() {
+function loadLocalSavedCases(userId?: string | null) {
   try {
-    const savedCaseList = localStorage.getItem(SAVED_CASES_STORAGE_KEY);
+    const savedCaseList = readAccountScopedLocalStorage(
+      SAVED_CASES_STORAGE_KEY,
+      userId,
+    );
 
     if (!savedCaseList) {
       return [];
@@ -450,8 +458,15 @@ function loadLocalSavedCases() {
   }
 }
 
-function saveCasesToLocalStorage(savedCases: SavedDiagnosisCase[]) {
-  localStorage.setItem(SAVED_CASES_STORAGE_KEY, JSON.stringify(savedCases));
+function saveCasesToLocalStorage(
+  savedCases: SavedDiagnosisCase[],
+  userId?: string | null,
+) {
+  writeAccountScopedLocalStorage(
+    SAVED_CASES_STORAGE_KEY,
+    JSON.stringify(savedCases),
+    userId,
+  );
 }
 
 function saveUsageToLocalStorage(usage: DiagnosisUsage) {
@@ -590,15 +605,18 @@ export default function SearchBar() {
         setUser(nextUser);
 
         if (nextUser) {
+          loadCurrentCaseFromLocalStorage(nextUser.id);
+          setSavedCases(loadLocalSavedCases(nextUser.id));
           await loadPlanForAuthenticatedUser(nextUser);
           await loadUsageForAuthenticatedUser(nextUser);
-          await loadCasesForAuthenticatedUser(nextUser, loadLocalSavedCases());
+          await loadCasesForAuthenticatedUser(nextUser, []);
         } else {
           setCaseStorageSource("local");
           setUsageStorageSource("local");
           setCaseSyncMessage("");
           setUsageSyncMessage("");
-          loadLocalSavedCasesIntoState();
+          loadCurrentCaseFromLocalStorage(null);
+          loadLocalSavedCasesIntoState(null);
           loadLocalPlanAndUsage();
         }
       },
@@ -615,7 +633,7 @@ export default function SearchBar() {
     }
 
     if (messages.length === 0) {
-      localStorage.removeItem(STORAGE_KEY);
+      removeAccountScopedLocalStorage(STORAGE_KEY, user?.id);
       return;
     }
 
@@ -628,7 +646,11 @@ export default function SearchBar() {
       openedCaseId,
     };
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentCase));
+    writeAccountScopedLocalStorage(
+      STORAGE_KEY,
+      JSON.stringify(currentCase),
+      user?.id,
+    );
   }, [
     messages,
     engineContext,
@@ -636,21 +658,19 @@ export default function SearchBar() {
     qualityCheck,
     causingPart,
     openedCaseId,
+    user,
   ]);
 
   async function initializeSearchBar() {
     try {
-      loadCurrentCaseFromLocalStorage();
       loadLocalPlanAndUsage();
-
-      const localCases = loadLocalSavedCases();
-
-      setSavedCases(localCases);
 
       const { data, error } = await supabase.auth.getSession();
 
       if (error) {
         setError(error.message);
+        loadCurrentCaseFromLocalStorage(null);
+        loadLocalSavedCasesIntoState(null);
         setCaseStorageSource("local");
         setUsageStorageSource("local");
         return;
@@ -661,10 +681,14 @@ export default function SearchBar() {
       setUser(activeUser);
 
       if (activeUser) {
+        loadCurrentCaseFromLocalStorage(activeUser.id);
+        setSavedCases(loadLocalSavedCases(activeUser.id));
         await loadPlanForAuthenticatedUser(activeUser);
         await loadUsageForAuthenticatedUser(activeUser);
-        await loadCasesForAuthenticatedUser(activeUser, localCases);
+        await loadCasesForAuthenticatedUser(activeUser, []);
       } else {
+        loadCurrentCaseFromLocalStorage(null);
+        loadLocalSavedCasesIntoState(null);
         setCaseStorageSource("local");
         setUsageStorageSource("local");
       }
@@ -678,11 +702,20 @@ export default function SearchBar() {
     }
   }
 
-  function loadCurrentCaseFromLocalStorage() {
+  function loadCurrentCaseFromLocalStorage(userId?: string | null) {
     try {
-      const savedCurrentCase = localStorage.getItem(STORAGE_KEY);
+      const savedCurrentCase = readAccountScopedLocalStorage(
+        STORAGE_KEY,
+        userId,
+      );
 
       if (!savedCurrentCase) {
+        setMessages([]);
+        setEngineContext(null);
+        setFaultCodeContext(null);
+        setQualityCheck("");
+        setCausingPart("");
+        setOpenedCaseId(null);
         return;
       }
 
@@ -702,8 +735,8 @@ export default function SearchBar() {
     }
   }
 
-  function loadLocalSavedCasesIntoState() {
-    const localCases = loadLocalSavedCases();
+  function loadLocalSavedCasesIntoState(userId?: string | null) {
+    const localCases = loadLocalSavedCases(userId);
 
     setSavedCases(localCases);
   }
@@ -795,6 +828,7 @@ export default function SearchBar() {
   ) {
     setCaseSyncLoading(true);
     setError("");
+    setSavedCases(loadLocalSavedCases(activeUser.id));
 
     try {
       if (localCasesForMigration.length > 0) {
@@ -811,7 +845,7 @@ export default function SearchBar() {
       );
 
       setSavedCases(remoteCases);
-      saveCasesToLocalStorage(remoteCases);
+      saveCasesToLocalStorage(remoteCases, activeUser.id);
       setCaseStorageSource("supabase");
 
       if (localCasesForMigration.length > 0) {
@@ -832,7 +866,7 @@ export default function SearchBar() {
       setError(
         "Supabase-Fallhistorie konnte nicht geladen werden. Lokale Fälle bleiben verfuegbar.",
       );
-      loadLocalSavedCasesIntoState();
+      loadLocalSavedCasesIntoState(activeUser.id);
     } finally {
       setCaseSyncLoading(false);
     }
@@ -863,7 +897,7 @@ export default function SearchBar() {
       return;
     }
 
-    await loadCasesForAuthenticatedUser(user, loadLocalSavedCases());
+    await loadCasesForAuthenticatedUser(user, loadLocalSavedCases(user.id));
   }
 
   function changeUserPlan(nextPlan: UserPlan) {
@@ -1114,7 +1148,7 @@ Antwortformat exakt:
     setOpenedCaseId(null);
     setError("");
     shouldAutoScrollRef.current = false;
-    localStorage.removeItem(STORAGE_KEY);
+    removeAccountScopedLocalStorage(STORAGE_KEY, user?.id);
   }
 
   async function saveCurrentCase() {
@@ -1194,7 +1228,7 @@ Antwortformat exakt:
 
     setSavedCases(updatedSavedCases);
     setOpenedCaseId(persistedCase.id);
-    saveCasesToLocalStorage(updatedSavedCases);
+    saveCasesToLocalStorage(updatedSavedCases, user?.id);
 
     setSaveSuccess(true);
     setCopySuccess(false);
@@ -1251,7 +1285,7 @@ Antwortformat exakt:
     );
 
     setSavedCases(updatedSavedCases);
-    saveCasesToLocalStorage(updatedSavedCases);
+    saveCasesToLocalStorage(updatedSavedCases, user?.id);
 
     if (openedCaseId === caseId) {
       setOpenedCaseId(null);

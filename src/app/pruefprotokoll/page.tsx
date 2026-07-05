@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/client";
+import { readAccountScopedLocalStorage } from "@/services/accountScopedStorage";
 import {
   PLAN_CONFIG,
   hasPremiumAccess as hasPlanPremiumAccess,
@@ -650,13 +652,13 @@ export default function PrüfprotokollPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    loadCurrentCase();
     void loadPlanAndWorkshopData();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, nextSession: Session | null) => {
+        loadCurrentCase(nextSession?.user.id ?? null);
         await loadPlanAndWorkshopData(nextSession);
       }
     );
@@ -666,9 +668,12 @@ export default function PrüfprotokollPage() {
     };
   }, [supabase]);
 
-  function loadCurrentCase() {
+  function loadCurrentCase(userId?: string | null) {
     try {
-      const savedCurrentCase = localStorage.getItem(CURRENT_CASE_STORAGE_KEY);
+      const savedCurrentCase = readAccountScopedLocalStorage(
+        CURRENT_CASE_STORAGE_KEY,
+        userId
+      );
 
       if (!savedCurrentCase) {
         setCurrentCase(null);
@@ -706,6 +711,8 @@ export default function PrüfprotokollPage() {
         existingSession ??
         (await supabase.auth.getSession()).data.session ??
         null;
+
+      loadCurrentCase(session?.user.id ?? null);
 
       const profileState = await loadWorkshopProfileState(
         supabase,
@@ -772,12 +779,12 @@ export default function PrüfprotokollPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <a
+            <Link
               href="/#diagnose"
               className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
             >
               Zur Diagnose
-            </a>
+            </Link>
 
             <button
               onClick={() => window.print()}
@@ -803,12 +810,12 @@ export default function PrüfprotokollPage() {
               Danach kann DiagnoseHUB daraus ein Prüfprotokoll erstellen.
             </p>
 
-            <a
+            <Link
               href="/#diagnose"
               className="mt-6 inline-flex rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
             >
               Diagnose starten
-            </a>
+            </Link>
           </section>
         ) : (
           <article className="print-area space-y-8 rounded-[2rem] border border-slate-800 bg-slate-950 p-6 shadow-2xl shadow-blue-950/30 print:border-0 print:bg-white print:p-0 print:text-black print:shadow-none">

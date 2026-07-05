@@ -1,10 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/client";
+import {
+  readAccountScopedLocalStorage,
+  removeAccountScopedLocalStorage,
+  writeAccountScopedLocalStorage,
+} from "@/services/accountScopedStorage";
 import {
   deleteDiagnosisCaseFromSupabase,
   loadDiagnosisCasesFromSupabase,
@@ -106,9 +112,12 @@ function getLocalWorkshopData(): WorkshopData {
   return readLocalWorkshopProfileState();
 }
 
-function loadLocalDiagnosisCases(): SavedDiagnosisCase[] {
+function loadLocalDiagnosisCases(userId?: string | null): SavedDiagnosisCase[] {
   try {
-    const savedCases = localStorage.getItem(SAVED_CASES_STORAGE_KEY);
+    const savedCases = readAccountScopedLocalStorage(
+      SAVED_CASES_STORAGE_KEY,
+      userId
+    );
 
     if (!savedCases) {
       return [];
@@ -127,8 +136,15 @@ function loadLocalDiagnosisCases(): SavedDiagnosisCase[] {
   }
 }
 
-function saveDiagnosisCasesToLocalStorage(cases: SavedDiagnosisCase[]) {
-  localStorage.setItem(SAVED_CASES_STORAGE_KEY, JSON.stringify(cases));
+function saveDiagnosisCasesToLocalStorage(
+  cases: SavedDiagnosisCase[],
+  userId?: string | null
+) {
+  writeAccountScopedLocalStorage(
+    SAVED_CASES_STORAGE_KEY,
+    JSON.stringify(cases),
+    userId
+  );
 }
 
 function loadLocalDiagnosisUsage(): DiagnosisUsage {
@@ -307,19 +323,19 @@ function LoginRequired() {
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            <a
+            <Link
               href="/login"
               className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500"
             >
               Zum Login
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/#diagnose"
               className="rounded-xl border border-slate-700 px-6 py-3 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
             >
               Zur Diagnose
-            </a>
+            </Link>
           </div>
         </section>
       </main>
@@ -521,9 +537,10 @@ export default function DashboardPage() {
 
   async function loadSupabaseCases(currentUser: User, migrateLocal: boolean) {
     setCaseLoading(true);
+    setDiagnosisCases(loadLocalDiagnosisCases(currentUser.id));
 
     try {
-      const localCases = loadLocalDiagnosisCases();
+      const localCases = loadLocalDiagnosisCases(currentUser.id);
 
       if (migrateLocal && localCases.length > 0) {
         await migrateLocalDiagnosisCasesToSupabase(
@@ -539,7 +556,7 @@ export default function DashboardPage() {
       );
 
       setDiagnosisCases(remoteCases);
-      saveDiagnosisCasesToLocalStorage(remoteCases);
+      saveDiagnosisCasesToLocalStorage(remoteCases, currentUser.id);
       setCaseSource("supabase");
     } catch (error) {
       console.error("Diagnosefälle konnten nicht geladen werden:", error);
@@ -549,7 +566,7 @@ export default function DashboardPage() {
         )}`
       );
 
-      const localCases = loadLocalDiagnosisCases();
+      const localCases = loadLocalDiagnosisCases(currentUser.id);
 
       setDiagnosisCases(localCases);
       setCaseSource("local");
@@ -716,9 +733,12 @@ export default function DashboardPage() {
       });
 
       setDiagnosisCases(updatedCases);
-      saveDiagnosisCasesToLocalStorage(updatedCases);
+      saveDiagnosisCasesToLocalStorage(updatedCases, user?.id);
 
-      const currentCaseRaw = localStorage.getItem(CURRENT_CASE_STORAGE_KEY);
+      const currentCaseRaw = readAccountScopedLocalStorage(
+        CURRENT_CASE_STORAGE_KEY,
+        user?.id
+      );
 
       if (currentCaseRaw) {
         try {
@@ -727,10 +747,10 @@ export default function DashboardPage() {
           };
 
           if (currentCase.openedCaseId === caseId) {
-            localStorage.removeItem(CURRENT_CASE_STORAGE_KEY);
+            removeAccountScopedLocalStorage(CURRENT_CASE_STORAGE_KEY, user?.id);
           }
         } catch {
-          localStorage.removeItem(CURRENT_CASE_STORAGE_KEY);
+          removeAccountScopedLocalStorage(CURRENT_CASE_STORAGE_KEY, user?.id);
         }
       }
 
@@ -772,7 +792,7 @@ export default function DashboardPage() {
     savedCase: SavedDiagnosisCase,
     target: "diagnose" | "protocol"
   ) {
-    localStorage.setItem(
+    writeAccountScopedLocalStorage(
       CURRENT_CASE_STORAGE_KEY,
       JSON.stringify({
         messages: savedCase.messages,
@@ -780,7 +800,8 @@ export default function DashboardPage() {
         faultCodeContext: savedCase.faultCodeContext,
         qualityCheck: savedCase.qualityCheck,
         openedCaseId: savedCase.id,
-      })
+      }),
+      user?.id
     );
 
     if (target === "protocol") {
@@ -792,7 +813,7 @@ export default function DashboardPage() {
   }
 
   function clearCurrentCase() {
-    localStorage.removeItem(CURRENT_CASE_STORAGE_KEY);
+    removeAccountScopedLocalStorage(CURRENT_CASE_STORAGE_KEY, user?.id);
     setSuccess("Aktuell geöffneter Diagnosefall wurde zurückgesetzt.");
     setError("");
   }
@@ -1094,12 +1115,12 @@ export default function DashboardPage() {
                   Lokale Fälle migrieren
                 </button>
 
-                <a
+                <Link
                   href="/#diagnose"
                   className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500"
                 >
                   Neuen Fall starten
-                </a>
+                </Link>
               </>
             }
           >
