@@ -27,6 +27,18 @@ const productLinks = [
 
 const infoLinks = [
   {
+    label: "Azubis",
+    href: "/azubis",
+  },
+  {
+    label: "Schulen",
+    href: "/schulen",
+  },
+  {
+    label: "Werkstätten",
+    href: "/werkstaetten",
+  },
+  {
     label: "Ablauf",
     href: "/#workflow",
   },

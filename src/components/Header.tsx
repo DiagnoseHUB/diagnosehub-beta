@@ -21,6 +21,9 @@ type AccountSource = "none" | "localStorage" | "supabase";
 
 const navigationLinks = [
   { label: "KI-Diagnose", href: "/#diagnose" },
+  { label: "Azubis", href: "/azubis" },
+  { label: "Schulen", href: "/schulen" },
+  { label: "Werkstätten", href: "/werkstaetten" },
   { label: "Lernen", href: "/lernen" },
   { label: "Service", href: "/service-erinnerung" },
   { label: "Preise", href: "/preise" },
@@ -234,7 +237,7 @@ function Header() {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-7 text-sm font-medium text-slate-700 transition-colors dark:text-slate-300 lg:flex">
+          <nav className="hidden items-center gap-4 text-sm font-medium text-slate-700 transition-colors dark:text-slate-300 xl:gap-6 lg:flex">
             {navigationLinks.map((link) => (
               <Link
                 key={link.href}

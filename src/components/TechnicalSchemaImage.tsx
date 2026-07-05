@@ -25,7 +25,7 @@ type SchemaImageApiResponse = {
 };
 
 const SCHEMA_IMAGE_CACHE_NAME = "diagnosehub-schema-images-v1";
-const SCHEMA_IMAGE_PROMPT_VERSION = "diagnostic-board-v6";
+const SCHEMA_IMAGE_PROMPT_VERSION = "diagnostic-board-v8";
 
 const MARKER_LEGEND = [
   {
@@ -206,7 +206,7 @@ export default function TechnicalSchemaImage({
   const generationKey = `${SCHEMA_IMAGE_PROMPT_VERSION}:${context}:${title}:${subject}:${cleanedDetails}`;
   const canGenerate = subject.trim().length >= 2 || cleanedDetails.length >= 8;
 
-  const generateSchemaImage = useCallback(async () => {
+  const generateSchemaImage = useCallback(async (forceNew = false) => {
     if (!canGenerate || loading) {
       return;
     }
@@ -217,7 +217,9 @@ export default function TechnicalSchemaImage({
 
     try {
       const cacheKey = await createCacheKey(generationKey);
-      const cachedImage = await loadCachedSchemaImage(cacheKey);
+      const cachedImage = forceNew
+        ? null
+        : await loadCachedSchemaImage(cacheKey);
 
       if (cachedImage?.imageUrl) {
         setImageUrl(cachedImage.imageUrl);
@@ -282,6 +284,10 @@ export default function TechnicalSchemaImage({
     title,
   ]);
 
+  const handleGenerateClick = useCallback(() => {
+    void generateSchemaImage(Boolean(imageUrl || cacheStatus));
+  }, [cacheStatus, generateSchemaImage, imageUrl]);
+
   useEffect(() => {
     if (!autoGenerate || !canGenerate || generatedKeyRef.current === generationKey) {
       return;
@@ -317,11 +323,15 @@ export default function TechnicalSchemaImage({
 
         <button
           type="button"
-          onClick={() => void generateSchemaImage()}
+          onClick={handleGenerateClick}
           disabled={!canGenerate || loading}
           className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? "Schema wird erzeugt..." : getActionLabel(context)}
+          {loading
+            ? "Schema wird erzeugt..."
+            : imageUrl
+              ? "Schema neu erzeugen"
+              : getActionLabel(context)}
         </button>
       </div>
 
