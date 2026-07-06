@@ -102,7 +102,7 @@ function DiagnosticScene({
       <div className="absolute right-[7%] top-[18%] w-[28rem] max-w-[42vw]">
         <div className={`rounded-3xl border p-5 backdrop-blur ${styles.panel}`}>
           <p className="text-xs font-black uppercase tracking-[0.3em]">
-            DiagnoseHUB Schema
+            DiagnoseHUB Ablauf
           </p>
           <p className="mt-3 text-2xl font-black text-white">{title}</p>
           <div className="mt-5 grid gap-3">

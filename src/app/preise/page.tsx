@@ -65,7 +65,7 @@ const plans: PricePlan[] = [
       "150 Diagnosefälle pro Monat",
       "Folgefragen zählen mit",
       "150 gespeicherte Fälle",
-      "Technische Prüfpläne und Diagnosebilder",
+      "Technische Prüfpläne und Fallstruktur",
       "Kein Bauteilwissen und kein Lernportal",
     ],
     cta: "Diagnose 150 aktivieren",
@@ -137,7 +137,7 @@ const plans: PricePlan[] = [
 const comparisonItems = [
   {
     title: "Nur Diagnose",
-    text: "Diagnose 150 passt, wenn Fälle, Prüfpläne und Schema-Bilder im Mittelpunkt stehen.",
+    text: "Diagnose 150 passt, wenn Fälle, Prüfpläne und eine saubere Fallstruktur im Mittelpunkt stehen.",
   },
   {
     title: "Alles in einem",

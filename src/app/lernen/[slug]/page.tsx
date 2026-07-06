@@ -5,7 +5,6 @@ import Header from "@/components/Header";
 import LearningLessonList from "@/components/LearningLessonList";
 import LearningLessonProgress from "@/components/LearningLessonProgress";
 import PlanAccessGate from "@/components/PlanAccessGate";
-import TechnicalSchemaImage from "@/components/TechnicalSchemaImage";
 import {
   loadLearningLessonBySlug,
   loadLearningModuleBySlug,
@@ -184,22 +183,6 @@ function ModulePage({ detail }: { detail: LearningModuleDetail }) {
 
           {hasAccess && (
             <PlanAccessGate feature="learning">
-              <TechnicalSchemaImage
-                context="learning"
-                title={module.title}
-                subject={module.title}
-                details={[
-                  module.subtitle,
-                  module.description,
-                  ...module.tags,
-                  ...module.relatedFaultCodes,
-                  ...module.relatedParts,
-                  ...module.relatedSystems,
-                  ...lessons.map((lesson) => lesson.title),
-                ].join(" ")}
-                className="mt-6"
-              />
-
               <section className="mt-8">
                 <h2 className="text-2xl font-black text-slate-950 dark:text-slate-100">
                   Lektionen
@@ -302,22 +285,6 @@ function LessonPage({ detail }: { detail: LearningLessonDetail }) {
                   difficulty: lesson.difficulty,
                 }}
                 estimatedMinutes={lesson.estimatedMinutes}
-              />
-
-              <TechnicalSchemaImage
-                context="learning"
-                title={lesson.title}
-                subject={lesson.title}
-                details={[
-                  lesson.summary,
-                  ...lesson.contentBlocks.flatMap((block) => [
-                    block.title || "",
-                    block.content || "",
-                    ...(block.items || []),
-                  ]),
-                  ...lesson.checklist,
-                ].join(" ")}
-                className="mt-8"
               />
 
               <section className="mt-8 space-y-5">

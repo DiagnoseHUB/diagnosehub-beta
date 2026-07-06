@@ -40,7 +40,7 @@ export default function SchulenLandingPage() {
         {
           title: "Sichtbare Prüfpunkte",
           description:
-            "Schema-Grafiken zeigen, wo geprüft wird und welche Reihenfolge fachlich sinnvoll ist.",
+            "Prüfpläne zeigen, wo geprüft wird und welche Reihenfolge fachlich sinnvoll ist.",
         },
       ]}
       workflow={[

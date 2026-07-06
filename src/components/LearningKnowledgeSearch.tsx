@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import TechnicalSchemaImage from "@/components/TechnicalSchemaImage";
 import { createClient } from "@/lib/supabase/client";
 
 const EXAMPLES = [
@@ -186,19 +185,9 @@ export default function LearningKnowledgeSearch() {
               <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
             </div>
           ) : (
-            <>
-              <div className="whitespace-pre-wrap text-sm leading-7 text-slate-800">
-                {answer}
-              </div>
-
-              <TechnicalSchemaImage
-                context="learning"
-                title={lastQuery || query}
-                subject={lastQuery || query}
-                details={answer}
-                className="mt-6"
-              />
-            </>
+            <div className="whitespace-pre-wrap text-sm leading-7 text-slate-800">
+              {answer}
+            </div>
           )}
         </div>
       )}

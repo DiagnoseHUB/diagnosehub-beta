@@ -67,7 +67,7 @@ export default function WerkstaettenLandingPage() {
       comparisonItems={[
         "Schneller Einstieg in unbekannte Fehlerbilder, ohne sofort Teile zu tauschen.",
         "Strukturierte Prüfpunkte für Elektrik, Sensorik, Ladedruck, DPF, Klima, Bremse und Fahrwerk.",
-        "Technische Schema-Bilder zeigen Prüforte und Reihenfolge statt nur Systemübersichten.",
+        "Strukturierte Prüfpläne zeigen Prüforte, Reihenfolge und nächste Entscheidung.",
         "Fallhistorie und Prüfprotokoll unterstützen interne Dokumentation und Kundengespräch.",
       ]}
       closingTitle="Aus Fehlercode und Symptom wird ein prüfbarer Ablauf."

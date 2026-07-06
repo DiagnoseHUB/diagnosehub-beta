@@ -9,7 +9,6 @@ import {
 } from "react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import RelatedLearningPanel from "@/components/RelatedLearningPanel";
-import TechnicalSchemaImage from "@/components/TechnicalSchemaImage";
 import { createClient } from "@/lib/supabase/client";
 import {
   readAccountScopedLocalStorage,
@@ -410,21 +409,6 @@ function getCaseTitle(messages: ChatMessage[]) {
   }
 
   return `${cleanTitle.slice(0, 70)}...`;
-}
-
-function getSchemaSubjectForAssistantMessage(
-  messages: ChatMessage[],
-  assistantIndex: number,
-) {
-  for (let index = assistantIndex - 1; index >= 0; index -= 1) {
-    if (messages[index].role === "user") {
-      const content = messages[index].content.replace(/\s+/g, " ").trim();
-
-      return content.length > 120 ? `${content.slice(0, 120)}...` : content;
-    }
-  }
-
-  return getCaseTitle(messages);
 }
 
 function formatDateTime(value: string) {
@@ -1711,21 +1695,7 @@ ${chatText}
               </div>
 
               {message.role === "assistant" ? (
-                <>
-                  <AssistantAnswer content={message.content} />
-
-                  <TechnicalSchemaImage
-                    context="diagnosis"
-                    title="Diagnose-Schema"
-                    subject={getSchemaSubjectForAssistantMessage(
-                      messages,
-                      index,
-                    )}
-                    details={message.content}
-                    autoGenerate={index === latestAssistantMessageIndex}
-                    className="mt-5"
-                  />
-                </>
+                <AssistantAnswer content={message.content} />
               ) : (
                 <div className="whitespace-pre-wrap leading-8">
                   {message.content}

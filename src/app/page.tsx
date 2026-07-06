@@ -37,9 +37,9 @@ const featureCards = [
       "Strukturierte technische Einschätzung aus Fehlerbild, Fehlercode, Symptomen und Messwerten.",
   },
   {
-    title: "Schema-Bilder",
+    title: "Prüfpläne",
     description:
-      "Prüfpunktorientierte Werkstatt-Grafiken mit Markern, Messpunkten und Entscheidungspfad.",
+      "Prüfpunktorientierte Diagnoseabläufe mit Messpunkten, Prioritäten und Entscheidungspfad.",
   },
   {
     title: "Lernportal",

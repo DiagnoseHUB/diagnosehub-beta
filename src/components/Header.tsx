@@ -44,6 +44,25 @@ function getErrorMessage(error: unknown) {
   return "Unbekannter Fehler";
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string) {
+  let timeoutId: number | null = null;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`${label} dauerte zu lange.`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([
+    promise.finally(() => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    }),
+    timeoutPromise,
+  ]);
+}
+
 function Header() {
   const supabase = useMemo(() => createClient(), []);
 
@@ -112,19 +131,25 @@ function Header() {
     try {
       applyLocalFallback();
 
-      const session =
-        existingSession ??
-        (await supabase.auth.getSession()).data.session ??
-        null;
+      const sessionResult = existingSession
+        ? null
+        : await withTimeout(
+            supabase.auth.getSession(),
+            3500,
+            "Supabase-Session"
+          );
+
+      const session = existingSession ?? sessionResult?.data.session ?? null;
 
       if (!session?.user) {
         setAccountLoading(false);
         return;
       }
 
-      const profile = await loadWorkshopProfileFromSupabase(
-        supabase,
-        session.user
+      const profile = await withTimeout(
+        loadWorkshopProfileFromSupabase(supabase, session.user),
+        4500,
+        "Supabase-Profil"
       );
 
       if (!profile) {
@@ -187,14 +212,12 @@ function Header() {
     }
 
     window.addEventListener("storage", handleAccountChange);
-    window.addEventListener("focus", handleAccountChange);
     window.addEventListener("diagnosehub-account-updated", handleAccountChange);
 
     return () => {
       window.clearTimeout(initialLoadId);
       subscription.unsubscribe();
       window.removeEventListener("storage", handleAccountChange);
-      window.removeEventListener("focus", handleAccountChange);
       window.removeEventListener(
         "diagnosehub-account-updated",
         handleAccountChange

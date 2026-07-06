@@ -12,7 +12,6 @@ import { useSearchParams } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import InstructionCard from "../../components/InstructionCard";
-import TechnicalSchemaImage from "@/components/TechnicalSchemaImage";
 import { instructions } from "../../data/instructions";
 import type {
   InstructionCategory,
@@ -712,20 +711,6 @@ function GeneratedInstructionPanel({
           </>
         )}
       </div>
-
-      <TechnicalSchemaImage
-        context="instruction"
-        title={instruction.title}
-        subject={instruction.title}
-        details={[
-          instruction.subtitle,
-          instruction.vehicleApplicability,
-          ...instruction.initialChecks,
-          ...instruction.steps.map((step) => step.title),
-          ...instruction.commonCauses,
-        ].join(" ")}
-        className="mb-6"
-      />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <GeneratedBox title="Symptome" items={instruction.symptoms} />

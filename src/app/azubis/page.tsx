@@ -68,7 +68,7 @@ export default function AzubisLandingPage() {
         "Hilft beim Formulieren von fachlichen Antworten in Prüfungs- und Fallaufgaben.",
         "Verbindet Theorie aus der Schule mit realen Symptomen und Messwerten.",
         "Zeigt typische Denkfehler, zum Beispiel Teiletausch ohne vorherige Prüfung.",
-        "Macht technische Schemabilder und Marker nutzbar, damit Prüfpunkte leichter hängen bleiben.",
+        "Macht Prüfpunkte, Messwerte und Entscheidungen greifbar, damit Diagnosewege leichter hängen bleiben.",
       ]}
       closingTitle="Starte mit echten Fällen statt trockenen Stichwortlisten."
       closingText="Für Azubis ist vor allem der Komplett-Zugang sinnvoll, weil Diagnose, Lernportal, Bauteilwissen und Prüfungsmodus zusammenkommen."
