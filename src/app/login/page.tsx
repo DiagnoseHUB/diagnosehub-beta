@@ -651,7 +651,7 @@ export default function LoginPage() {
     setSuccess("");
 
     if (!user) {
-      setError("Bitte zuerst mit Supabase einloggen.");
+      setError("Bitte zuerst einloggen.");
       return;
     }
 
@@ -666,7 +666,7 @@ export default function LoginPage() {
     }
 
     if (!authUserEmail || !authUserEmail.includes("@")) {
-      setError("Keine gültige Supabase-E-Mail gefunden.");
+      setError("Keine gültige E-Mail-Adresse gefunden.");
       return;
     }
 
@@ -705,7 +705,7 @@ export default function LoginPage() {
     }
 
     const confirmed = window.confirm(
-      "Nutzerprofil wirklich aus Supabase löschen? Der Login-Account bleibt bestehen."
+      "Nutzerprofil wirklich löschen? Der Login-Account bleibt bestehen."
     );
 
     if (!confirmed) {
@@ -727,7 +727,7 @@ export default function LoginPage() {
       clearLocalWorkshopProfileState();
       notifyWorkshopProfileChanged();
 
-      showSuccess("Nutzerprofil wurde aus Supabase gelöscht.");
+      showSuccess("Nutzerprofil wurde gelöscht.");
     } catch (error) {
       setError(
         `Nutzerprofil konnte nicht gelöscht werden: ${getErrorMessage(error)}`
@@ -809,7 +809,7 @@ export default function LoginPage() {
               {user ? (
                 <div className="mt-5 space-y-3 text-slate-600 dark:text-slate-300">
                   <p>
-                    Supabase E-Mail:{" "}
+                    E-Mail:{" "}
                     <span className="font-semibold text-slate-950 dark:text-white">
                       {user.email}
                     </span>
@@ -854,14 +854,14 @@ export default function LoginPage() {
                     </>
                   ) : (
                     <p className="text-yellow-700 dark:text-yellow-300">
-                      Noch kein Nutzerprofil in Supabase gespeichert.
+                      Noch kein Nutzerprofil gespeichert.
                     </p>
                   )}
                 </div>
               ) : (
                 <p className="mt-4 leading-7 text-slate-600 dark:text-slate-300">
                   Noch nicht eingeloggt. Registriere dich oder melde dich mit
-                  einem bestehenden Supabase-Account an.
+                  einem bestehenden Account an.
                 </p>
               )}
 
@@ -889,8 +889,8 @@ export default function LoginPage() {
 
               <p className="mt-3 leading-7 text-slate-700 dark:text-slate-300">
                 Nutzerprofil, Diagnosefälle und Nutzungszähler sind für
-                eingeloggte Nutzer an Supabase angebunden. Lokale Daten bleiben
-                nur als Fallback und für Migration erhalten.
+                eingeloggte Nutzer mit deinem Konto verbunden. Lokale Daten bleiben
+                nur als Fallback und für die Übernahme erhalten.
               </p>
             </div>
 
@@ -1100,7 +1100,7 @@ export default function LoginPage() {
               {user && (
                 <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5 dark:border-green-500/30 dark:bg-green-500/10">
                   <p className="font-bold text-green-700 dark:text-green-300">
-                    Supabase-Session aktiv
+                    Anmeldung aktiv
                   </p>
 
                   <p className="mt-2 leading-7 text-slate-700 dark:text-slate-300">
@@ -1296,7 +1296,7 @@ export default function LoginPage() {
                   disabled={!user || profileLoading || !databaseProfile}
                   className="rounded-2xl border border-red-200 bg-white px-6 py-4 font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-500/10"
                 >
-                  Profil aus Supabase löschen
+                  Profil löschen
                 </button>
               </div>
 

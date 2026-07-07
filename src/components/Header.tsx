@@ -122,7 +122,7 @@ function Header() {
         : await withTimeout(
             supabase.auth.getSession(),
             3500,
-            "Supabase-Session"
+            "Anmeldung"
           );
 
       const session = existingSession ?? sessionResult?.data.session ?? null;
@@ -135,7 +135,7 @@ function Header() {
       const profile = await withTimeout(
         loadWorkshopProfileFromSupabase(supabase, session.user),
         4500,
-        "Supabase-Profil"
+        "Profil"
       );
 
       if (!profile) {

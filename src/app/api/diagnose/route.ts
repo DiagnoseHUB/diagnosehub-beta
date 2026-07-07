@@ -16,6 +16,11 @@ import {
   type FaultCodeContext,
 } from "../../../services/faultCodeDatabase";
 import {
+  detectTechnicalSpecContext,
+  formatTechnicalSpecContext,
+  type TechnicalSpecContext,
+} from "../../../services/technicalSpecs";
+import {
   PLAN_DAILY_LIMITS,
   PLAN_LABELS,
   isValidUserPlan,
@@ -205,11 +210,11 @@ async function loadUserFromAccessToken(
   const { data, error } = await supabase.auth.getUser(accessToken);
 
   if (error) {
-    throw new Error(`Supabase-Session ungültig: ${error.message}`);
+    throw new Error(`Anmeldung ungültig: ${error.message}`);
   }
 
   if (!data.user) {
-    throw new Error("Keine gültige Supabase-Session gefunden.");
+    throw new Error("Keine gültige Anmeldung gefunden.");
   }
 
   return data.user;
@@ -308,7 +313,7 @@ async function resolveUsageControl(
 
   if (!accessToken) {
     throw new Error(
-      "Für serverseitige Plan-Limits fehlt der Supabase-Zugriffstoken."
+      "Für serverseitige Plan-Limits fehlt der Zugriffstoken."
     );
   }
 
@@ -544,6 +549,7 @@ Risiko höher gewichten: Bremsen, Airbag, Hochvolt, Kraftstoff, Steuerzeiten, Le
 
 Pflichtinhalt Hobby-Modus:
 - Fehlercode: Was bedeutet der Code normalsprachlich? Welche Systeme sind betroffen?
+- Soll-/Richtwerte: immer angeben, wenn interne Werte zum Fall erkannt wurden.
 - Selbst machbar?: Ja, nein oder eingeschränkt, mit Begründung.
 - Schwierigkeit: Einfach, mittel, schwer oder Profi.
 - Werkzeug: Grundwerkzeug, Spezialwerkzeug, Diagnosegerät, Hebebühne nötig?
@@ -554,6 +560,7 @@ Pflichtinhalt Hobby-Modus:
 
 Antwortformat Hobby-Modus:
 # Fehlercode
+# Soll-/Richtwerte
 # Selbst machbar?
 # Schwierigkeit
 # Werkzeug
@@ -571,6 +578,7 @@ Fokus: Diagnosepfad, Messlogik, Plausibilität und nächster Arbeitsschritt.
 
 Pflichtinhalt Werkstatt-Modus:
 - Diagnosepfad: Symptom -> mögliche Ursachen -> Prüfungen -> Messwerte -> Entscheidung.
+- Soll-/Richtwerte: erkannte Werte immer nennen und in die Messwertlogik einbauen.
 - Arbeitswerte/Teile: nur wenn sicher; sonst "als interne Daten/Herstellerdaten ergänzen" schreiben.
 - Spezialwerkzeug: klar benennen, wenn nötig; keine erfundenen Werkzeugnummern.
 - Typische Fehler: Fehldiagnosen, bekannte Schwachstellen, Plausibilitätschecks.
@@ -579,6 +587,7 @@ Pflichtinhalt Werkstatt-Modus:
 Antwortformat Werkstatt-Modus:
 # Diagnosepfad
 # Mögliche Ursachen
+# Soll-/Richtwerte
 # Prüfungen und Messwerte
 # Entscheidung
 # Spezialwerkzeug / Teile
@@ -590,6 +599,7 @@ Antwortformat Werkstatt-Modus:
 function buildSystemPrompt(
   engineContext: EngineContext,
   faultCodeContext: FaultCodeContext,
+  technicalSpecContext: TechnicalSpecContext,
   audienceMode: DiagnosisAudienceMode,
   retryWarning?: string
 ) {
@@ -658,6 +668,9 @@ ${engineContext.notes ?? "Kein Zusatzhinweis vorhanden."}
 Erkannte Fehlercodes aus interner Datenbank:
 ${formatFaultCodeContext(faultCodeContext)}
 
+Generische Soll-/Richtwerte aus interner Datenbank:
+${formatTechnicalSpecContext(technicalSpecContext)}
+
 ${retryWarning ?? ""}
 
 Motortyp-Regeln:
@@ -679,6 +692,14 @@ Unbekannter Motortyp:
 Fehlercode-Regel:
 - Erkannte Fehlercodes aus der internen Datenbank vorrangig nutzen.
 - Unbekannte Fehlercodes nicht sicher erklären. Dann Testertext anfordern.
+
+Sollwerte-Regel:
+- Erkannte Soll-/Richtwerte aus der internen generischen Datenbank immer sichtbar nennen, wenn sie zum Fall passen.
+- Die Soll-/Richtwerte in einem eigenen Abschnitt "# Soll-/Richtwerte" oder direkt im Abschnitt "Prüfungen und Messwerte" mit angeben.
+- Diese Werte als Richtwerte kennzeichnen, wenn Fahrzeugdaten fehlen.
+- Exakte Herstellerdaten, Sicherungsnummern, Pinbelegungen, Drehmomente oder Spezialvorgaben nicht erfinden.
+- Wenn keine passenden Werte vorhanden sind, kurz schreiben: "Keine passenden Sollwerte hinterlegt."
+- Wenn Modell, Baujahr, Motorcode, Lampentyp oder Systemvariante fehlen, kurz sagen, welche Daten die Antwort genauer machen.
 
 Antwortformat-Fallback bei normaler Diagnose:
 Verwende zwingend das Antwortformat des aktiven Ausgabemodus.
@@ -739,9 +760,55 @@ Antwortformat bei kurzer Folgefrage:
 `;
 }
 
+function buildAutomaticTechnicalSpecBlock(
+  technicalSpecContext: TechnicalSpecContext
+) {
+  if (technicalSpecContext.foundSpecs.length === 0) {
+    return "";
+  }
+
+  const specs = technicalSpecContext.foundSpecs
+    .map((spec) => {
+      const values = spec.values
+        .map((value) => {
+          const note = value.note ? ` Hinweis: ${value.note}` : "";
+
+          return `- ${value.label}: ${value.value} (${value.condition}).${note}`;
+        })
+        .join("\n");
+
+      return `**${spec.title}** (${spec.category})
+${values}`;
+    })
+    .join("\n\n");
+
+  return `# Soll-/Richtwerte
+${specs}
+
+Hinweis: Das sind interne generische Richtwerte. Exakte Herstellerdaten, Drehmomente, Pinbelegungen, Sicherungsnummern und Spezialvorgaben bleiben fahrzeugabhängig.`;
+}
+
+function appendAutomaticTechnicalSpecBlock(
+  answer: string,
+  technicalSpecContext: TechnicalSpecContext
+) {
+  const technicalSpecBlock = buildAutomaticTechnicalSpecBlock(
+    technicalSpecContext
+  );
+
+  if (!technicalSpecBlock) {
+    return answer;
+  }
+
+  return `${answer}
+
+${technicalSpecBlock}`;
+}
+
 async function createDiagnosisAnswer(
   engineContext: EngineContext,
   faultCodeContext: FaultCodeContext,
+  technicalSpecContext: TechnicalSpecContext,
   messages: ChatMessage[],
   input: string,
   audienceMode: DiagnosisAudienceMode,
@@ -768,6 +835,7 @@ async function createDiagnosisAnswer(
         content: buildSystemPrompt(
           engineContext,
           faultCodeContext,
+          technicalSpecContext,
           audienceMode,
           retryWarning
         ),
@@ -801,6 +869,7 @@ ${input}
       return createDiagnosisAnswer(
         engineContext,
         faultCodeContext,
+        technicalSpecContext,
         messages,
         input,
         audienceMode,
@@ -878,10 +947,12 @@ export async function POST(request: Request) {
     )}\n\nAktuelle Eingabe: ${input}`;
     const engineContext = detectEngineContext(combinedContext);
     const faultCodeContext = detectFaultCodeContext(combinedContext);
+    const technicalSpecContext = detectTechnicalSpecContext(combinedContext);
 
     let result = await createDiagnosisAnswer(
       engineContext,
       faultCodeContext,
+      technicalSpecContext,
       messages,
       input,
       audienceMode
@@ -897,6 +968,7 @@ export async function POST(request: Request) {
         result = await createDiagnosisAnswer(
           engineContext,
           faultCodeContext,
+          technicalSpecContext,
           messages,
           input,
           audienceMode,
@@ -912,6 +984,8 @@ Bei Benziner keine Glühkerzen oder Glühsteuergerät als Ursache oder Prüfpunk
           "Technischer Konflikt erkannt. Automatische Neugenerierung ist deaktiviert, um Kosten zu sparen.";
       }
     }
+
+    result = appendAutomaticTechnicalSpecBlock(result, technicalSpecContext);
 
     let countAfter: number | null = null;
     let usageWarning: string | undefined;
@@ -938,6 +1012,7 @@ Bei Benziner keine Glühkerzen oder Glühsteuergerät als Ursache oder Prüfpunk
       result,
       engineContext,
       faultCodeContext,
+      technicalSpecContext,
       qualityCheck,
       diagnosisConfig: {
         model: getDiagnosisModel(),

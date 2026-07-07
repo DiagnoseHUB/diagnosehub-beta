@@ -26,11 +26,9 @@ function formatDate(value: string) {
 }
 
 function getAccessTitle(access?: DeviceAccessResponse) {
-  if (access?.accountType === "workshop") {
-    return "Gerätelimit für Werkstattkonto erreicht";
-  }
-
-  return "Gerätelimit für privates Konto erreicht";
+  return access?.maxDevices
+    ? `Limit von ${access.maxDevices} aktiven Geräten/Sessions erreicht`
+    : "Gerätelimit für Account erreicht";
 }
 
 export default function DeviceAccessGuard() {
@@ -148,7 +146,7 @@ export default function DeviceAccessGuard() {
         <p className="mt-4 leading-7 text-slate-600 dark:text-slate-300">
           {guardState.message}
           {access &&
-            ` Erlaubt sind ${access.maxDevices} Geräte. Entferne ein altes Gerät oder melde dich mit einem anderen Konto an.`}
+            ` Erlaubt sind ${access.maxDevices} aktive Geräte/Sessions pro Account. Entferne ein altes Gerät oder melde dich mit einem anderen Konto an.`}
         </p>
 
         {devices.length > 0 && (

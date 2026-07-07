@@ -45,12 +45,12 @@ const legacyUsageStorageKeys = [
 
 const dataSourceLabels: Record<DataSource, string> = {
   local: "Lokal",
-  supabase: "Supabase",
+  supabase: "Online",
 };
 
 const profileSourceLabels: Record<ProfileSource, string> = {
   localStorage: "Lokaler Fallback",
-  supabase: "Supabase Datenbank",
+  supabase: "Online-Profil",
   fallback: "Fallback",
 };
 
@@ -277,9 +277,9 @@ function LoginRequired() {
           </h1>
 
           <p className="mt-5 max-w-3xl leading-8 text-slate-600 dark:text-slate-300">
-            Das Dashboard zeigt Nutzerprofil, Supabase-Fallhistorie und
+            Das Dashboard zeigt Nutzerprofil, Fallhistorie und
             Nutzungszähler. Dafür brauchst du eine
-            aktive Supabase-Session. Lokale Alt-Daten werden hier bewusst nicht
+            aktive Anmeldung. Lokale Alt-Daten werden hier bewusst nicht
             mehr als Dashboard angezeigt.
           </p>
 
@@ -457,7 +457,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Nutzerprofil konnte nicht geladen werden:", error);
       setError(
-        `Nutzerprofil konnte nicht aus Supabase geladen werden: ${getErrorMessage(
+        `Nutzerprofil konnte nicht aus deinem Konto geladen werden: ${getErrorMessage(
           error
         )}`
       );
@@ -499,7 +499,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Diagnosefälle konnten nicht geladen werden:", error);
       setError(
-        `Diagnosefälle konnten nicht aus Supabase geladen werden: ${getErrorMessage(
+        `Diagnosefälle konnten nicht aus deiner Fallhistorie geladen werden: ${getErrorMessage(
           error
         )}`
       );
@@ -528,7 +528,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Nutzungszähler konnte nicht geladen werden:", error);
       setError(
-        `Nutzungszähler konnte nicht aus Supabase geladen werden: ${getErrorMessage(
+        `Nutzungszähler konnte nicht aus deinem Konto geladen werden: ${getErrorMessage(
           error
         )}`
       );
@@ -557,12 +557,12 @@ export default function DashboardPage() {
       loadSupabaseUsage(user),
     ]);
 
-    setSuccess("Dashboard wurde aus Supabase neu geladen.");
+    setSuccess("Dashboard wurde neu geladen.");
   }
 
   async function migrateLocalCasesNow() {
     if (!user) {
-      setError("Zum Migrieren musst du eingeloggt sein.");
+      setError("Zum Übernehmen lokaler Fälle musst du eingeloggt sein.");
       return;
     }
 
@@ -570,7 +570,7 @@ export default function DashboardPage() {
     setError("");
 
     await loadSupabaseCases(user, true);
-    setSuccess("Lokale Diagnosefälle wurden nach Supabase migriert.");
+    setSuccess("Lokale Diagnosefälle wurden übernommen.");
   }
 
   async function deleteDiagnosisCase(caseId: string) {
@@ -700,7 +700,7 @@ export default function DashboardPage() {
             </h1>
 
             <p className="mt-4 leading-8 text-slate-600 dark:text-slate-300">
-              Supabase-Session wird geprüft.
+              Anmeldung wird geprüft.
             </p>
           </div>
         </main>
@@ -731,7 +731,7 @@ export default function DashboardPage() {
 
             <p className="mt-4 max-w-3xl leading-8 text-slate-600 dark:text-slate-300">
               Übersicht über Nutzerprofil, Diagnosefälle und Nutzungszähler.
-              Dieses Dashboard ist nur mit aktivem Supabase-Login sichtbar.
+              Dieses Dashboard ist nur mit aktiver Anmeldung sichtbar.
             </p>
           </div>
 
@@ -742,7 +742,7 @@ export default function DashboardPage() {
               disabled={isLoading}
               className="rounded-2xl border border-slate-300 bg-white px-5 py-3 font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             >
-              {isLoading ? "Lädt..." : "Supabase neu laden"}
+              {isLoading ? "Lädt..." : "Dashboard neu laden"}
             </button>
 
             <button
@@ -809,7 +809,7 @@ export default function DashboardPage() {
           <DashboardCard
             title="Account"
             value="Eingeloggt"
-            description={user.email || "Supabase-Session aktiv"}
+            description={user.email || "Anmeldung aktiv"}
           />
 
           <DashboardCard
@@ -838,7 +838,7 @@ export default function DashboardPage() {
         <div className="space-y-8">
           <Section
             title="Nutzerprofil"
-            description="Diese Daten kommen bevorzugt aus Supabase und werden für Header, Dashboard und Prüfprotokoll genutzt."
+            description="Diese Daten kommen bevorzugt aus deinem Konto und werden für Header, Dashboard und Prüfprotokoll genutzt."
             right={
               <a
                 href="/login"
@@ -888,7 +888,7 @@ export default function DashboardPage() {
 
           <Section
             title="Nutzungszähler"
-            description="Der Monatszähler wird bei Login aus Supabase geladen und bei Diagnoseanfragen serverseitig erhöht."
+            description="Der Monatszähler wird bei Login aus deinem Konto geladen und bei Diagnoseanfragen serverseitig erhöht."
             right={
               <button
                 type="button"
@@ -953,7 +953,7 @@ export default function DashboardPage() {
 
           <Section
             title="Diagnosefälle"
-            description="Gespeicherte Fälle. Lokale Alt-Fälle können nach Supabase migriert werden."
+            description="Gespeicherte Fälle. Lokale Alt-Fälle können übernommen werden."
             right={
               <>
                 <button
@@ -971,7 +971,7 @@ export default function DashboardPage() {
                   disabled={caseLoading}
                   className="rounded-2xl border border-green-200 bg-green-50 px-5 py-3 font-bold text-green-700 transition hover:bg-green-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-300 dark:hover:bg-green-500"
                 >
-                  Lokale Fälle migrieren
+                  Lokale Fälle übernehmen
                 </button>
 
                 <Link

@@ -21,8 +21,7 @@ type DeviceRegistrationRow = {
   last_seen_at: string;
 };
 
-const PRIVATE_DEVICE_LIMIT = 2;
-const WORKSHOP_DEVICE_LIMIT = 3;
+const ACCOUNT_DEVICE_LIMIT = 3;
 const STALE_DEVICE_DAYS = 90;
 
 export const runtime = "nodejs";
@@ -85,8 +84,12 @@ function getAccountType(profile: WorkshopProfileRow | null) {
   return "private" as const;
 }
 
-function getDeviceLimit(accountType: "private" | "workshop") {
-  return accountType === "workshop" ? WORKSHOP_DEVICE_LIMIT : PRIVATE_DEVICE_LIMIT;
+function getDeviceLimit() {
+  return ACCOUNT_DEVICE_LIMIT;
+}
+
+function getDeviceLimitMessage(maxDevices: number) {
+  return `Dieses Konto ist bereits auf ${maxDevices} aktiven Geräten/Sessions aktiv.`;
 }
 
 function toDevice(row: DeviceRegistrationRow, currentDeviceId: string) {
@@ -122,7 +125,7 @@ async function loadProfileAndPlan(
     profile,
     plan,
     accountType,
-    maxDevices: getDeviceLimit(accountType),
+    maxDevices: getDeviceLimit(),
   };
 }
 
@@ -172,7 +175,7 @@ function getMissingMigrationMessage(error: unknown) {
     message.includes("relation") ||
     message.includes("does not exist")
   ) {
-    return "Die Gerätebegrenzung ist in Supabase noch nicht angelegt. Bitte die SQL-Datei supabase/migrations/20260705_device_access_limits.sql einmal in Supabase ausführen.";
+    return "Die Gerätebegrenzung ist noch nicht eingerichtet. Bitte die passende Datenbank-Migration ausführen.";
   }
 
   return message || "Gerätezugriff konnte nicht geprüft werden.";
@@ -267,10 +270,7 @@ export async function POST(request: Request) {
           {
             ok: false,
             code: "DEVICE_LIMIT_REACHED",
-            error:
-              access.accountType === "workshop"
-                ? "Dieses Werkstattkonto ist bereits auf 3 Geräten aktiv."
-                : "Dieses private Konto ist bereits auf 2 Geräten aktiv.",
+            error: getDeviceLimitMessage(access.maxDevices),
             plan: access.plan,
             accountType: access.accountType,
             maxDevices: access.maxDevices,
@@ -314,10 +314,7 @@ export async function POST(request: Request) {
         {
           ok: false,
           code: "DEVICE_LIMIT_REACHED",
-          error:
-            access.accountType === "workshop"
-              ? "Dieses Werkstattkonto ist bereits auf 3 Geräten aktiv."
-              : "Dieses private Konto ist bereits auf 2 Geräten aktiv.",
+          error: getDeviceLimitMessage(access.maxDevices),
           plan: access.plan,
           accountType: access.accountType,
           maxDevices: access.maxDevices,

@@ -78,7 +78,7 @@ type InspectionProfile = {
 const CURRENT_CASE_STORAGE_KEY = "diagnosehub-current-case";
 
 const planSourceLabels: Record<PlanSource, string> = {
-  supabase: "Supabase Datenbank",
+  supabase: "Online-Profil",
   localStorage: "Lokaler Fallback",
   fallback: "Fallback",
 };

@@ -26,7 +26,7 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
     error.message.includes("relation") ||
     error.message.includes("does not exist")
   ) {
-    return "Die E-Mail-Erinnerungen sind in Supabase noch nicht angelegt. Bitte die SQL-Datei supabase/migrations/20260704_service_reminder_email_notifications.sql einmal in Supabase ausführen.";
+    return "Die E-Mail-Erinnerungen sind noch nicht eingerichtet. Bitte die passende Datenbank-Migration ausführen.";
   }
 
   return error.message;

@@ -26,8 +26,7 @@ export type DeviceAccessResponse = {
   devices: DeviceRegistration[];
 };
 
-const PRIVATE_DEVICE_LIMIT = 2;
-const WORKSHOP_DEVICE_LIMIT = 3;
+const ACCOUNT_DEVICE_LIMIT = 3;
 
 function createFallbackDeviceId() {
   return `device-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
@@ -119,8 +118,6 @@ function parseDeviceResponse(
 ): DeviceAccessResponse {
   const accountType = normalizeAccountType(payload.accountType);
   const devices = normalizeDevices(payload.devices);
-  const fallbackMaxDevices =
-    accountType === "workshop" ? WORKSHOP_DEVICE_LIMIT : PRIVATE_DEVICE_LIMIT;
 
   return {
     ok: response.ok && payload.ok !== false,
@@ -134,7 +131,7 @@ function parseDeviceResponse(
     maxDevices:
       typeof payload.maxDevices === "number" && Number.isFinite(payload.maxDevices)
         ? payload.maxDevices
-        : fallbackMaxDevices,
+        : ACCOUNT_DEVICE_LIMIT,
     activeDeviceCount:
       typeof payload.activeDeviceCount === "number" &&
       Number.isFinite(payload.activeDeviceCount)

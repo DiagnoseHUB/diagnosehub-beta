@@ -112,7 +112,7 @@ async function loadUserFromAuthorizationHeader(
   const { data, error } = await supabase.auth.getUser(accessToken);
 
   if (error) {
-    throw new Error(`Supabase-Session ungültig: ${error.message}`);
+    throw new Error(`Anmeldung ungültig: ${error.message}`);
   }
 
   return data.user ?? null;
@@ -370,7 +370,7 @@ async function updateWorkshopProfile(input: ProfileUpdateInput) {
     .select("id");
 
   if (updateError) {
-    throw new Error(`Supabase Update fehlgeschlagen: ${updateError.message}`);
+    throw new Error(`Konto-Update fehlgeschlagen: ${updateError.message}`);
   }
 
   if (updatedRows && updatedRows.length > 0) {
@@ -381,7 +381,7 @@ async function updateWorkshopProfile(input: ProfileUpdateInput) {
     .from("workshop_profiles")
     .insert({
       id: input.supabaseUserId,
-      full_name: "Supabase Nutzer",
+      full_name: "DiagnoseHUB Nutzer",
       workshop_name: "Profil noch nicht gespeichert",
       email: input.email || "nicht hinterlegt",
       role: "Werkstatt",
@@ -396,7 +396,7 @@ async function updateWorkshopProfile(input: ProfileUpdateInput) {
     });
 
   if (insertError) {
-    throw new Error(`Supabase Insert fehlgeschlagen: ${insertError.message}`);
+    throw new Error(`Konto-Erstellung fehlgeschlagen: ${insertError.message}`);
   }
 }
 
@@ -411,7 +411,7 @@ function validatePaidCheckoutSession({
 
   if (!sessionUserId) {
     throw new Error(
-      "Diese Stripe-Zahlung enthält keine Supabase-User-ID. Bitte Checkout erneut über die Preise-Seite starten."
+      "Diese Stripe-Zahlung enthält keine Konto-ID. Bitte Checkout erneut über die Preise-Seite starten."
     );
   }
 

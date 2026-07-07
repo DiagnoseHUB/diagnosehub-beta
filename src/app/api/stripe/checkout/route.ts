@@ -131,7 +131,7 @@ async function loadUserFromAuthorizationHeader(
   const { data, error } = await supabase.auth.getUser(accessToken);
 
   if (error) {
-    throw new Error(`Supabase-Session ungültig: ${error.message}`);
+    throw new Error(`Anmeldung ungültig: ${error.message}`);
   }
 
   return data.user ?? null;

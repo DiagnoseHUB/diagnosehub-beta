@@ -1,3 +1,8 @@
+import {
+  ADVANCED_TEIL_1_QUESTIONS,
+  ADVANCED_TEIL_2_QUESTIONS,
+} from "@/data/advancedJourneymanQuestions";
+
 export type ExamPartId = "teil-1" | "teil-2";
 
 export type ExamQuestionType = "single_choice" | "multiple_choice";
@@ -260,6 +265,7 @@ export const JOURNEYMAN_EXAMS: JourneymanExam[] = [
           "Sicheres Aufnehmen und Sichern ist Grundvoraussetzung für Arbeiten am angehobenen Fahrzeug.",
         points: 6,
       },
+      ...ADVANCED_TEIL_1_QUESTIONS,
     ],
     caseTasks: [
       {
@@ -515,6 +521,7 @@ export const JOURNEYMAN_EXAMS: JourneymanExam[] = [
           "Eine belastbare Entscheidung entsteht aus Befundkette und Plausibilität, nicht aus Vermutung.",
         points: 7,
       },
+      ...ADVANCED_TEIL_2_QUESTIONS,
     ],
     caseTasks: [
       {

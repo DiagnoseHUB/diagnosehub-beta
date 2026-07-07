@@ -521,7 +521,7 @@ function InstructionsPageContent() {
 
               {savedInstructionsLoading && (
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Gespeicherte Supabase-Anleitungen werden geladen...
+                  Gespeicherte Anleitungen werden geladen...
                 </p>
               )}
 
@@ -560,7 +560,7 @@ function InstructionsPageContent() {
                   </p>
 
                   <p className="mt-1">
-                    DiagnoseHUB prüft zuerst gespeicherte Supabase-Anleitungen.
+                    DiagnoseHUB prüft zuerst gespeicherte Anleitungen.
                     Nur wenn keine passende Anleitung gefunden wird, startet die
                     KI-Erstellung.
                   </p>
@@ -590,7 +590,7 @@ function InstructionsPageContent() {
                 Über den blauen Button sucht DiagnoseHUB zusätzlich nach
                 ähnlichen gespeicherten Anleitungen. Falls nichts Passendes
                 gefunden wird, wird automatisch eine neue KI-Anleitung erstellt
-                und in Supabase gespeichert.
+                und gespeichert.
               </p>
             </div>
           )}
@@ -711,7 +711,7 @@ function GeneratedInstructionPanel({
         ) : (
           <>
             <strong>Gespeichert:</strong> Diese Anleitung wird automatisch in
-            Supabase gesichert. Herstellerdaten, Sicherheitsvorgaben und
+            deinem Konto gesichert. Herstellerdaten, Sicherheitsvorgaben und
             fahrzeugspezifische Werte müssen zusätzlich geprüft werden.
           </>
         )}

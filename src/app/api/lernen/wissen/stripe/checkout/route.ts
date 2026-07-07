@@ -14,7 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Für Stripe Checkout muss im Supabase-Account eine E-Mail-Adresse hinterlegt sein.",
+            "Für Stripe Checkout muss im Account eine E-Mail-Adresse hinterlegt sein.",
         },
         { status: 400 }
       );

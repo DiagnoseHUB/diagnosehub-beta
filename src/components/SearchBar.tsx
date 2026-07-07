@@ -27,11 +27,22 @@ import {
   type SavedDiagnosisCase,
 } from "@/services/diagnosisCasesSupabase";
 import {
+  getFaultCodeQuickInfo,
+  type FaultCodeQuickInfo,
+} from "@/services/faultCodeDatabase";
+import {
   getInitialDiagnosisUsage,
   loadDiagnosisUsageFromSupabase,
   normalizeDiagnosisUsage,
   type DiagnosisUsage,
 } from "@/services/diagnosisUsageSupabase";
+import {
+  detectTechnicalSpecContext,
+  formatTechnicalSpecContext,
+  formatTechnicalSpecContextForPrompt,
+  type TechnicalSpec,
+  type TechnicalSpecContext,
+} from "@/services/technicalSpecs";
 import {
   PLAN_CONFIG,
   SELECTABLE_USER_PLANS,
@@ -46,6 +57,7 @@ type CurrentDiagnosisCase = {
   messages: ChatMessage[];
   engineContext: EngineContext | null;
   faultCodeContext: FaultCodeContext | null;
+  technicalSpecContext?: TechnicalSpecContext | null;
   qualityCheck: string;
   causingPart?: string;
   openedCaseId?: string | null;
@@ -74,6 +86,7 @@ type DiagnosisApiResponse = {
   result?: string;
   engineContext?: EngineContext;
   faultCodeContext?: FaultCodeContext | null;
+  technicalSpecContext?: TechnicalSpecContext | null;
   qualityCheck?: string;
   usageLimit?: UsageLimitPayload;
   error?: string;
@@ -87,7 +100,6 @@ const AUDIENCE_MODE_STORAGE_KEY = "diagnosehub-audience-mode";
 const PENDING_PREFILL_STORAGE_KEY = "diagnosehub-pending-prefill";
 
 const showLocalPlanSwitcher = process.env.NODE_ENV === "development";
-
 const audienceModeOptions: Array<{
   value: DiagnosisAudienceMode;
   label: string;
@@ -154,9 +166,148 @@ function getFriendlyDiagnosisError(error: unknown) {
   return message;
 }
 
+function detectFirstFaultCodeInput(value: string) {
+  return value.match(/\bP[0-3][0-9A-F]{3}\b/i)?.[0].toUpperCase() || "";
+}
+
+function buildTypedFaultCodeContext(
+  faultCode: FaultCodeQuickInfo | null,
+): FaultCodeContext | null {
+  if (!faultCode) {
+    return null;
+  }
+
+  return {
+    foundCodes: [faultCode],
+    summary: `${faultCode.code} - ${faultCode.title}`,
+  };
+}
+
+function getFaultCodeRiskClass(riskLevel: FaultCodeQuickInfo["riskLevel"]) {
+  if (riskLevel === "hoch") {
+    return "border-red-500/35 bg-red-500/10 text-red-100";
+  }
+
+  if (riskLevel === "mittel") {
+    return "border-amber-500/35 bg-amber-500/10 text-amber-100";
+  }
+
+  return "border-emerald-500/35 bg-emerald-500/10 text-emerald-100";
+}
+
+function buildObdQuickStartDiagnosisInput(
+  currentInput: string,
+  faultCode: FaultCodeQuickInfo,
+) {
+  return `${currentInput}
+
+Fehlercode-Kontext:
+Fehlercode: ${faultCode.code} - ${faultCode.title}
+System: ${faultCode.system}
+Bedeutung: ${faultCode.description}
+Typische Ursachen: ${faultCode.typicalCauses.slice(0, 5).join("; ")}
+Prüfreihenfolge: ${faultCode.suggestedChecks.slice(0, 5).join("; ")}
+Risiko: ${faultCode.riskLevel} - ${faultCode.riskNote}
+
+Bitte Diagnosepfad mit einfachen Checks, Messungen, Plausibilitätschecks, Entscheidung und nächsten Schritten erstellen.`;
+}
+
+function appendTechnicalSpecPrompt(
+  diagnosisInput: string,
+  technicalSpecContext: TechnicalSpecContext,
+) {
+  const technicalSpecPrompt =
+    formatTechnicalSpecContextForPrompt(technicalSpecContext);
+
+  if (!technicalSpecPrompt) {
+    return diagnosisInput;
+  }
+
+  return `${diagnosisInput}
+
+${technicalSpecPrompt}`;
+}
+
+function ObdQuickInfoList({
+  title,
+  items,
+}: {
+  title: string;
+  items: string[];
+}) {
+  return (
+    <div className="rounded-xl border border-blue-400/20 bg-blue-950/30 p-3">
+      <p className="text-xs font-black uppercase tracking-wide text-blue-200">
+        {title}
+      </p>
+      <ul className="mt-2 space-y-2 text-blue-100">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2 leading-5">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-300" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function TechnicalSpecValueList({ spec }: { spec: TechnicalSpec }) {
+  return (
+    <div className="grid gap-2">
+      {spec.values.slice(0, 6).map((value) => (
+        <div
+          key={`${spec.id}-${value.label}`}
+          className="rounded-xl border border-emerald-400/20 bg-emerald-950/30 p-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-200">
+              {value.label}
+            </p>
+            <p className="font-black text-white">{value.value}</p>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-emerald-100">
+            {value.condition}
+          </p>
+          {value.note ? (
+            <p className="mt-1 text-xs leading-5 text-emerald-200">
+              {value.note}
+            </p>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TechnicalSpecBulletList({
+  title,
+  items,
+}: {
+  title: string;
+  items: string[];
+}) {
+  return (
+    <div className="rounded-xl border border-emerald-400/20 bg-emerald-950/30 p-3">
+      <p className="text-xs font-black uppercase tracking-wide text-emerald-200">
+        {title}
+      </p>
+      <ul className="mt-2 space-y-2 text-emerald-100">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2 leading-5">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-300" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function buildDynamicQuickQuestions(
   engineContext: EngineContext | null,
   faultCodeContext: FaultCodeContext | null,
+  technicalSpecContext: TechnicalSpecContext | null,
 ) {
   const questions: string[] = [...baseQuickQuestions];
 
@@ -244,6 +395,16 @@ function buildDynamicQuickQuestions(
         "Injektor/Zündung quer prüfen?",
       );
     }
+  }
+
+  const firstTechnicalSpec = technicalSpecContext?.foundSpecs[0];
+
+  if (firstTechnicalSpec) {
+    questions.unshift(
+      `Sollwerte für ${firstTechnicalSpec.title}`,
+      `Wo messe ich bei ${firstTechnicalSpec.title}?`,
+      "Was bedeutet eine Abweichung?",
+    );
   }
 
   return Array.from(new Set(questions)).slice(0, 12);
@@ -536,6 +697,8 @@ export default function SearchBar() {
   );
   const [faultCodeContext, setFaultCodeContext] =
     useState<FaultCodeContext | null>(null);
+  const [technicalSpecContext, setTechnicalSpecContext] =
+    useState<TechnicalSpecContext | null>(null);
   const [qualityCheck, setQualityCheck] = useState("");
   const [savedCases, setSavedCases] = useState<SavedDiagnosisCase[]>([]);
   const [userPlan, setUserPlan] = useState<UserPlan>("free");
@@ -558,9 +721,37 @@ export default function SearchBar() {
   const hasLoadedCaseRef = useRef(false);
   const shouldAutoScrollRef = useRef(false);
 
+  const typedFaultCodeValue = useMemo(
+    () => detectFirstFaultCodeInput(search),
+    [search],
+  );
+  const typedFaultCodeInfo = useMemo(
+    () =>
+      typedFaultCodeValue ? getFaultCodeQuickInfo(typedFaultCodeValue) : null,
+    [typedFaultCodeValue],
+  );
+  const typedFaultCodeContext = useMemo(
+    () => buildTypedFaultCodeContext(typedFaultCodeInfo),
+    [typedFaultCodeInfo],
+  );
+  const activeFaultCodeContext = typedFaultCodeContext || faultCodeContext;
+  const typedTechnicalSpecContext = useMemo(
+    () => detectTechnicalSpecContext(search),
+    [search],
+  );
+  const activeTechnicalSpecContext =
+    typedTechnicalSpecContext.foundSpecs.length > 0
+      ? typedTechnicalSpecContext
+      : technicalSpecContext;
+  const hasTechnicalSpecContext =
+    (activeTechnicalSpecContext?.foundSpecs.length ?? 0) > 0;
   const quickQuestions = useMemo(() => {
-    return buildDynamicQuickQuestions(engineContext, faultCodeContext);
-  }, [engineContext, faultCodeContext]);
+    return buildDynamicQuickQuestions(
+      engineContext,
+      activeFaultCodeContext,
+      activeTechnicalSpecContext,
+    );
+  }, [engineContext, activeFaultCodeContext, activeTechnicalSpecContext]);
 
   const latestAssistantMessageIndex = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -739,6 +930,7 @@ export default function SearchBar() {
       messages,
       engineContext,
       faultCodeContext,
+      technicalSpecContext,
       qualityCheck,
       causingPart,
       openedCaseId,
@@ -753,6 +945,7 @@ export default function SearchBar() {
     messages,
     engineContext,
     faultCodeContext,
+    technicalSpecContext,
     qualityCheck,
     causingPart,
     openedCaseId,
@@ -811,6 +1004,7 @@ export default function SearchBar() {
         setMessages([]);
         setEngineContext(null);
         setFaultCodeContext(null);
+        setTechnicalSpecContext(null);
         setQualityCheck("");
         setCausingPart("");
         setOpenedCaseId(null);
@@ -822,6 +1016,7 @@ export default function SearchBar() {
       setMessages(parsedCase.messages || []);
       setEngineContext(parsedCase.engineContext || null);
       setFaultCodeContext(parsedCase.faultCodeContext || null);
+      setTechnicalSpecContext(parsedCase.technicalSpecContext || null);
       setQualityCheck(parsedCase.qualityCheck || "");
       setCausingPart(parsedCase.causingPart || "");
       setOpenedCaseId(parsedCase.openedCaseId || null);
@@ -883,9 +1078,9 @@ export default function SearchBar() {
       setUserPlan(remotePlan);
       localStorage.setItem(USER_PLAN_STORAGE_KEY, remotePlan);
     } catch (error) {
-      console.error("Supabase-Plan konnte nicht geladen werden:", error);
+      console.error("Kontoplan konnte nicht geladen werden:", error);
       setError(
-        "Supabase-Plan konnte nicht geladen werden. Lokaler Plan bleibt aktiv.",
+        "Kontoplan konnte nicht geladen werden. Lokaler Plan bleibt aktiv.",
       );
       loadLocalPlanAndUsage();
     }
@@ -904,16 +1099,16 @@ export default function SearchBar() {
       setDiagnosisUsage(remoteUsage);
       saveUsageToLocalStorage(remoteUsage);
       setUsageStorageSource("supabase");
-      setUsageSyncMessage("Supabase-Nutzungszähler wurde geladen.");
+      setUsageSyncMessage("Nutzungszähler wurde geladen.");
 
       window.setTimeout(() => {
         setUsageSyncMessage("");
       }, 3000);
     } catch (error) {
-      console.error("Supabase-Nutzung konnte nicht geladen werden:", error);
+      console.error("Nutzung konnte nicht geladen werden:", error);
       setUsageStorageSource("local");
       setError(
-        "Supabase-Nutzungszähler konnte nicht geladen werden. Lokaler Zähler bleibt aktiv.",
+        "Nutzungszähler konnte nicht geladen werden. Lokaler Zähler bleibt aktiv.",
       );
     } finally {
       setUsageSyncLoading(false);
@@ -947,9 +1142,9 @@ export default function SearchBar() {
       setCaseStorageSource("supabase");
 
       if (localCasesForMigration.length > 0) {
-        setCaseSyncMessage("Lokale Fälle wurden mit Supabase synchronisiert.");
+        setCaseSyncMessage("Lokale Fälle wurden synchronisiert.");
       } else {
-        setCaseSyncMessage("Supabase-Fallhistorie wurde geladen.");
+        setCaseSyncMessage("Fallhistorie wurde geladen.");
       }
 
       window.setTimeout(() => {
@@ -957,12 +1152,12 @@ export default function SearchBar() {
       }, 3000);
     } catch (error) {
       console.error(
-        "Supabase-Fallhistorie konnte nicht geladen werden:",
+        "Fallhistorie konnte nicht geladen werden:",
         error,
       );
       setCaseStorageSource("local");
       setError(
-        "Supabase-Fallhistorie konnte nicht geladen werden. Lokale Fälle bleiben verfügbar.",
+        "Fallhistorie konnte nicht geladen werden. Lokale Fälle bleiben verfügbar.",
       );
       loadLocalSavedCasesIntoState(activeUser.id);
     } finally {
@@ -972,7 +1167,7 @@ export default function SearchBar() {
 
   async function reloadSupabaseCases() {
     if (!user) {
-      setError("Für Supabase-Fallhistorie zuerst einloggen.");
+      setError("Für die Fallhistorie zuerst einloggen.");
       return;
     }
 
@@ -981,7 +1176,7 @@ export default function SearchBar() {
 
   async function reloadSupabaseUsage() {
     if (!user) {
-      setError("Für Supabase-Nutzungszähler zuerst einloggen.");
+      setError("Für den Nutzungszähler zuerst einloggen.");
       return;
     }
 
@@ -991,7 +1186,7 @@ export default function SearchBar() {
 
   async function migrateLocalCasesNow() {
     if (!user) {
-      setError("Für Migration zuerst einloggen.");
+      setError("Für lokale Fälle zuerst einloggen.");
       return;
     }
 
@@ -1001,7 +1196,7 @@ export default function SearchBar() {
   function changeUserPlan(nextPlan: UserPlan) {
     if (user) {
       setError(
-        "Bei aktivem Supabase-Login wird der Plan über Login/Profil gespeichert. Die Schnellumschaltung ist nur für lokale Tests ohne Login aktiv.",
+        "Bei aktivem Konto wird der Plan über Login/Profil gespeichert. Die Schnellumschaltung ist nur für lokale Tests ohne Login aktiv.",
       );
       return;
     }
@@ -1067,7 +1262,7 @@ export default function SearchBar() {
     const { data, error } = await supabase.auth.getSession();
 
     if (error) {
-      console.error("Supabase-Session konnte nicht gelesen werden:", error);
+      console.error("Anmeldung konnte nicht gelesen werden:", error);
       return "";
     }
 
@@ -1097,12 +1292,11 @@ export default function SearchBar() {
 
   function buildUnifiedDiagnosisInput(currentInput: string) {
     const cleanInput = currentInput.trim();
+    const detectedTechnicalSpecContext = detectTechnicalSpecContext(cleanInput);
 
-    if (!isInstructionRequest(cleanInput)) {
-      return cleanInput;
-    }
-
-    return `Erstelle direkt im aktuellen Diagnosefall eine kompakte Werkstatt-Anleitung.
+    if (isInstructionRequest(cleanInput)) {
+      return appendTechnicalSpecPrompt(
+        `Erstelle direkt im aktuellen Diagnosefall eine kompakte Werkstatt-Anleitung.
 
 Aktuelle Eingabe:
 ${cleanInput}
@@ -1123,7 +1317,22 @@ Antwortformat exakt:
 # Zugang
 # Arbeitsschritte
 # Kritische Punkte
-# Abschlussprüfung`;
+# Abschlussprüfung`,
+        detectedTechnicalSpecContext,
+      );
+    }
+
+    const inlineFaultCode = getFaultCodeQuickInfo(
+      detectFirstFaultCodeInput(cleanInput),
+    );
+    const diagnosisInput = inlineFaultCode
+      ? buildObdQuickStartDiagnosisInput(cleanInput, inlineFaultCode)
+      : cleanInput;
+
+    return appendTechnicalSpecPrompt(
+      diagnosisInput,
+      detectedTechnicalSpecContext,
+    );
   }
 
   async function sendDiagnosis(questionOverride?: string) {
@@ -1178,6 +1387,7 @@ Antwortformat exakt:
     setLoading(true);
     setError("");
     setQualityCheck("");
+    setTechnicalSpecContext(null);
     setCopySuccess(false);
     setSaveSuccess(false);
     setCopiedMessageIndex(null);
@@ -1227,6 +1437,7 @@ Antwortformat exakt:
       setMessages([...nextMessages, assistantMessage]);
       setEngineContext(data.engineContext);
       setFaultCodeContext(data.faultCodeContext || null);
+      setTechnicalSpecContext(data.technicalSpecContext || null);
       setQualityCheck(data.qualityCheck || "");
 
       if (data.usageLimit?.enabled) {
@@ -1249,6 +1460,7 @@ Antwortformat exakt:
     setMessages([]);
     setEngineContext(null);
     setFaultCodeContext(null);
+    setTechnicalSpecContext(null);
     setQualityCheck("");
     setCopySuccess(false);
     setSaveSuccess(false);
@@ -1313,14 +1525,14 @@ Antwortformat exakt:
           caseToSave,
         );
         setCaseStorageSource("supabase");
-        setCaseSyncMessage("Fall wurde in Supabase gespeichert.");
+        setCaseSyncMessage("Fall wurde gespeichert.");
       } catch (error) {
         console.error(
-          "Fall konnte nicht in Supabase gespeichert werden:",
+          "Fall konnte nicht gespeichert werden:",
           error,
         );
         setError(
-          "Fall konnte nicht in Supabase gespeichert werden. Speichern wurde abgebrochen.",
+          "Fall konnte nicht gespeichert werden. Speichern wurde abgebrochen.",
         );
         setCaseSyncLoading(false);
         return;
@@ -1355,6 +1567,11 @@ Antwortformat exakt:
     setMessages(savedCase.messages);
     setEngineContext(savedCase.engineContext);
     setFaultCodeContext(savedCase.faultCodeContext);
+    setTechnicalSpecContext(
+      detectTechnicalSpecContext(
+        savedCase.messages.map((message) => message.content).join("\n"),
+      ),
+    );
     setQualityCheck(savedCase.qualityCheck);
     setOpenedCaseId(savedCase.id);
     setSearch("");
@@ -1375,11 +1592,11 @@ Antwortformat exakt:
 
       try {
         await deleteDiagnosisCaseFromSupabase(supabase, user, caseId);
-        setCaseSyncMessage("Fall wurde aus Supabase gelöscht.");
+        setCaseSyncMessage("Fall wurde gelöscht.");
       } catch (error) {
-        console.error("Fall konnte nicht aus Supabase gelöscht werden:", error);
+        console.error("Fall konnte nicht gelöscht werden:", error);
         setError(
-          "Fall konnte nicht aus Supabase gelöscht werden. Löschen wurde abgebrochen.",
+          "Fall konnte nicht gelöscht werden. Löschen wurde abgebrochen.",
         );
         setCaseSyncLoading(false);
         return;
@@ -1433,6 +1650,20 @@ ${faultCode.suggestedChecks.map((check) => `- ${check}`).join("\n")}`;
       .join("\n\n---\n\n");
   }
 
+  function buildTechnicalSpecReport() {
+    const detectedContext =
+      technicalSpecContext ||
+      detectTechnicalSpecContext(
+        messages.map((message) => message.content).join("\n"),
+      );
+
+    if (detectedContext.foundSpecs.length === 0) {
+      return "Keine Soll-/Richtwerte erkannt.";
+    }
+
+    return formatTechnicalSpecContext(detectedContext);
+  }
+
   function buildCaseReport() {
     const createdAt = new Date().toLocaleString("de-DE");
 
@@ -1475,6 +1706,9 @@ ${causingPartText}
 
 Fehlercode-Kontext:
 ${buildFaultCodeReport()}
+
+Soll-/Richtwerte:
+${buildTechnicalSpecReport()}
 
 Qualitätsprüfung:
 ${qualityCheck || "Keine Qualitätsprüfung vorhanden."}
@@ -1526,11 +1760,11 @@ ${chatText}
 
   const caseStorageLabel =
     caseStorageSource === "supabase"
-      ? "Supabase-Fallhistorie"
+      ? "Online-Fallhistorie"
       : "Lokale Fallhistorie";
 
   const usageStorageLabel =
-    usageStorageSource === "supabase" ? "Supabase-Nutzung" : "Lokale Nutzung";
+    usageStorageSource === "supabase" ? "Online-Nutzung" : "Lokale Nutzung";
 
   return (
     <div className="w-full">
@@ -1584,6 +1818,141 @@ ${chatText}
           className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 p-5 text-white outline-none placeholder:text-slate-400 focus:border-blue-500"
         />
 
+        <p className="mt-2 text-sm leading-6 text-slate-400">
+          Je mehr Fahrzeugdaten du eingibst, desto genauer wird die Antwort:
+          Modell, Baujahr, Motorcode, Kilometerstand, Fehlercode, Symptome,
+          Messwerte und was bereits geprüft wurde.
+        </p>
+
+        {typedTechnicalSpecContext.foundSpecs.length > 0 ? (
+          <div className="mt-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-50">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-200">
+                  Soll-/Richtwerte erkannt
+                </p>
+                <h3 className="mt-1 text-lg font-black text-white">
+                  {typedTechnicalSpecContext.foundSpecs
+                    .map((spec) => spec.title)
+                    .join(", ")}
+                </h3>
+                <p className="mt-2 max-w-3xl leading-6 text-emerald-100">
+                  Die Werte werden beim Absenden automatisch als generischer
+                  Richtwert-Kontext mitgegeben. Exakte Herstellerdaten bleiben
+                  fahrzeugabhängig.
+                </p>
+              </div>
+              <span className="rounded-full border border-emerald-400/40 bg-emerald-950/40 px-3 py-1 text-xs font-black text-emerald-100">
+                Sollwerte
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {typedTechnicalSpecContext.foundSpecs.map((spec) => (
+                <div
+                  key={spec.id}
+                  className="rounded-2xl border border-emerald-400/20 bg-emerald-950/20 p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-black text-white">
+                      {spec.category}
+                    </span>
+                    <h4 className="text-base font-black text-white">
+                      {spec.title}
+                    </h4>
+                  </div>
+
+                  <p className="mt-2 leading-6 text-emerald-100">
+                    {spec.summary}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-emerald-200">
+                    {spec.applicability}
+                  </p>
+
+                  <div className="mt-3 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+                    <TechnicalSpecValueList spec={spec} />
+                    <div className="grid gap-3">
+                      <TechnicalSpecBulletList
+                        title="Prüfen"
+                        items={spec.checks.slice(0, 4)}
+                      />
+                      <TechnicalSpecBulletList
+                        title="Wenn Wert abweicht"
+                        items={spec.deviations.slice(0, 3)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {typedFaultCodeValue ? (
+          typedFaultCodeInfo ? (
+            <div className="mt-3 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-sm text-blue-50">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-blue-200">
+                    Fehlercode erkannt
+                  </p>
+                  <h3 className="mt-1 text-lg font-black text-white">
+                    {typedFaultCodeInfo.code}: {typedFaultCodeInfo.title}
+                  </h3>
+                  <p className="mt-2 max-w-3xl leading-6 text-blue-100">
+                    {typedFaultCodeInfo.description}
+                  </p>
+                </div>
+                <span className="rounded-full border border-blue-400/40 bg-blue-950/40 px-3 py-1 text-xs font-black text-blue-100">
+                  {typedFaultCodeInfo.system}
+                </span>
+              </div>
+
+              <p className="mt-3 text-sm leading-6 text-blue-100">
+                Dieser Fehlercode wird beim Absenden automatisch als
+                Diagnose-Kontext mitgegeben. Du musst nichts in ein zweites
+                Feld kopieren.
+              </p>
+
+              <div
+                className={`mt-3 rounded-xl border p-3 text-sm leading-6 ${getFaultCodeRiskClass(
+                  typedFaultCodeInfo.riskLevel,
+                )}`}
+              >
+                <span className="font-black uppercase">
+                  Risiko {typedFaultCodeInfo.riskLevel}
+                </span>
+                <span className="ml-2">{typedFaultCodeInfo.riskNote}</span>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <ObdQuickInfoList
+                  title="Symptome"
+                  items={typedFaultCodeInfo.symptomHints.slice(0, 4)}
+                />
+                <ObdQuickInfoList
+                  title="Ursachen"
+                  items={typedFaultCodeInfo.typicalCauses.slice(0, 5)}
+                />
+                <ObdQuickInfoList
+                  title="Prüfplan"
+                  items={typedFaultCodeInfo.suggestedChecks.slice(0, 5)}
+                />
+                <ObdQuickInfoList
+                  title="Nächste Schritte"
+                  items={typedFaultCodeInfo.nextSteps.slice(0, 5)}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">
+              <span className="font-black">{typedFaultCodeValue}</span> erkannt.
+              Der Code ist noch nicht in der Fehlercode-Liste, wird aber
+              mit dem normalen Diagnosefall mitgesendet.
+            </div>
+          )
+        ) : null}
+
         <label className="mt-3 grid gap-2">
           <span className="text-xs font-black uppercase tracking-wide text-slate-400">
             Interne Notiz / verursachendes Teil
@@ -1611,6 +1980,9 @@ ${chatText}
           </span>
           <span className="rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1.5">
             Messwerte
+          </span>
+          <span className="rounded-full border border-slate-800 bg-slate-950/70 px-3 py-1.5">
+            Sollwerte
           </span>
         </div>
 
@@ -1678,7 +2050,7 @@ ${chatText}
 
               <p className="mt-2 text-sm text-slate-400">
                 {user
-                  ? `Supabase-Login aktiv: ${user.email}.`
+                  ? `Eingeloggt: ${user.email}.`
                   : "Nicht eingeloggt: Bitte einloggen, um Diagnosen mit serverseitigem Monatslimit zu starten."}
               </p>
             </div>
@@ -1729,7 +2101,7 @@ ${chatText}
               disabled={!user || caseSyncLoading}
               className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Lokale Fälle migrieren
+              Lokale Fälle übernehmen
             </button>
 
             {!user && (
@@ -1770,9 +2142,13 @@ ${chatText}
                 ? "Monatslimit erreicht"
                 : search.trim() && isInstructionRequest(search)
                   ? "Anleitung erstellen"
-                  : messages.length === 0
-                    ? "Diagnose starten"
-                    : "Senden"}
+                  : typedFaultCodeInfo
+                    ? "OBD-Diagnose starten"
+                    : typedTechnicalSpecContext.foundSpecs.length > 0
+                      ? "Diagnose mit Sollwerten starten"
+                      : messages.length === 0
+                        ? "Diagnose starten"
+                        : "Senden"}
           </button>
 
           <button
@@ -1917,12 +2293,16 @@ ${chatText}
             ...(faultCodeContext?.foundCodes.map(
               (faultCode) => faultCode.system,
             ) ?? []),
+            ...(activeTechnicalSpecContext?.foundSpecs.map(
+              (spec) => spec.category,
+            ) ?? []),
           ].filter(Boolean)}
         />
       )}
 
       {(engineContext ||
         (faultCodeContext && faultCodeContext.foundCodes.length > 0) ||
+        hasTechnicalSpecContext ||
         qualityCheck) && (
         <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/70 p-5">
           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -1932,8 +2312,8 @@ ${chatText}
               </p>
 
               <p className="mt-1 text-sm text-slate-400">
-                Motorkontext, Fehlercodes und Qualitätsprüfung bei Bedarf
-                öffnen.
+                Motorkontext, Fehlercodes, Sollwerte und Qualitätsprüfung bei
+                Bedarf öffnen.
               </p>
             </div>
           </div>
@@ -2045,6 +2425,57 @@ ${chatText}
                       <p className="mt-3 leading-7 text-slate-300">
                         {faultCode.description}
                       </p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+
+            {hasTechnicalSpecContext && activeTechnicalSpecContext && (
+              <details className="group rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-slate-100">
+                      Erkannte Soll-/Richtwerte
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-400">
+                      {activeTechnicalSpecContext.foundSpecs.length} erkannte
+                      Datensätze
+                    </p>
+                  </div>
+
+                  <span className="rounded-xl border border-slate-700 px-3 py-1 text-xs font-bold text-slate-400 transition group-open:bg-slate-800 group-open:text-slate-200">
+                    Öffnen
+                  </span>
+                </summary>
+
+                <div className="mt-4 grid gap-4">
+                  {activeTechnicalSpecContext.foundSpecs.map((spec) => (
+                    <div
+                      key={spec.id}
+                      className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"
+                    >
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="rounded-full bg-emerald-600 px-3 py-1 text-sm font-black text-white">
+                          {spec.category}
+                        </span>
+                        <h3 className="text-lg font-black text-white">
+                          {spec.title}
+                        </h3>
+                      </div>
+
+                      <p className="mt-3 leading-7 text-slate-300">
+                        {spec.summary}
+                      </p>
+
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        <TechnicalSpecValueList spec={spec} />
+                        <TechnicalSpecBulletList
+                          title="Prüfhinweise"
+                          items={spec.checks.slice(0, 5)}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
