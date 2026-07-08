@@ -10,7 +10,7 @@ type WorkshopProfilePlanRow = {
   plan: UserPlan | string | null;
 };
 
-export async function loadUserPlanFromRequest(request: Request): Promise<UserPlan> {
+async function loadUserPlanContextFromRequest(request: Request) {
   const { user, supabase } = await loadAuthenticatedUserFromRequest(request);
 
   const { data, error } = await supabase
@@ -25,11 +25,21 @@ export async function loadUserPlanFromRequest(request: Request): Promise<UserPla
 
   const profile = data as WorkshopProfilePlanRow | null;
 
-  return isValidUserPlan(profile?.plan) ? profile.plan : "free";
+  return {
+    plan: isValidUserPlan(profile?.plan) ? profile.plan : "free",
+    user,
+    supabase,
+  };
+}
+
+export async function loadUserPlanFromRequest(request: Request): Promise<UserPlan> {
+  const { plan } = await loadUserPlanContextFromRequest(request);
+
+  return plan;
 }
 
 export async function requireComponentKnowledgeAccess(request: Request) {
-  const plan = await loadUserPlanFromRequest(request);
+  const { plan, user, supabase } = await loadUserPlanContextFromRequest(request);
 
   if (!hasComponentKnowledgeAccess(plan)) {
     return {
@@ -43,6 +53,8 @@ export async function requireComponentKnowledgeAccess(request: Request) {
   return {
     ok: true as const,
     plan,
+    user,
+    supabase,
   };
 }
 

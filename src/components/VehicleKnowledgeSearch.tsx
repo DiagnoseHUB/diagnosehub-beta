@@ -6,19 +6,37 @@ import { fetchJsonWithTimeout } from "@/utils/clientApi";
 
 type VehicleKnowledgeSearchResponse = {
   answer?: string;
+  source?: string;
+  databaseWarning?: string;
   error?: string;
 };
 
 const EXAMPLES = [
-  "AGR-Ventil",
-  "Differenzdrucksensor",
-  "CAN-Bus",
-  "Ladedruckregelung",
-  "Klimakompressor",
-  "ABS-Raddrehzahlsensor",
-  "Nockenwellensensor",
-  "Batteriesensor",
+  "AGR-Ventil mit Stellmotor",
+  "Differenzdrucksensor mit Schlauchanschlüssen",
+  "CAN-Bus und Abschlusswiderstände",
+  "Ladedruckregelung mit VTG-Verstellung",
+  "Regelventil im Klimakompressor",
+  "ABS-Raddrehzahlsensor und Magnetring",
+  "Nockenwellensensor und Kurbelwellensensor",
+  "Batteriesensor am Minuspol",
 ];
+
+function getKnowledgeSourceLabel(source?: string) {
+  if (source === "database") {
+    return "Aus Bauteilwissen-Datenbank";
+  }
+
+  if (source === "generated_saved") {
+    return "Neu erzeugt und gespeichert";
+  }
+
+  if (source === "generated") {
+    return "Neu erzeugt";
+  }
+
+  return "";
+}
 
 export default function VehicleKnowledgeSearch() {
   const supabase = useMemo(() => createClient(), []);
@@ -27,6 +45,8 @@ export default function VehicleKnowledgeSearch() {
   const [lastQuery, setLastQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [sourceLabel, setSourceLabel] = useState("");
+  const [databaseWarning, setDatabaseWarning] = useState("");
 
   async function handleSearch(event?: FormEvent) {
     event?.preventDefault();
@@ -42,6 +62,8 @@ export default function VehicleKnowledgeSearch() {
     setError("");
     setAnswer("");
     setLastQuery(cleanedQuery);
+    setSourceLabel("");
+    setDatabaseWarning("");
 
     try {
       const {
@@ -74,6 +96,8 @@ export default function VehicleKnowledgeSearch() {
       }
 
       setAnswer(data.answer || "");
+      setSourceLabel(getKnowledgeSourceLabel(data.source));
+      setDatabaseWarning(data.databaseWarning || "");
     } catch (err) {
       setError(
         err instanceof Error
@@ -90,6 +114,8 @@ export default function VehicleKnowledgeSearch() {
     setError("");
     setAnswer("");
     setLastQuery("");
+    setSourceLabel("");
+    setDatabaseWarning("");
   }
 
   return (
@@ -106,8 +132,8 @@ export default function VehicleKnowledgeSearch() {
 
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
             Suche nach Komponenten, Sensoren, Aktoren, Systemen oder technischen
-            Begriffen. DiagnoseHUB erklärt dir Funktion, Aufbau, typische
-            Symptome und sinnvolle Prüfungen in der Werkstatt.
+            Begriffen. DiagnoseHUB erklärt dir Funktion, inneren Aufbau,
+            Unterbauteile, Zusammenspiel und sinnvolle Prüfungen.
           </p>
         </div>
 
@@ -115,7 +141,7 @@ export default function VehicleKnowledgeSearch() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="z. B. AGR-Ventil, CAN-Bus, Ladedruckregelung ..."
+            placeholder="z. B. Regelventil im Klimakompressor, VTG-Verstellung ..."
             className="min-h-12 flex-1 rounded-2xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           />
 
@@ -158,6 +184,12 @@ export default function VehicleKnowledgeSearch() {
             <h2 className="text-xl font-bold text-slate-950">
               {lastQuery || query}
             </h2>
+
+            {sourceLabel && (
+              <span className="mt-2 w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                {sourceLabel}
+              </span>
+            )}
           </div>
 
           {isLoading ? (
@@ -170,6 +202,12 @@ export default function VehicleKnowledgeSearch() {
           ) : (
             <div className="whitespace-pre-wrap text-sm leading-7 text-slate-800">
               {answer}
+            </div>
+          )}
+
+          {databaseWarning && (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+              {databaseWarning}
             </div>
           )}
         </div>

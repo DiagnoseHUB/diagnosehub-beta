@@ -1,49 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireComponentKnowledgeAccess } from "@/lib/planAccess";
+import {
+  COMPONENT_KNOWLEDGE_SYSTEM_PROMPT,
+  buildComponentKnowledgeUserPrompt,
+} from "@/services/componentKnowledgePrompt";
+import {
+  findComponentKnowledgeEntry,
+  getComponentKnowledgeStorageWarning,
+  saveGeneratedComponentKnowledgeEntry,
+} from "@/services/componentKnowledgeStorage";
 
 export const runtime = "nodejs";
-
-const SYSTEM_PROMPT = `
-Du bist DiagnoseHUB, ein technischer Kfz-Wissensassistent für Werkstätten, Auszubildende und Kfz-Mechatroniker.
-
-Aufgabe:
-Erkläre einzelne Fahrzeugkomponenten, Fahrzeugsysteme, Sensoren, Aktoren oder technische Begriffe verständlich, aber fachlich sauber.
-
-Antwort immer auf Deutsch.
-
-Wichtig:
-- Keine echten Fehlercodes nennen.
-- Keine erfundenen Herstellerwerte.
-- Keine illegalen Manipulationen erklären.
-- Keine Abgas-, Sicherheits- oder Assistenzsysteme deaktivieren.
-- Keine reine Teiletausch-Empfehlung geben.
-- Wenn Werte fahrzeugabhängig sind, deutlich sagen: "nach Herstellervorgabe prüfen".
-- Bei sicherheitsrelevanten Systemen auf fachgerechte Prüfung hinweisen.
-- Praxisnah für eine freie Kfz-Werkstatt erklären.
-
-Antwortstruktur immer:
-
-# Kurz erklärt
-Kurze Erklärung in 2–4 Sätzen.
-
-# Aufgabe im Fahrzeug
-Was macht das Bauteil oder System?
-
-# Aufbau / beteiligte Bauteile
-Welche Komponenten gehören dazu?
-
-# Typische Symptome bei Problemen
-Welche Auffälligkeiten können auftreten?
-
-# Sinnvolle Prüfungen in der Werkstatt
-Konkrete, praxisnahe Prüfstrategie ohne Fehlercodes.
-
-# Häufige Verwechslungen
-Welche Bauteile oder Ursachen werden oft fälschlich verdächtigt?
-
-# Merksatz
-Ein kurzer, einprägsamer Satz.
-`;
 
 function cleanQuery(value: unknown): string {
   if (typeof value !== "string") return "";
@@ -129,6 +96,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const cachedKnowledge = await findComponentKnowledgeEntry(
+      access.supabase,
+      query
+    );
+
+    if (cachedKnowledge.error) {
+      console.error("Bauteilwissen-Datenbank konnte nicht gelesen werden:", cachedKnowledge.error);
+    }
+
+    if (cachedKnowledge.entry) {
+      return NextResponse.json({
+        query,
+        answer: cachedKnowledge.entry.answer,
+        model: cachedKnowledge.entry.model,
+        source: "database",
+        databaseEntryId: cachedKnowledge.entry.id,
+        databaseStatus: cachedKnowledge.entry.status,
+      });
+    }
+
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
@@ -154,14 +141,14 @@ export async function POST(request: NextRequest) {
         input: [
           {
             role: "system",
-            content: SYSTEM_PROMPT,
+            content: COMPONENT_KNOWLEDGE_SYSTEM_PROMPT,
           },
           {
             role: "user",
-            content: `Erkläre folgendes Kfz-Bauteil, System oder Thema praxisnah für eine Werkstatt: ${query}`,
+            content: buildComponentKnowledgeUserPrompt(query),
           },
         ],
-        max_output_tokens: 1400,
+        max_output_tokens: 2300,
       }),
     });
 
@@ -208,9 +195,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const savedKnowledge = await saveGeneratedComponentKnowledgeEntry(
+      access.supabase,
+      {
+        userId: access.user.id,
+        query,
+        answer,
+        model,
+      }
+    );
+    const databaseWarning = getComponentKnowledgeStorageWarning(
+      savedKnowledge.error
+    );
+
+    if (databaseWarning) {
+      console.error("Bauteilwissen konnte nicht gespeichert werden:", savedKnowledge.error);
+    }
+
     return NextResponse.json({
       query,
       answer,
+      model,
+      source: savedKnowledge.saved ? "generated_saved" : "generated",
+      databaseEntryId: savedKnowledge.entry?.id ?? null,
+      databaseStatus: savedKnowledge.entry?.status ?? "not_saved",
+      databaseWarning,
     });
   } catch (error) {
     console.error("Bauteilwissen Fehler:", error);
