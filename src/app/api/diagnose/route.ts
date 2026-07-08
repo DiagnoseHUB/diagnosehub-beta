@@ -21,6 +21,16 @@ import {
   type TechnicalSpecContext,
 } from "../../../services/technicalSpecs";
 import {
+  detectTorqueSpecContext,
+  formatTorqueSpecTitle,
+  formatTorqueSpecContext,
+  formatTorqueValue,
+  hasTorqueSpecIntent,
+  toTorqueSpec,
+  type TorqueSpecContext,
+  type TorqueSpecRow,
+} from "@/services/torqueSpecs";
+import {
   PLAN_DAILY_LIMITS,
   PLAN_LABELS,
   isValidUserPlan,
@@ -304,6 +314,40 @@ async function saveDiagnosisUsageCount(
   const usageRow = data as DiagnosisUsageDatabaseRow;
 
   return usageRow.diagnosis_count || nextCount;
+}
+
+function createEmptyTorqueSpecContext(): TorqueSpecContext {
+  return {
+    foundSpecs: [],
+    summary: "Keine freigegebenen Drehmomentwerte erkannt.",
+  };
+}
+
+async function loadApprovedTorqueSpecContext(
+  supabase: SupabaseClient,
+  combinedContext: string
+): Promise<TorqueSpecContext> {
+  if (!hasTorqueSpecIntent(combinedContext)) {
+    return createEmptyTorqueSpecContext();
+  }
+
+  const { data, error } = await supabase
+    .from("torque_specs")
+    .select("*")
+    .eq("status", "approved")
+    .eq("visibility", "shared")
+    .order("updated_at", { ascending: false })
+    .limit(500);
+
+  if (error) {
+    console.error("Freigegebene Drehmomentwerte konnten nicht geladen werden:", error);
+    return createEmptyTorqueSpecContext();
+  }
+
+  return detectTorqueSpecContext(
+    combinedContext,
+    ((data || []) as TorqueSpecRow[]).map(toTorqueSpec)
+  );
 }
 
 async function resolveUsageControl(
@@ -600,6 +644,7 @@ function buildSystemPrompt(
   engineContext: EngineContext,
   faultCodeContext: FaultCodeContext,
   technicalSpecContext: TechnicalSpecContext,
+  torqueSpecContext: TorqueSpecContext,
   audienceMode: DiagnosisAudienceMode,
   retryWarning?: string
 ) {
@@ -671,6 +716,9 @@ ${formatFaultCodeContext(faultCodeContext)}
 Generische Soll-/Richtwerte aus interner Datenbank:
 ${formatTechnicalSpecContext(technicalSpecContext)}
 
+Manuell freigegebene Drehmomentwerte:
+${formatTorqueSpecContext(torqueSpecContext)}
+
 ${retryWarning ?? ""}
 
 Motortyp-Regeln:
@@ -700,6 +748,13 @@ Sollwerte-Regel:
 - Exakte Herstellerdaten, Sicherungsnummern, Pinbelegungen, Drehmomente oder Spezialvorgaben nicht erfinden.
 - Wenn keine passenden Werte vorhanden sind, kurz schreiben: "Keine passenden Sollwerte hinterlegt."
 - Wenn Modell, Baujahr, Motorcode, Lampentyp oder Systemvariante fehlen, kurz sagen, welche Daten die Antwort genauer machen.
+
+Drehmoment-Regel:
+- Manuell freigegebene Drehmomentwerte aus der DiagnoseHUB-Drehmomenttabelle dürfen genannt werden.
+- Drehmomente aus Entwürfen, ungeprüften Einreichungen oder Vermutungen nicht verwenden.
+- Wenn kein passender freigegebener Wert vorhanden ist, schreibe kurz: "Kein freigegebener Drehmomentwert hinterlegt."
+- Bei sicherheitsrelevanten Verschraubungen den hinterlegten Fahrzeugbezug, die Schraubstelle und eine Neuteilpflicht mit nennen.
+- Je genauer Hersteller, Modell, Baujahr, Motorcode, System und Schraubstelle angegeben sind, desto genauer kann der passende Wert gefunden werden.
 
 Antwortformat-Fallback bei normaler Diagnose:
 Verwende zwingend das Antwortformat des aktiven Ausgabemodus.
@@ -805,10 +860,63 @@ function appendAutomaticTechnicalSpecBlock(
 ${technicalSpecBlock}`;
 }
 
+function buildAutomaticTorqueSpecBlock(torqueSpecContext: TorqueSpecContext) {
+  if (torqueSpecContext.foundSpecs.length === 0) {
+    return "";
+  }
+
+  const specs = torqueSpecContext.foundSpecs
+    .map((spec) => {
+      const details = [
+        `- Fahrzeugbezug: ${[
+          spec.manufacturer,
+          spec.model,
+          spec.series,
+          spec.engineCode ? `Motor ${spec.engineCode}` : "",
+        ]
+          .filter(Boolean)
+          .join(" ") || "fahrzeugübergreifend hinterlegt"}`,
+        `- Schraubstelle: ${formatTorqueSpecTitle(spec)}`,
+        `- Drehmoment: ${formatTorqueValue(spec)}`,
+        spec.torqueSequence ? `- Reihenfolge: ${spec.torqueSequence}` : "",
+        spec.threadCondition ? `- Gewinde/Zustand: ${spec.threadCondition}` : "",
+        spec.newFastenerRequired ? "- Neue Schraube/Mutter erforderlich: ja" : "",
+        spec.sourceReference
+          ? `- Quelle: ${spec.sourceType}, ${spec.sourceReference}`
+          : `- Quelle: ${spec.sourceType || "manuell geprüft"}`,
+      ].filter(Boolean);
+
+      return `**${formatTorqueSpecTitle(spec)}**
+${details.join("\n")}`;
+    })
+    .join("\n\n");
+
+  return `# Drehmomentwerte
+${specs}
+
+Hinweis: Diese Drehmomentwerte wurden manuell geprüft und freigegeben. Nicht passende oder fehlende Drehmomente nicht ableiten.`;
+}
+
+function appendAutomaticTorqueSpecBlock(
+  answer: string,
+  torqueSpecContext: TorqueSpecContext
+) {
+  const torqueSpecBlock = buildAutomaticTorqueSpecBlock(torqueSpecContext);
+
+  if (!torqueSpecBlock) {
+    return answer;
+  }
+
+  return `${answer}
+
+${torqueSpecBlock}`;
+}
+
 async function createDiagnosisAnswer(
   engineContext: EngineContext,
   faultCodeContext: FaultCodeContext,
   technicalSpecContext: TechnicalSpecContext,
+  torqueSpecContext: TorqueSpecContext,
   messages: ChatMessage[],
   input: string,
   audienceMode: DiagnosisAudienceMode,
@@ -836,6 +944,7 @@ async function createDiagnosisAnswer(
           engineContext,
           faultCodeContext,
           technicalSpecContext,
+          torqueSpecContext,
           audienceMode,
           retryWarning
         ),
@@ -870,6 +979,7 @@ ${input}
         engineContext,
         faultCodeContext,
         technicalSpecContext,
+        torqueSpecContext,
         messages,
         input,
         audienceMode,
@@ -948,11 +1058,16 @@ export async function POST(request: Request) {
     const engineContext = detectEngineContext(combinedContext);
     const faultCodeContext = detectFaultCodeContext(combinedContext);
     const technicalSpecContext = detectTechnicalSpecContext(combinedContext);
+    const torqueSpecContext = await loadApprovedTorqueSpecContext(
+      usageControl.supabase,
+      combinedContext
+    );
 
     let result = await createDiagnosisAnswer(
       engineContext,
       faultCodeContext,
       technicalSpecContext,
+      torqueSpecContext,
       messages,
       input,
       audienceMode
@@ -969,6 +1084,7 @@ export async function POST(request: Request) {
           engineContext,
           faultCodeContext,
           technicalSpecContext,
+          torqueSpecContext,
           messages,
           input,
           audienceMode,
@@ -986,6 +1102,7 @@ Bei Benziner keine Glühkerzen oder Glühsteuergerät als Ursache oder Prüfpunk
     }
 
     result = appendAutomaticTechnicalSpecBlock(result, technicalSpecContext);
+    result = appendAutomaticTorqueSpecBlock(result, torqueSpecContext);
 
     let countAfter: number | null = null;
     let usageWarning: string | undefined;
@@ -1013,6 +1130,7 @@ Bei Benziner keine Glühkerzen oder Glühsteuergerät als Ursache oder Prüfpunk
       engineContext,
       faultCodeContext,
       technicalSpecContext,
+      torqueSpecContext,
       qualityCheck,
       diagnosisConfig: {
         model: getDiagnosisModel(),

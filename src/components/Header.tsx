@@ -22,6 +22,7 @@ const navigationLinks = [
   { label: "Diagnose", href: "/#diagnose" },
   { label: "Dashboard", href: "/dashboard" },
   { label: "Lernen", href: "/lernen" },
+  { label: "Drehmomente", href: "/drehmomente" },
   { label: "Service", href: "/service-erinnerung" },
   { label: "Preise", href: "/preise" },
 ];
