@@ -60,6 +60,9 @@ type WorkshopSafetyProfileRow = {
 const GENERAL_SAFETY_BLOCK =
   "Sicherheitshinweis: Diese Arbeit betrifft ein sicherheitsrelevantes Fahrzeugsystem. Fehlerhafte Arbeiten können zu schweren Personen- und Sachschäden führen. Die folgenden Informationen richten sich an fachkundige Personen und ersetzen keine Herstellervorgaben, keine Reparaturdatenbank und keine fachliche Verantwortung des Ausführenden. Arbeiten an Bremsanlage, Lenkung, Fahrwerk, Airbag-/Gurtstraffersystemen, Hochvoltkomponenten oder anderen sicherheitsrelevanten Systemen dürfen nur mit entsprechender Fachkunde, geeignetem Werkzeug, aktueller Herstellerinformation und abschließender Funktionsprüfung durchgeführt werden.";
 
+const DATA_RELIABILITY_NOTICE =
+  "Datenhinweis: DiagnoseHUB übernimmt keine Verantwortung für die Richtigkeit, Vollständigkeit oder Aktualität eingegebener, übermittelter oder freigegebener Daten. Daten und Einstufungen werden so verarbeitet, wie sie bereitgestellt wurden.";
+
 const HV_SAFETY_BLOCK =
   "Hochvolt-Warnung: Arbeiten an Hochvolt-Systemen dürfen ausschließlich durch entsprechend qualifizierte Personen nach Herstellervorgaben und geltenden Sicherheitsregeln durchgeführt werden. Es besteht Lebensgefahr durch elektrischen Schlag, Lichtbogen, Restspannung und fehlerhafte Wiederinbetriebnahme. DiagnoseHUB stellt keine Hochvolt-Qualifikation dar. Ohne passende Hochvolt-Qualifikation dürfen keine Arbeiten am HV-System durchgeführt werden.";
 
@@ -507,14 +510,23 @@ export function applySafetyToGuide(
   guide: InstructionGuide,
   evaluation: SafetyEvaluation
 ): InstructionGuide {
-  if (!evaluation.safetyBlock) {
-    return guide;
-  }
-
-  const safetyNotes = [
+  const requiredSafetyNotes = [
     evaluation.safetyBlock,
-    ...(guide.safetyNotes || []).filter((note) => note !== evaluation.safetyBlock),
+    DATA_RELIABILITY_NOTICE,
+  ].filter(Boolean);
+  const safetyNotes = [
+    ...requiredSafetyNotes,
+    ...(guide.safetyNotes || []).filter(
+      (note) => !requiredSafetyNotes.includes(note)
+    ),
   ].slice(0, 6);
+
+  if (!evaluation.safetyBlock) {
+    return {
+      ...guide,
+      safetyNotes,
+    };
+  }
 
   const proHint = [
     evaluation.riskClass === "red"
@@ -568,6 +580,7 @@ export function createLimitedSafetyGuide(
     tools: ["Sichtprüfung ohne Demontage", "Notizen für Werkstattgespräch"],
     safetyNotes: [
       evaluation.safetyBlock || evaluation.limitedReason || evaluation.blacklistReason,
+      DATA_RELIABILITY_NOTICE,
     ].filter(Boolean),
     initialChecks: [
       "Fahrzeugdaten, Fehlerbild und Zeitpunkt der Beanstandung notieren.",

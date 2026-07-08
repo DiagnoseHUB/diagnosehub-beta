@@ -34,6 +34,39 @@ import {
 
 type DataSource = "local" | "supabase";
 type WorkshopData = WorkshopProfileState;
+type SafetyAccountType = "private" | "mechanic" | "workshop" | "admin";
+type QualificationLevel =
+  | "none"
+  | "self_declared"
+  | "verified_workshop"
+  | "hv_verified";
+type HvQualification = "none" | "hv1" | "hv2" | "hv3" | "other";
+type RiskAccessLevel = "green" | "yellow" | "orange" | "red" | "hv";
+type HvRequestStatus = "pending" | "approved" | "rejected";
+
+type SafetyProfileState = {
+  userId: string;
+  email: string;
+  accountType: SafetyAccountType;
+  role: string;
+  qualificationLevel: QualificationLevel;
+  companyVerified: boolean;
+  hvVerified: boolean;
+  hvQualification: HvQualification;
+  riskAccessLevel: RiskAccessLevel;
+  termsSafetyAcceptedAt: string | null;
+};
+
+type HvAccessRequest = {
+  id: string;
+  status: HvRequestStatus;
+  hv_qualification: HvQualification;
+  company_name?: string | null;
+  review_comment?: string | null;
+  created_at: string;
+  reviewed_at?: string | null;
+};
+
 const SAVED_CASES_STORAGE_KEY = "diagnosehub-saved-cases";
 const CURRENT_CASE_STORAGE_KEY = "diagnosehub-current-case";
 const DIAGNOSIS_USAGE_STORAGE_KEY = "diagnosehub-diagnosis-usage";
@@ -52,6 +85,61 @@ const profileSourceLabels: Record<ProfileSource, string> = {
   localStorage: "Lokaler Fallback",
   supabase: "Online-Profil",
   fallback: "Fallback",
+};
+
+const accountTypeLabels: Record<SafetyAccountType, string> = {
+  private: "Privatnutzer",
+  mechanic: "Mechaniker",
+  workshop: "Werkstatt",
+  admin: "Admin",
+};
+
+const qualificationLabels: Record<QualificationLevel, string> = {
+  none: "Keine Prüfung",
+  self_declared: "Selbst angegeben",
+  verified_workshop: "Werkstatt geprüft",
+  hv_verified: "Hochvolt geprüft",
+};
+
+const hvQualificationLabels: Record<HvQualification, string> = {
+  none: "Keine",
+  hv1: "HV 1",
+  hv2: "HV 2",
+  hv3: "HV 3",
+  other: "Andere HV-Qualifikation",
+};
+
+const riskAccessLabels: Record<RiskAccessLevel, string> = {
+  green: "Basis",
+  yellow: "Gelb",
+  orange: "Orange",
+  red: "Rot",
+  hv: "Hochvolt",
+};
+
+const riskAccessDescriptions: Record<RiskAccessLevel, string> = {
+  green: "Nur einfache Inhalte ohne besondere Sicherheitsrisiken.",
+  yellow: "Normale Diagnoseinhalte mit klaren Sicherheitshinweisen.",
+  orange: "Erhöhte Risiken werden eingeschränkt und deutlich markiert.",
+  red: "Sicherheitskritische Inhalte sind nur mit passender Einstufung sichtbar.",
+  hv: "Hochvolt-Inhalte nur nach manueller Freigabe.",
+};
+
+const hvRequestStatusLabels: Record<HvRequestStatus, string> = {
+  pending: "Beantragt, Prüfung offen",
+  approved: "Freigegeben",
+  rejected: "Abgelehnt",
+};
+
+const safetyBadgeClasses: Record<RiskAccessLevel, string> = {
+  green:
+    "border-green-200 bg-green-50 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300",
+  yellow:
+    "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-500/30 dark:bg-yellow-500/10 dark:text-yellow-300",
+  orange:
+    "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-300",
+  red: "border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300",
+  hv: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
 };
 
 const defaultWorkshopData: WorkshopData = defaultWorkshopProfileState;
@@ -91,6 +179,37 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unbekannter Fehler";
+}
+
+function getSafetyProfileSummary(profile: SafetyProfileState | null) {
+  if (!profile) {
+    return "Nicht geladen";
+  }
+
+  if (profile.hvVerified && profile.riskAccessLevel === "hv") {
+    return "HV freigegeben";
+  }
+
+  return riskAccessLabels[profile.riskAccessLevel];
+}
+
+function getHvStatusText(
+  profile: SafetyProfileState | null,
+  latestRequest?: HvAccessRequest
+) {
+  if (!profile) {
+    return "Nicht geladen";
+  }
+
+  if (profile.hvVerified) {
+    return `${hvQualificationLabels[profile.hvQualification]} freigegeben`;
+  }
+
+  if (latestRequest) {
+    return hvRequestStatusLabels[latestRequest.status];
+  }
+
+  return "Nicht freigegeben";
 }
 
 function getLocalWorkshopData(): WorkshopData {
@@ -261,6 +380,46 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
+function SafetyBadge({
+  level,
+  children,
+}: {
+  level: RiskAccessLevel;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide ${safetyBadgeClasses[level]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function SafetyInfoTile({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: ReactNode;
+  description?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/70">
+      <p className="text-sm text-slate-500">{label}</p>
+      <div className="mt-2 font-bold text-slate-950 dark:text-white">
+        {value}
+      </div>
+      {description && (
+        <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          {description}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function LoginRequired() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 transition-colors dark:bg-slate-950 dark:text-white">
@@ -326,6 +485,12 @@ export default function DashboardPage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [caseLoading, setCaseLoading] = useState(false);
   const [usageLoading, setUsageLoading] = useState(false);
+  const [safetyLoading, setSafetyLoading] = useState(false);
+  const [safetyProfile, setSafetyProfile] =
+    useState<SafetyProfileState | null>(null);
+  const [hvAccessRequests, setHvAccessRequests] = useState<HvAccessRequest[]>(
+    []
+  );
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -352,8 +517,10 @@ export default function DashboardPage() {
   }, [diagnosisCases]);
 
   const latestCase = sortedCases[0] || null;
+  const latestHvRequest = hvAccessRequests[0] || null;
 
-  const isLoading = profileLoading || caseLoading || usageLoading;
+  const isLoading =
+    profileLoading || caseLoading || usageLoading || safetyLoading;
 
   useEffect(() => {
     void loadDashboard();
@@ -370,7 +537,8 @@ export default function DashboardPage() {
 
     async function handleDashboardDataChange() {
       const { data } = await supabase.auth.getSession();
-      const currentUser = data.session?.user ?? null;
+      const currentSession = data.session ?? null;
+      const currentUser = currentSession?.user ?? null;
 
       if (!currentUser) {
         return;
@@ -380,6 +548,9 @@ export default function DashboardPage() {
         loadWorkshopProfile(currentUser),
         loadSupabaseCases(currentUser, false),
         loadSupabaseUsage(currentUser),
+        currentSession
+          ? loadSafetyAccountProfile(currentSession)
+          : Promise.resolve(),
       ]);
     }
 
@@ -405,6 +576,8 @@ export default function DashboardPage() {
     setDiagnosisUsage(getInitialDiagnosisUsage());
     setCaseSource("local");
     setUsageSource("local");
+    setSafetyProfile(null);
+    setHvAccessRequests([]);
   }
 
   async function loadDashboard(existingSession?: Session | null) {
@@ -413,6 +586,7 @@ export default function DashboardPage() {
     setProfileLoading(true);
     setCaseLoading(true);
     setUsageLoading(true);
+    setSafetyLoading(true);
 
     try {
       const session =
@@ -433,6 +607,7 @@ export default function DashboardPage() {
         loadWorkshopProfile(session.user),
         loadSupabaseCases(session.user, false),
         loadSupabaseUsage(session.user),
+        loadSafetyAccountProfile(session),
       ]);
 
       setAuthChecked(true);
@@ -444,6 +619,7 @@ export default function DashboardPage() {
       setProfileLoading(false);
       setCaseLoading(false);
       setUsageLoading(false);
+      setSafetyLoading(false);
     }
   }
 
@@ -470,6 +646,46 @@ export default function DashboardPage() {
       });
     } finally {
       setProfileLoading(false);
+    }
+  }
+
+  async function loadSafetyAccountProfile(session: Session) {
+    setSafetyLoading(true);
+
+    try {
+      const response = await fetch("/api/account/safety", {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        profile?: SafetyProfileState;
+        hvRequests?: HvAccessRequest[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(
+          payload.error || "Sicherheitsprofil konnte nicht geladen werden."
+        );
+      }
+
+      setSafetyProfile(payload.profile ?? null);
+      setHvAccessRequests(
+        Array.isArray(payload.hvRequests) ? payload.hvRequests : []
+      );
+    } catch (error) {
+      console.error("Sicherheitsprofil konnte nicht geladen werden:", error);
+      setSafetyProfile(null);
+      setHvAccessRequests([]);
+      setError(
+        `Sicherheitsprofil konnte nicht aus deinem Konto geladen werden: ${getErrorMessage(
+          error
+        )}`
+      );
+    } finally {
+      setSafetyLoading(false);
     }
   }
 
@@ -551,10 +767,13 @@ export default function DashboardPage() {
     setSuccess("");
     setError("");
 
+    const session = (await supabase.auth.getSession()).data.session;
+
     await Promise.all([
       loadWorkshopProfile(user),
       loadSupabaseCases(user, false),
       loadSupabaseUsage(user),
+      session ? loadSafetyAccountProfile(session) : Promise.resolve(),
     ]);
 
     setSuccess("Dashboard wurde neu geladen.");
@@ -661,6 +880,8 @@ export default function DashboardPage() {
         cases: caseSource,
         usage: usageSource,
       },
+      safetyProfile,
+      hvAccessRequests,
       diagnosisUsage,
       diagnosisCases,
     };
@@ -805,7 +1026,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <div className="mb-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-8 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           <DashboardCard
             title="Account"
             value="Eingeloggt"
@@ -832,6 +1053,24 @@ export default function DashboardPage() {
             description={`${remainingSavedCases} Speicherplätze frei.`}
           >
             <SourceBadge source={caseSource} />
+          </DashboardCard>
+
+          <DashboardCard
+            title="Sicherheitsprofil"
+            value={
+              safetyLoading ? "Lädt..." : getSafetyProfileSummary(safetyProfile)
+            }
+            description={
+              safetyProfile
+                ? riskAccessDescriptions[safetyProfile.riskAccessLevel]
+                : "Einstufung wird aus deinem Konto geladen."
+            }
+          >
+            {safetyProfile && (
+              <SafetyBadge level={safetyProfile.riskAccessLevel}>
+                {riskAccessLabels[safetyProfile.riskAccessLevel]}
+              </SafetyBadge>
+            )}
           </DashboardCard>
         </div>
 
@@ -884,6 +1123,94 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
+          </Section>
+
+          <Section
+            title="Sicherheitsprofil"
+            description="Aktuelle Konto-Einstufung für sicherheitskritische Inhalte."
+            right={
+              <a
+                href="/login?setup=profile"
+                className="rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white transition hover:bg-blue-500"
+              >
+                Profil prüfen
+              </a>
+            }
+          >
+            {safetyLoading && !safetyProfile ? (
+              <EmptyState text="Sicherheitsprofil wird geladen." />
+            ) : safetyProfile ? (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <SafetyInfoTile
+                    label="Kontotyp"
+                    value={accountTypeLabels[safetyProfile.accountType]}
+                    description={
+                      safetyProfile.companyVerified
+                        ? "Werkstattdaten geprüft."
+                        : "Werkstattdaten nicht geprüft."
+                    }
+                  />
+
+                  <SafetyInfoTile
+                    label="Qualifikation"
+                    value={qualificationLabels[safetyProfile.qualificationLevel]}
+                    description={
+                      safetyProfile.termsSafetyAcceptedAt
+                        ? `Sicherheitsbedingungen akzeptiert: ${formatDateTime(
+                            safetyProfile.termsSafetyAcceptedAt
+                          )}`
+                        : "Sicherheitsbedingungen noch nicht bestätigt."
+                    }
+                  />
+
+                  <SafetyInfoTile
+                    label="Freigabestufe"
+                    value={
+                      <SafetyBadge level={safetyProfile.riskAccessLevel}>
+                        {riskAccessLabels[safetyProfile.riskAccessLevel]}
+                      </SafetyBadge>
+                    }
+                    description={
+                      riskAccessDescriptions[safetyProfile.riskAccessLevel]
+                    }
+                  />
+
+                  <SafetyInfoTile
+                    label="Hochvolt"
+                    value={getHvStatusText(
+                      safetyProfile,
+                      latestHvRequest || undefined
+                    )}
+                    description={
+                      safetyProfile.hvVerified
+                        ? `${hvQualificationLabels[safetyProfile.hvQualification]} ist manuell freigegeben.`
+                        : latestHvRequest
+                          ? `Letzter Antrag: ${formatDateTime(
+                              latestHvRequest.created_at
+                            )}`
+                          : "Keine Hochvolt-Freigabe hinterlegt."
+                    }
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 leading-7 text-slate-700 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300">
+                  Höhere Freigaben werden nicht automatisch vergeben. Werkstatt-,
+                  Rot- und Hochvolt-Einstufungen müssen manuell geprüft und
+                  freigegeben werden.
+                </div>
+
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 leading-7 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                  Rechtlicher Hinweis: DiagnoseHUB übernimmt keine Verantwortung
+                  für die Richtigkeit, Vollständigkeit oder Aktualität
+                  angegebener Daten. Daten und Einstufungen werden so
+                  verarbeitet, wie sie eingegeben, übermittelt oder freigegeben
+                  wurden.
+                </div>
+              </div>
+            ) : (
+              <EmptyState text="Sicherheitsprofil konnte noch nicht geladen werden." />
+            )}
           </Section>
 
           <Section
